@@ -1,0 +1,13 @@
+name = "QuantumBilliards"
+uuid = "7c03dc60-f10f-4d5b-b776-32bcaab55394"
+authors = ["Crt Lozej"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
