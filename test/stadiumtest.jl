@@ -1,4 +1,4 @@
-using MKL
+#using MKL
 using GLMakie
 using Revise, BenchmarkTools
 include("../src/QuantumBilliards.jl")
