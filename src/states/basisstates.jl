@@ -7,18 +7,18 @@ function set_precision(a)
     return t == Float32 ? Float32(1e-8) : convert(t,1e-16) 
 end
 
-struct Basisstate{K,T} <: StationaryState
+struct BasisState{K,T} <: StationaryState where {K<:Number, T<:Real}
     k::K
     vec::Vector{T}
-    dim::Int
+    dim::Int64
     eps::T
     #basis type
 end
 
-function Basisstate(k, i, dim)  
+function BasisState(k, i, dim)  
     typ = typeof(k)
     eps = set_precision(k)
     vec = zeros(typ,dim)
     vec[i] = one(typ)
-    return Basisstate(k, vec, dim, eps)
+    return BasisState(k, vec, dim, eps)
 end

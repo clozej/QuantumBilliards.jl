@@ -1,6 +1,9 @@
 include("../abstracttypes.jl")
-include("../solvers/particularsolutionsmethod.jl")
+#include("../solvers/particularsolutionsmethod.jl")
 
+memory_size(a) = Base.format_bytes(Base.summarysize(a)) 
+
+#=
 function benchmark_solver(solver::ParticularSolutionsMethod, basis::AbsBasis, billiard::AbsBilliard, sampler::Function, k, dk; btimes = 5, print_info=true, kwargs...)
     L = real_length(billiard)
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
@@ -135,3 +138,4 @@ function benchmark_solver(solver::ScalingMethod, basis::AbsBasis, billiard::AbsB
     end
     return ks, ten, decomp_time, mat_time
 end
+=#

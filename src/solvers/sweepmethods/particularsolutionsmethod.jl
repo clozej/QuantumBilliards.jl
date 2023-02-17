@@ -1,6 +1,6 @@
-include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
-include("samplers.jl")
+include("../../abstracttypes.jl")
+include("../../billiards/billiard.jl")
+include("../samplers.jl")
 #include("../src/billiards/triangle.jl")
 using LinearAlgebra, Optim
 abstract type AbsPSMSolver <: SweepSolver end

@@ -1,61 +1,68 @@
-include("../abstracttypes.jl")
-include("decompositions.jl")
+include("../../abstracttypes.jl")
+include("../decompositions.jl")
+include("../matrixconstructors.jl")
 #include("../src/billiards/triangle.jl")
-using LinearAlgebra
+using LinearAlgebra, StaticArrays
 
-struct ScalingMethod <: AcceleratedSolver 
-    dim_scaling_factor::Float64
-    pts_scaling_factor::Float64
-    eps::Float64
+struct ScalingMethod{T} <: AcceleratedSolver where T<:Number
+    dim_scaling_factor::T
+    pts_scaling_factor::T
+    eps::T
 end
 
-ScalingMethod(dim_scaling_factor, pts_scaling_factor) = ScalingMethod(dim_scaling_factor, pts_scaling_factor, 10.0*eps())
+ScalingMethod(dim_scaling_factor, pts_scaling_factor) = ScalingMethod(dim_scaling_factor, pts_scaling_factor, 10.0*eps(typeof(dim_scaling_factor)))
 
-struct SMPoints <: AbsPoints
-    x::Vector{Float64}
-    y::Vector{Float64}
-    w::Vector{Float64}
+struct BoundaryPointsSM{T} <: AbsPoints where {T<:Number}
+    xy::Vector{SVector{2,T}}
+    w::Vector{T}
 end
 
 function evaluate_points(solver::ScalingMethod, billiard::AbsBilliard, sampler::Function, k)
     b = solver.pts_scaling_factor
-    x_all = Float64[]
-    y_all = Float64[]
-    w_all = Float64[]
+    type = typeof(solver.pts_scaling_factor)
+    xy_all = Vector{SVector{2,type}}()
+    w_all = Vector{type}()
 
-    for curve in billiard.boundary
-        if typeof(curve) <: AbsRealCurve
-            L = curve.length
+    for crv in billiard.boundary
+        if typeof(crv) <: AbsRealCurve
+            L = crv.length
             N = round(Int, k*L*b/(2*pi))
             t, dt = sampler(N)
-            ds = L*dt
-            x, y = curve.r(t)
-            nx, ny = curve.n(t)
-            rn = (x .* nx .+ y .* ny)
+            ds = L*dt #this needs modification!!!
+            xy = curve(crv,t)
+            normal = normal_vec(crv,t)
+            rn = dot.(xy, normal)
             w = ds ./ rn
-            append!(x_all, x)
-            append!(y_all, y)
+            append!(xy_all, xy)
             append!(w_all, w)
         end
     end
-    return SMPoints(x_all, y_all, w_all)
+    return BoundaryPointsSM{type}(xy_all, w_all)
 end
 
 #generalize for other types
-function construct_matrices(solver::ScalingMethod, basis::AbsBasis, pts::SMPoints, k)#{T} where T<:Real
-    x, y, w = pts.x, pts.y, pts.w
-    M =  length(x)
+function construct_matrices(solver::ScalingMethod, basis::AbsBasis, pts::BoundaryPointsSM, k)#{T} where T<:Real
+    type = eltype(pts.w)
+    xy, w = pts.xy, pts.w
+    M =  length(xy)
     N = basis.dim
-    B = Array{Float64}(undef,M,N)  #basis matrix
+    #basis matrix
+    B = basis_matrix(basis, k, xy)
+    #=
+    B = Array{type}(undef,M,N)
     @inbounds Threads.@threads for i in 1:N
-        B[:,i] = basis_fun(basis, i, k, x, y)
-    end 
+        B[:,i] = [basis_fun(basis, i, k, pt) for pt in xy]
+    end
+    =# 
     T = (w .* B) #reused later
     F = B' * T #boundary norm matrix
     #reuse B
+    #=
     @inbounds Threads.@threads for i in 1:N
-        B[:,i] = dk_fun(basis, i, k, x, y)
+        B[:,i] = [dk_fun(basis, i, k, pt) for pt in xy]
     end
+    =#
+    B = dk_matrix(basis ,k, xy)
     Fk = B' * T #B is now derivative matrix
     #symmetrize matrix
     Fk = Fk + Fk'
@@ -69,7 +76,7 @@ function sm_results(mu,k)
     return ks[p], ten[p]
 end
 
-function solve(solver::ScalingMethod,basis::AbsBasis, pts::SMPoints, k, dk)
+function solve(solver::ScalingMethod,basis::AbsBasis, pts::BoundaryPointsSM, k, dk)
     F, Fk = construct_matrices(solver, basis, pts, k)
     mu = generalized_eigvals(Symmetric(F),Symmetric(Fk);eps=solver.eps)
     ks, ten = sm_results(mu,k)

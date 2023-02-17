@@ -25,7 +25,7 @@ function Eigenstate(k, vec)
     return Eigenstate(k, filtered_vec, length(vec), eps)
 end
 
-function compute_eigenstate(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilliard,k;sampler=gauss_legendre_nodes, ntype = Float64)
+function compute_eigenstate(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilliard,k;sampler=gauss_legendre_nodes)
     L = real_length(billiard)
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
     basis_new = rescale_basis(basis, dim)

@@ -1,8 +1,8 @@
-include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+include("../../abstracttypes.jl")
+include("../../billiards/billiard.jl")
 #include("decompositions.jl")
-include("samplers.jl")
-include("particularsolutionsmethod.jl")
+include("../samplers.jl")
+#include("particularsolutionsmethod.jl")
 include("decompositionmethod.jl")
 using LinearAlgebra, Optim
 
