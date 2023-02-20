@@ -9,7 +9,7 @@ function antisym_vec(x)
     return append!(v,x)
 end
 
-function husimi(k,u,s; c = 10.0, w = 7.0)
+function husimi_function(k,u,s; c = 10.0, w = 7.0)
     #compute coherrent state weights
     N = length(s)
     sig = one(k)/sqrt(k) #width of the gaussian
@@ -48,7 +48,7 @@ end
 function husimi_function(state::S, basis::Ba, billiard::Bi;  b = 5.0, c = 10.0, w = 7.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
     k = state.k
     u, s = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
-    return husimi(k,u,s; c = c, w = w)
+    return husimi_function(k,u,s; c = c, w = w)
 end
 #=
 function coherent(q,p,k,s,L,m::Int)

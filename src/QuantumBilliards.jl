@@ -1,45 +1,26 @@
 module QuantumBilliards
+using Reexport
+
 #abstract types
 include("abstracttypes.jl")
-
+#basis
+include("basis/Basis.jl")
+@reexport using .Basis
 #billiards
-include("billiards/billiard.jl")
-include("billiards/curves.jl")
-include("billiards/geometry.jl")
-
-include("billiards/limacon.jl")
-include("billiards/rectangle.jl")
-include("billiards/triangle.jl")
-include("billiards/stadium.jl")
-
-#plotting
-include("plotting/plottingmakie.jl")
-include("plotting/matrixplotting.jl")
-
+include("billiards/Billiards.jl")
+@reexport using .Billiards
+#plotting functions in Makie
+include("plotting/Plotting.jl")
+@reexport using .Plotting
 #solvers
-include("solvers/acceleratedmethods.jl")
-include("solvers/boundaryintegralmethod.jl")
-include("solvers/decompositionmethod.jl")
-include("solvers/decompositions.jl")
-include("solvers/matrixconstructors.jl")
-include("solvers/particularsolutionsmethod.jl")
-include("solvers/samplers.jl")
-include("solvers/scalingmethod.jl")
-include("solvers/sweepmethods.jl")
-
+include("solvers/Solvers.jl")
+@reexport using .Solvers
 #spectra
-include("spectra/spectralutils.jl")
-include("spectra/unfolding.jl")
-
+include("spectra/Spectra.jl")
+@reexport using .Spectra
 #states
-include("states/basisstates.jl")
-include("states/boundaryfunctions.jl")
-include("states/eigenstates.jl")
-include("states/husimifunctions.jl")
-include("states/randomstates.jl")
-include("states/wavefunctions.jl")
+include("states/States.jl")
+@reexport using .States
 
-#utils
-include("utils/angleutils.jl")
-include("utils/benchmarkutils.jl")
+
 end

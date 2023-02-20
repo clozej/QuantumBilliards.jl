@@ -7,7 +7,7 @@ memory_size(a) = Base.format_bytes(Base.summarysize(a))
 function benchmark_solver(solver::ParticularSolutionsMethod, basis::AbsBasis, billiard::AbsBilliard, sampler::Function, k, dk; btimes = 5, print_info=true, kwargs...)
     L = real_length(billiard)
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
-    basis_new = rescale_basis(basis, dim)
+    basis_new = resize_basis(basis, dim)
     
     pts = evaluate_points(solver, billiard, sampler, k)
        
@@ -49,7 +49,7 @@ function benchmark_solver(solver::DistributedParticularSolutionsMethod, basis_co
     for i in 1:length(basis_vec)
         L = billiard.boundary[i].length
         dim = round(Int, L*k*solver.dim_scaling_factor[i]/(2*pi))
-        basis_vec[i] = rescale_basis(basis_collection[i], dim)
+        basis_vec[i] = resize_basis(basis_collection[i], dim)
     end
     
     pts_vec = evaluate_points(solver, billiard, sampler, k)
@@ -91,7 +91,7 @@ function benchmark_solver(solver::ScalingMethod, basis::AbsBasis, billiard::AbsB
     btimes = 1, print_info=true, plot_info=false, fig_res=(1000,2000), log_mat=false, limits=[(-2.0,2.0),(-2.0,2.0)], kwargs...)
     L = real_length(billiard)
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
-    basis_new = rescale_basis(basis, dim)
+    basis_new = resize_basis(basis, dim)
     
     pts = evaluate_points(solver, billiard, sampler, k)
        

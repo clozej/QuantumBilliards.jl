@@ -11,10 +11,12 @@ abstract type AbsPoints end
 abstract type SweepSolver <: AbsSolver end
 abstract type AcceleratedSolver <: AbsSolver end
 #abstract type AbsSampler end
-abstract type AbsObservable end
+
 abstract type AbsState end
 abstract type StationaryState <: AbsState end
 #grid iterators
 abstract type AbsGrid end
 
 
+#unsed
+abstract type AbsObservable end

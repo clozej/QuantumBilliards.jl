@@ -1,5 +1,5 @@
 include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+include("../utils/billiardutils.jl")
 #include("../utils/gridutils.jl")
 include("../solvers/matrixconstructors.jl")
 
@@ -58,7 +58,7 @@ function regularize!(u)
 end
 
 function boundary_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let vec = state.vec, new_basis = rescale_basis(basis,state.dim), k = state.k
+    let vec = state.vec, new_basis = resize_basis(basis,state.dim), k = state.k
         type = eltype(vec)
         L = real_length(billiard)
         N = max(round(Int, k*L*b/(2*pi)), 512)

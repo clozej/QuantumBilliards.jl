@@ -1,11 +1,6 @@
 include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
-
-function set_precision(a)
-    #expand for other types of numbers
-    t = typeof(a)
-    return t == Float32 ? Float32(1e-8) : convert(t,1e-16) 
-end
+include("../utils/billiardutils.jl")
+include("../utils/typeutils.jl")
 
 struct Eigenstate{K,T} <: StationaryState
     k::K
@@ -28,7 +23,7 @@ end
 function compute_eigenstate(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilliard,k;sampler=gauss_legendre_nodes)
     L = real_length(billiard)
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
-    basis_new = rescale_basis(basis, dim)
+    basis_new = resize_basis(basis, dim)
     pts = evaluate_points(solver, billiard, sampler, k)
     ten, vec = solve_vect(solver,basis_new, pts, k)
     return Eigenstate(k,vec)

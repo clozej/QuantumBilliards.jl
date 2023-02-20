@@ -7,7 +7,9 @@ struct Billiard  <: AbsBilliard
 end
 =#
 
-function real_length(billiard::AbsBilliard)
+include("../abstracttypes.jl")
+
+function real_length(billiard::Bi) where Bi<:AbsBilliard
     L = 0.0
     for curve in billiard.boundary
         if typeof(curve) <: AbsRealCurve
@@ -17,7 +19,7 @@ function real_length(billiard::AbsBilliard)
     return L 
 end
 
-function virtual_length(billiard::AbsBilliard)
+function virtual_length(billiard::Bi) where Bi<:AbsBilliard
     L = 0.0
     for curve in billiard.boundary
         if typeof(curve) <: AbsVirtualCurve
@@ -27,7 +29,7 @@ function virtual_length(billiard::AbsBilliard)
     return L 
 end
 
-function curve_edge_lengths(billiard::AbsBilliard)
+function curve_edge_lengths(billiard::Bi) where Bi<:AbsBilliard
     L = 0.0
     res = [L]
     for curve in billiard.boundary
@@ -38,12 +40,12 @@ function curve_edge_lengths(billiard::AbsBilliard)
 end
 
 
-function is_inside(billiard::B, pt) where B<:AbsBilliard
+function is_inside(billiard::Bi, pt) where Bi<:AbsBilliard
     return all(is_inside(crv, pt) for crv in billiard.boundary) 
 end
 
 
-function is_inside(billiard::B, pts::AbstractArray) where B<:AbsBilliard
+function is_inside(billiard::Bi, pts::AbstractArray) where Bi<:AbsBilliard
     let curves = billiard.boundary
         inside = is_inside(curves[1], pts)
         for i in 2:length(curves)
@@ -53,7 +55,7 @@ function is_inside(billiard::B, pts::AbstractArray) where B<:AbsBilliard
     end 
 end
 
-function is_inside(billiard::B, x_grid::AbstractArray, y_grid::AbstractArray) where B<:AbsBilliard
+function is_inside(billiard::Bi, x_grid::AbstractArray, y_grid::AbstractArray) where Bi<:AbsBilliard
     let curves = billiard.boundary
         inside = is_inside(curves[1], x_grid, y_grid)
         for i in 2:length(curves)

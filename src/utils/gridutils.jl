@@ -1,7 +1,7 @@
 #using LazyGrids
 #used for plotting etc.
 include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+include("billiardutils.jl")
 using StaticArrays
 
 function boundary_limits(curves; grd=1000, type=Float64) 
@@ -88,7 +88,7 @@ end
 
 #=
 struct InteriorGrid{T,B} <: AbsGrid where {T <: Number, B <: AbsBilliard}
-    billiard::B
+    billiard::Bi
     size::Tuple{Int,Int}
     x_grid::AbstractVector{T}
     y_grid::AbstractVector{T}

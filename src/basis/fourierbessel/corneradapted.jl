@@ -1,6 +1,6 @@
 
 include("../../abstracttypes.jl")
-include("../../billiards/coordinatesystems.jl")
+include("../../utils/coordinatesystems.jl")
 include("../../utils/gridutils.jl")
 #using BenchmarkTools
 #using SpecialFunctions
@@ -56,7 +56,7 @@ end
 
 Float32(basis::CornerAdaptedFourierBessel) = CornerAdaptedFourierBessel(basis.dim, Float32(basis.corner_angle), Float32.(basis.cs.origin), Float32(basis.cs.rot_angle))
 
-function rescale_basis(basis::CornerAdaptedFourierBessel, dim::Int)
+function resize_basis(basis::CornerAdaptedFourierBessel, dim::Int)
     if basis.dim == dim
         return basis
     else

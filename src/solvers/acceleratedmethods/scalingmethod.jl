@@ -48,20 +48,9 @@ function construct_matrices(solver::ScalingMethod, basis::AbsBasis, pts::Boundar
     N = basis.dim
     #basis matrix
     B = basis_matrix(basis, k, xy)
-    #=
-    B = Array{type}(undef,M,N)
-    @inbounds Threads.@threads for i in 1:N
-        B[:,i] = [basis_fun(basis, i, k, pt) for pt in xy]
-    end
-    =# 
     T = (w .* B) #reused later
     F = B' * T #boundary norm matrix
     #reuse B
-    #=
-    @inbounds Threads.@threads for i in 1:N
-        B[:,i] = [dk_fun(basis, i, k, pt) for pt in xy]
-    end
-    =#
     B = dk_matrix(basis ,k, xy)
     Fk = B' * T #B is now derivative matrix
     #symmetrize matrix

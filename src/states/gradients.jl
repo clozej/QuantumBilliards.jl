@@ -1,5 +1,5 @@
 include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+include("../utils/billiardutils.jl")
 include("../utils/gridutils.jl")
 include("../utils/benchmarkutils.jl")
 include("../solvers/matrixconstructors.jl")
@@ -39,7 +39,7 @@ end
 
 
 function wavefunction_gradient(state::S, basis::Ba, billiard::Bi; b=20.0, inside_only=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let new_basis = rescale_basis(basis, state.dim)        
+    let new_basis = resize_basis(basis, state.dim)        
         #println(new_basis.dim)
         type = eltype(state.vec)
         k = state.k
@@ -75,7 +75,7 @@ function wavefunction_gradient(state::S, basis::Ba, billiard::Bi; b=20.0, inside
 end
 
 function wavefunction_gradient(state::S, basis::Ba; b=20.0,xlim=(-1,1),ylim=(-1,1),inside_only=true) where {S<:AbsState,Ba<:AbsBasis}
-    let new_basis = rescale_basis(basis, state.dim)        
+    let new_basis = resize_basis(basis, state.dim)        
         #println(new_basis.dim)
         type = eltype(state.vec)
         k = state.k

@@ -1,5 +1,5 @@
 include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+include("../utils/billiardutils.jl")
 include("../utils/gridutils.jl")
 include("../utils/benchmarkutils.jl")
 include("../solvers/matrixconstructors.jl")
@@ -18,7 +18,7 @@ function basis_matrix(basis::AbsBasis,k,vec, x::Vector{T}, y::Vector{T}) where T
     return B
 end
 =#
-function compute_psi(state::S, basis::Ba, billiard::Bi,x_grid,y_grid;inside_only=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
+function compute_psi(state::S, basis::Ba, billiard::Bi, x_grid, y_grid; inside_only=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
     let vec = state.vec, k = state.k, basis=basis, eps=state.eps
         #sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
@@ -47,7 +47,7 @@ end
 
 
 function wavefunction(state::S, basis::Ba, billiard::Bi; b=5.0, inside_only=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let new_basis = rescale_basis(basis, state.dim) 
+    let new_basis = resize_basis(basis, state.dim) 
         k = state.k       
         #println(new_basis.dim)
         type = eltype(state.vec)
@@ -87,7 +87,7 @@ function wavefunction(state::S, basis::Ba, crv::C; sampler=linear_nodes, b=5.0) 
     #typ = eltype(vec)
     k = state.k
     dim = state.dim
-    new_basis = rescale_basis(basis, dim)
+    new_basis = resize_basis(basis, dim)
     
     #try to find a lazy way to do this
     L = crv.length
@@ -109,7 +109,7 @@ function wavefunction(state::AbsState, basis::AbsBasis, billiard::AbsBilliard; b
     typ = eltype(vec)
     k = state.k
     dim = state.dim
-    #new_basis = rescale_basis(basis, dim)
+    #new_basis = resize_basis(basis, dim)
     
     #try to find a lazy way to do this
     L = real_length(billiard)

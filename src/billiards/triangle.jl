@@ -13,7 +13,7 @@ function triangle_corners(angles, x0, y0, h) #x0, y0 position of gamma corner
 end
 
 
-struct Triangle{T}  <: AbsBilliard where {T<:Number}
+struct Triangle{T}  <: AbsBilliard where {T<:Real}
     boundary :: Vector{Any}
     length:: T
     area :: T
@@ -34,15 +34,7 @@ function Triangle(gamma, chi; curve_types = [:Real, :Virtual, :Virtual] , x0=zer
     return Triangle(boundary,length,area,corners,angles)
 end
 
-
-function VeechRightTriangle(kind; curve_types = [:Real, :Virtual, :Virtual] , x0=0.0, y0=0.0, h = 1.0)
-    n = 4 + kind
-    gamma = pi/2
-    chi = (n-2)/2
-    return Triangle(gamma,chi; curve_types = curve_types,  x0 = x0, y0 = y0, h=h)
-end
-
-function adapt_basis(triangle::Triangle,i)
+function adapt_basis(triangle::T,i) where {T<:Triangle}
     N = 3
     c = triangle.corners
     #println("corners $(c[3])")
@@ -57,6 +49,7 @@ function adapt_basis(triangle::Triangle,i)
     return triangle.angles[i0], cs
 end
 
+
 #convenience function
 function make_triangle_and_basis(gamma,chi; edge_i=1)
     cor = Triangle(gamma,chi).corners
@@ -68,3 +61,12 @@ function make_triangle_and_basis(gamma,chi; edge_i=1)
     basis = CornerAdaptedFourierBessel(1, adapt_basis(tr,edge_i+2)...) 
     return tr, basis 
 end
+
+#=
+function VeechRightTriangle(kind; curve_types = [:Real, :Virtual, :Virtual] , x0=0.0, y0=0.0, h = 1.0)
+    n = 4 + kind
+    gamma = pi/2
+    chi = (n-2)/2
+    return Triangle(gamma,chi; curve_types = curve_types,  x0 = x0, y0 = y0, h=h)
+end
+=#

@@ -1,5 +1,5 @@
 include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+include("../utils/billiardutils.jl")
 include("../utils/gridutils.jl")
 using StatsBase
 using FastGaussQuadrature
@@ -11,6 +11,7 @@ function linear_nodes(N::Int)
     return t, dt
 end
 
+#needs some work
 function fourier_nodes(N::Int; primes=(2,3,5)) #starts at 0 ends at 
     M = nextprod(primes,N)
     t = collect(i/M for i in 0:(M-1))

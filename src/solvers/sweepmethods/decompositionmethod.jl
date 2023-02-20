@@ -52,12 +52,12 @@ end
 
 function construct_matrices(solver::DecompositionMethod, basis::AbsBasis, pts::BoundaryPointsDM, k)#{T} where T<:Real
     #type = eltype(pts.w)
+    #=
     B = basis_matrix(basis, k, pts.xy)
+    =#
+    B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
     T = (pts.w .* B) #reused later
     F = B' * T #boundary norm matrix
-    
-    dX, dY = gradient_matrices(basis, k, pts.xy)
-    
     nx = getindex.(pts.normal,1)
     ny = getindex.(pts.normal,2)
     #println(nx,ny)

@@ -1,6 +1,6 @@
 include("../abstracttypes.jl")
 using Makie
-
+#not exported
 function plot_matrix!(f, A; log=false)
     Z = deepcopy(A)
     ax = Axis(f[1,1])
