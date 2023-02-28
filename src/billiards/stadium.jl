@@ -6,7 +6,7 @@
 function make_stadium(width;radius=one(width),x0=zero(width),y0=zero(width), curve_types=[:Real,:Real,:Virtual,:Virtual],rot_angle=zero(width))
     #d(x, y, x0, y0, x1, y1) = @.((y1-y0)*x-(x1-x0)*y+x1*y0-y1*x0)
     origin = SVector(x0,y0)
-    circle = CircleSegment(radius,pi/4,zero(width), width, zero(width); origin=origin, rot_angle = rot_angle)
+    circle = CircleSegment(radius,pi/2,zero(width), width, zero(width); origin=origin, rot_angle = rot_angle)
 
     line1 = (curve_types[2] == :Real) ? LineSegment(SVector(width, radius), SVector(zero(width), radius+y0);origin=origin,rot_angle=rot_angle) : VirtualLineSegment(SVector(width, radius), SVector(zero(width), radius+y0);origin=origin,rot_angle=rot_angle)
     line2 = (curve_types[3] == :Real) ? LineSegment(SVector(zero(width), radius), SVector(zero(width), zero(width));origin=origin,rot_angle=rot_angle) : VirtualLineSegment(SVector(zero(width), radius), SVector(zero(width), zero(width));origin=origin,rot_angle=rot_angle)

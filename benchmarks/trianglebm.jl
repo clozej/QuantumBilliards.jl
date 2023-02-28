@@ -12,17 +12,6 @@ chi  = 2.0
 
 billiard, basis = make_triangle_and_basis(gamma, chi)
 
-d = 3.5
-b = 5.0
-sw_solver = DecompositionMethod(d,b)
-acc_solver = ScalingMethod(d,b)
-
-
-k0 = 2000.001
-dk = 0.01
-acc_info = benchmark_solver(acc_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-sw_info = benchmark_solver(sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=true);
-
 f = Figure(resolution = (1000,500))
 ax = Axis(f[1,1])
 plot_geometry_test!(ax, billiard)
@@ -31,6 +20,18 @@ display(f)
 f = Figure(resolution = (1000,500))
 plot_basis_test!(f, basis, billiard)
 display(f)
+
+d = 3.5
+b = 5.0
+sw_solver = DecompositionMethod(d,b)
+acc_solver = ScalingMethod(d,b)
+
+k0 = 100.001
+dk = 0.01
+acc_info = benchmark_solver(acc_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+sw_info = benchmark_solver(sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=true);
+
+
 
 f = Figure(resolution = (1000,500))
 plot_solver_test!(f,sw_solver,basis,billiard,5.0,10.0,0.01)
