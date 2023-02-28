@@ -1,5 +1,5 @@
 
-include("curves.jl")
+#include("curves.jl")
 
 liamcon_radial(t, lam)  = (1.0 .+ lam .* cos.(t .* pi))
 limacon_x(t, lam ; x0 = zero(t), kwargs...) =  cos.(t .* pi) .* liamcon_radial(t, lam) .- x0

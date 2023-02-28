@@ -1,28 +1,10 @@
 #using LazyGrids
 #used for plotting etc.
-include("../abstracttypes.jl")
-include("billiardutils.jl")
+#include("../abstracttypes.jl")
+#include("billiardutils.jl")
 using StaticArrays
 
-function boundary_limits(curves; grd=1000, type=Float64) 
-    x_bnd = Vector{Any}()
-    y_bnd = Vector{Any}()
-    for crv in curves #names of variables not very nice
-        L = crv.length
-        N_bnd = round(Int, grd/L)
-        t = range(0.0,1.0, N_bnd)[1:end-1]
-        pts = curve(crv,t)
-        append!(x_bnd, getindex.(pts,1))
-        append!(y_bnd, getindex.(pts,2))
-    end
-    x_bnd[end] = x_bnd[1]
-    y_bnd[end] = y_bnd[1]
-    xlim = extrema(x_bnd)
-    #dx =  xlim[2] - xlim[1]
-    ylim = extrema(y_bnd)
-    #dy =  ylim[2] - ylim[1]
-    return convert.(type,xlim), convert.(type,ylim) #,dx,dy
-end
+
 
 struct GridPoint{T} <:AbsGrid where T <: Number
     xy::SVector{2,T} #point coords

@@ -1,5 +1,5 @@
-include("../abstracttypes.jl")
-include("../utils/coordinatesystems.jl")
+#include("../abstracttypes.jl")
+#include("../utils/coordinatesystems.jl")
 #include("curves.jl")
 using StaticArrays,LinearAlgebra, ForwardDiff
 
@@ -175,7 +175,7 @@ function curve(circle::L, t::T) where {T<:Real,L<:CircleSegments{T}}
     end
 end
 
-function arc_length(circle::L, ts::AbstractArray{T,1}) where {T<:Real,L<:CircleSegments{T}}    s = @. line.length * ts
+function arc_length(circle::L, ts::AbstractArray{T,1}) where {T<:Real,L<:CircleSegments{T}}
     s::Vector{T} = circle.length.*ts 
     return s
 end

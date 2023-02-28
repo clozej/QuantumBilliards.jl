@@ -1,5 +1,5 @@
-include("../abstracttypes.jl")
-include("../utils/gridutils.jl")
+#include("../abstracttypes.jl")
+#include("../utils/gridutils.jl")
 using Makie
 #helper functions
 function plot_heatmap!(f,x,y,Z ;vmax = 1.0,log=(false,-5.0), cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
@@ -90,7 +90,7 @@ end
 function plot_domain!(ax, billiard::AbsBilliard; dens=100.0, hmargs=Dict(),cmap=Reverse(:binary))
     d = one(dens)/dens
     #sz = (d,d)
-    xlim, ylim = boundary_limits(billiard.boundary; grd=1000, type=Float32) 
+    xlim, ylim = boundary_limits(billiard.boundary; grd=1000, type=typeof(Float32)) 
     x_grid = range(xlim... ; step=d)
     y_grid = range(ylim... ; step=d)
     Z = reshape(is_inside(billiard,x_grid,y_grid),length(x_grid),length(y_grid))
@@ -141,13 +141,20 @@ function plot_probability!(f,state::AbsState, basis::AbsBasis, billiard::AbsBill
 end
 
 function plot_boundary_function!(ax,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
-    b=5.0,log=false,linesargs=Dict(),axargs=Dict())
+    b=5.0, log=false,linesargs=Dict(),axargs=Dict())
     u, s = boundary_function(state, basis, billiard; b= b)
     if log
         lines!(ax, s, log10.(abs.(u)); linesargs...)
     else
         lines!(ax, s, u; linesargs...)
     end
+end
+
+function plot_husimi_function!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
+    b=5.0,log=false, inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
+    u, s = boundary_function(state, basis, billiard; b= b)
+    H, qs, ps = husimi(k,u,s; w = 7.0)    
+    hmap, ax = plot_heatmap!(f,qs,ps,H;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
 end
 
 

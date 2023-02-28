@@ -1,11 +1,23 @@
 include("../abstracttypes.jl")
 
-
+function filter_matrix!(M; ϵ = eps(eltype(M)))
+    type = eltype(M)
+    #max = maximum(abs,M)
+    k = 1
+    for t in eachindex(M)
+        if abs.(M[t]) <= ϵ
+            M[t] = zero(type)
+            k += 1
+        end
+    end
+    return(M)
+end
 
 #this will be usefull for basis sets containing several functions (plane and evanscent waves etc.)
 function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
     let dim = basis.dim
-        return basis_fun(basis,1:dim,k,pts)
+        B = basis_fun(basis,1:dim,k,pts)
+        return filter_matrix!(B)
     end
 end
 
@@ -19,10 +31,11 @@ function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::Ab
         for i in indices
             B[:,i] .= B1[:,i]
         end
-        return B
+        return filter_matrix!(B)
     end
 end
 
+#rework these
 function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real}
     let dim = basis.dim
         return basis_fun(basis,1:dim,k,x_grid,y_grid)
@@ -59,7 +72,8 @@ end
 
 function gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
     let dim = basis.dim
-        return gradient(basis,1:dim,k,pts)
+        dB_dx, dB_dy = gradient(basis,1:dim,k,pts)
+        return filter_matrix!(dB_dx), filter_matrix!(dB_dy)
     end
 end
 
@@ -69,6 +83,8 @@ function gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indice
         dX = zeros(T,M,N)
         dY = zeros(T,M,N)  
         dB_dx, dB_dy = gradient(basis,indices,k,pts)
+        filter_matrix!(dB_dx)
+        filter_matrix!(dB_dy)
         #println(size(B))
         #println(size(B1))
         for i in indices
@@ -81,7 +97,8 @@ end
 
 function basis_and_gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
     let dim = basis.dim
-        return gradient(basis,1:dim,k,pts)
+        B, dB_dx, dB_dy = basis_and_gradient(basis,1:dim,k,pts)
+        return filter_matrix!(B), filter_matrix!(dB_dx), filter_matrix!(dB_dy)
     end
 end
 
@@ -92,6 +109,9 @@ function basis_and_gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T
         dY = zeros(T,M,N)
         B1 = zeros(T,M,N)
         B, dB_dx, dB_dy = basis_and_gradient(basis,indices,k,pts)
+        filter_matrix!(B)
+        filter_matrix!(dB_dx)
+        filter_matrix!(dB_dy)
         #println(size(B))
         #println(size(B1))
         for i in indices
@@ -105,7 +125,8 @@ end
 
 function dk_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
     let dim = basis.dim
-        return dk_fun(basis,1:dim,k,pts)
+        dB_dk = dk_fun(basis,1:dim,k,pts)
+        return filter_matrix!(dB_dk)
     end
 end
 
@@ -114,6 +135,7 @@ function dk_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::Abstr
         M =  length(pts)
         dB1 = zeros(T,M,N) 
         dB_dk = dk_fun(basis,indices,k,pts)
+        filter_matrix!(dB_dk)
         #println(size(B))
         #println(size(B1))
         for i in indices

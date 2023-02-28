@@ -1,8 +1,8 @@
-include("../abstracttypes.jl")
-include("../utils/billiardutils.jl")
-include("../utils/gridutils.jl")
-include("../utils/benchmarkutils.jl")
-include("../solvers/matrixconstructors.jl")
+#include("../abstracttypes.jl")
+#include("../utils/billiardutils.jl")
+#include("../utils/gridutils.jl")
+#include("../utils/benchmarkutils.jl")
+#include("../solvers/matrixconstructors.jl")
 
 #for checking correctness
 function compute_grad(state::S, basis::Ba, billiard::Bi,x_grid,y_grid ;inside_only=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}

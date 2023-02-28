@@ -1,4 +1,4 @@
-include("../abstracttypes.jl")
+#include("../abstracttypes.jl")
 using CoordinateTransformations, Rotations, StaticArrays
 #Polar coordinates
 struct CartesianCS{T} <:CoordinateSystem where T<:Number

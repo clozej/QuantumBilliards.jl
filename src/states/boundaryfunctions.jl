@@ -1,7 +1,8 @@
-include("../abstracttypes.jl")
-include("../utils/billiardutils.jl")
+#include("../abstracttypes.jl")
+#include("../utils/billiardutils.jl")
 #include("../utils/gridutils.jl")
-include("../solvers/matrixconstructors.jl")
+#include("../solvers/matrixconstructors.jl")
+using FFTW
 
 struct BoundaryPointsU{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
@@ -73,4 +74,16 @@ function boundary_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fou
         regularize!(u)
         return u, pts.s::Vector{type}
     end
+end
+
+function momentum_function(u,s)
+    fu = rfft(u)
+    sr = 1.0/diff(s)[1]
+    ks = rfftfreq(length(s),sr).*(2*pi)
+    return fu, ks
+end
+
+function momentum_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
+    u, s = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+    return momentum_function(u,s)
 end

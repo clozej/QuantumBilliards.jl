@@ -1,6 +1,6 @@
-include("../abstracttypes.jl")
-include("../basis/fourierbessel/corneradapted.jl")
-include("geometry.jl")
+#include("../abstracttypes.jl")
+#include("../basis/fourierbessel/corneradapted.jl")
+#include("geometry.jl")
 using StaticArrays #PolygonOps
 
 
@@ -50,17 +50,7 @@ function adapt_basis(triangle::T,i) where {T<:Triangle}
 end
 
 
-#convenience function
-function make_triangle_and_basis(gamma,chi; edge_i=1)
-    cor = Triangle(gamma,chi).corners
-    x0,y0 = cor[mod1(edge_i+2,3)]
-    re = [:Virtua, :Virtual, :Virtual]
-    re[edge_i] = :Real 
-    tr = Triangle(gamma,chi; curve_types = re, x0 = x0, y0 =y0)
-    #dim = round(Int, tr.boundary[edge_i].length*k*solver.dim_scaling_factor/(2*pi))
-    basis = CornerAdaptedFourierBessel(1, adapt_basis(tr,edge_i+2)...) 
-    return tr, basis 
-end
+
 
 #=
 function VeechRightTriangle(kind; curve_types = [:Real, :Virtual, :Virtual] , x0=0.0, y0=0.0, h = 1.0)

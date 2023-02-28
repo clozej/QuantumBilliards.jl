@@ -1,8 +1,6 @@
-include("../abstracttypes.jl")
+#include("../abstracttypes.jl")
 
 using CircularArrays
-
-
 
 function antisym_vec(x)
     v = reverse(-x[2:end])

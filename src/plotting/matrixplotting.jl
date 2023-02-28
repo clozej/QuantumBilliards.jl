@@ -1,4 +1,4 @@
-include("../abstracttypes.jl")
+#include("../abstracttypes.jl")
 using Makie
 #not exported
 function plot_matrix!(f, A; log=false)
@@ -39,5 +39,5 @@ function plot_matrix!(f, A; log=false)
         Colorbar(f[1,2], colormap = :balance, limits = Float64.(range_val),tellheight=true)
         rowsize!(f.layout, 1, ax.scene.px_area[].widths[2])
     end
-    return f
+    return ax
 end

@@ -1,7 +1,7 @@
 
-include("../../abstracttypes.jl")
-include("../../utils/coordinatesystems.jl")
-include("../../utils/gridutils.jl")
+#include("../../abstracttypes.jl")
+#include("../../utils/coordinatesystems.jl")
+#include("../../utils/gridutils.jl")
 #using BenchmarkTools
 #using SpecialFunctions
 using Bessels
@@ -54,7 +54,7 @@ function CornerAdaptedFourierBessel(dim, corner_angle, cs::CoordinateSystem)
     return CornerAdaptedFourierBessel(cs, dim, corner_angle, nu)
 end
 
-Float32(basis::CornerAdaptedFourierBessel) = CornerAdaptedFourierBessel(basis.dim, Float32(basis.corner_angle), Float32.(basis.cs.origin), Float32(basis.cs.rot_angle))
+toFloat32(basis::CornerAdaptedFourierBessel) = CornerAdaptedFourierBessel(basis.dim, Float32(basis.corner_angle), Float32.(basis.cs.origin), Float32(basis.cs.rot_angle))
 
 function resize_basis(basis::CornerAdaptedFourierBessel, dim::Int)
     if basis.dim == dim
@@ -230,7 +230,7 @@ end
 
 function basis_and_gradient(basis::CornerAdaptedFourierBessel, indices::AbstractArray, k::T, pts::AbstractArray) where {T<:Real}
     let am = basis.cs.affine_map, pm = basis.cs.polar_map, nu=basis.nu, pts=pts
-        pt_pol = collect(cartesian_to_polar(pm(pt)) for pt in pts)w
+        pt_pol = collect(cartesian_to_polar(pm(pt)) for pt in pts)
         pt_xy = collect(am(pt) for pt in pts) #local cartesian coords
         #norm::T = one(T)/sqrt(basis.dim)
         r = getindex.(pt_pol,1)

@@ -1,7 +1,7 @@
-include("../../abstracttypes.jl")
-include("../../utils/billiardutils.jl")
+#include("../../abstracttypes.jl")
+#include("../../utils/billiardutils.jl")
 #include("decompositions.jl")
-include("../samplers.jl")
+#include("../samplers.jl")
 include("scalingmethod.jl")
 
 function solve_wavenumber(solver::AcceleratedSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk; sampler=gauss_legendre_nodes)

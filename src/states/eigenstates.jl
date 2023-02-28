@@ -1,6 +1,6 @@
-include("../abstracttypes.jl")
-include("../utils/billiardutils.jl")
-include("../utils/typeutils.jl")
+#include("../abstracttypes.jl")
+#include("../utils/billiardutils.jl")
+#include("../utils/typeutils.jl")
 
 struct Eigenstate{K,T} <: StationaryState
     k::K

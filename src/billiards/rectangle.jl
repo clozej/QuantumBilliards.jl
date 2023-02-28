@@ -1,6 +1,6 @@
-include("../abstracttypes.jl")
-include("../basis/fourierbessel.jl")
-include("geometry.jl")
+#include("../abstracttypes.jl")
+#include("../basis/fourierbessel.jl")
+#include("geometry.jl")
 using StaticArrays
 
 function rectangle_corners(x0, y0, l; h = 1.0) #x0, y0 position of gamma corner
