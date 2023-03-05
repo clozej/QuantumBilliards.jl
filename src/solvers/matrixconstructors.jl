@@ -21,6 +21,7 @@ function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:R
     end
 end
 
+#perhaps unnecesary
 function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real}
     let N = basis.dim
         M =  length(pts)
@@ -38,7 +39,8 @@ end
 #rework these
 function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real}
     let dim = basis.dim
-        return basis_fun(basis,1:dim,k,x_grid,y_grid)
+        pts = collect(SVector(x,y) for y in y_grid for x in x_grid) 
+        return basis_fun(basis,1:dim,k,pts)
     end
 end
 
@@ -46,7 +48,8 @@ function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::Abstrac
     let N = basis.dim
         M =  length(x_grid)*length(y_grid)
         B = zeros(eltype(x_grid),M,N) 
-        B1 = basis_fun(basis,indices,k,x_grid,y_grid)
+        pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
+        B1 = basis_fun(basis,indices,k,pts)
         #println(size(B))
         #println(size(B1))
         for i in indices
@@ -59,8 +62,9 @@ end
 function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::AbstractArray, indices::AbstractArray) where {T<:Real}
     let N = basis.dim
         M =  length(x_grid)*length(y_grid)
-        B = zeros(eltype(x_grid),M,N) 
-        B1 = basis_fun(basis,indices,k,x_grid,y_grid)
+        B = zeros(eltype(x_grid),M,N)
+        pts = collect(SVector(x,y) for y in y_grid for x in x_grid) 
+        B1 = basis_fun(basis,indices,k,pts)
         #println(size(B))
         #println(size(B1))
         for i in indices

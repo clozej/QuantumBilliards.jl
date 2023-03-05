@@ -1,7 +1,6 @@
-include("../src/billiards/Billiards.jl")
-include("../src/abstracttypes.jl")
-using .Billiards
-using StaticArrays
+include("../src/QuantumBilliards.jl")
+#using Revise
+using .QuantumBilliards
 using Test
 
 @testset "Billiard tests: Stadium" begin

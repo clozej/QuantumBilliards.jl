@@ -1,6 +1,7 @@
 using MKL
+using Revise
 include("../src/QuantumBilliards.jl")
-#using Revise
+
 using .QuantumBilliards
 #using Revise 
 using CairoMakie
@@ -26,7 +27,7 @@ b = 5.0
 sw_solver = DecompositionMethod(d,b)
 acc_solver = ScalingMethod(d,b)
 
-k0 = 100.001
+k0 = 1000.001
 dk = 0.01
 acc_info = benchmark_solver(acc_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
 sw_info = benchmark_solver(sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=true);
@@ -49,7 +50,6 @@ state = compute_eigenstate(sw_solver, basis, billiard, k)
 f = Figure(resolution = (1500,1500))
 plot_state_test!(f,state,basis,billiard)
 display(f)
-
 
 b_range =collect(range(2.0,6.0,step=0.5))
 f = Figure(resolution = (1000,500))

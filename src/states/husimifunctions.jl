@@ -45,7 +45,7 @@ end
 
 function husimi_function(state::S, basis::Ba, billiard::Bi;  b = 5.0, c = 10.0, w = 7.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
     k = state.k
-    u, s = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+    u, s, norm = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
     return husimi_function(k,u,s; c = c, w = w)
 end
 #=

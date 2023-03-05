@@ -68,13 +68,15 @@ function plot_solver_test!(f,sw_solver::S,basis,billiard,k1,k2,dk;log=true, samp
     return ax
 end
 
-function plot_state_test!(f,state,basis,billiard; b_psi=10.0, b_u = 20.0, log_psi =(true,-5))
+function plot_state_test!(f,state,basis,billiard; b_psi=10.0, b_u = 20.0, log_psi =(true,-5), include_virtual = true)
     plot_probability!(f[1:2,1:2], state, basis, billiard; b=b_psi, log = log_psi)
     k = state.k
     ax_u = Axis(f[3,1], xlabel=L"q", ylabel=L"u")
-    u, s = boundary_function(state, basis, billiard; b=b_u)
+    u, s, norm = boundary_function(state, basis, billiard; b=b_u, include_virtual=include_virtual)
+    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)
     lines!(ax_u, s, u)
-    vlines!(ax_u, curve_edge_lengths(billiard); color=:black, linewidth=0.5)
+    vlines!(ax_u, edges; color=:black, linewidth=0.5)
+    text!(ax_u,1.0,1.0, text = "norm=$norm", align = (:right, :top), color = :black, space=:relative)
 
     ax_k = Axis(f[3,2], xlabel=L"k", ylabel=L"u_k")
     fu, ks = momentum_function(u,s)
@@ -84,5 +86,5 @@ function plot_state_test!(f,state,basis,billiard; b_psi=10.0, b_u = 20.0, log_ps
     
     H, qs, ps = husimi_function(k,u,s; w = 7.0)    
     hmap, ax_H = plot_heatmap!(f[4,1:2],qs,ps,H)
-    vlines!(ax_H, curve_edge_lengths(billiard); color=:black, linewidth=0.5)
+    vlines!(ax_H, edges; color=:black, linewidth=0.5)
 end

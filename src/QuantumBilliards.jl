@@ -9,7 +9,7 @@ include("utils/geometryutils.jl")
 include("utils/billiardutils.jl")
 include("utils/typeutils.jl")
 include("utils/gridutils.jl")
-export real_length
+export real_length, is_inside
 #basis
 #include("basis/Basis.jl")
 #@reexport using .Basis
@@ -74,7 +74,9 @@ include("states/wavefunctions.jl")
 include("states/boundaryfunctions.jl")
 include("states/husimifunctions.jl")
 
-export wavefunction, boundary_function, momentum_function, husimi_function
+export wavefunction #wavefunction_norm 
+export boundary_function, momentum_function, husimi_function
+export boundary_coords
 #plotting functions in Makie
 #include("plotting/Plotting.jl")
 #@reexport using .Plotting

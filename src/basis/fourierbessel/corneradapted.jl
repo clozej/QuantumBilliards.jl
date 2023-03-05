@@ -94,28 +94,6 @@ end
     end
 end
 
-@inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, i::Int, k::T, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real}
-    let pm = basis.cs.polar_map, nu=basis.nu, x_grid=x_grid, y_grid=y_grid
-        pt_pol = (cartesian_to_polar(pm(SVector(x,y))) for y in y_grid for x in x_grid) #keep generator here
-        #norm::T = one(T)/sqrt(basis.dim)
-        return collect(ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
-    end
-end
-
-@inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real}
-    let pm = basis.cs.polar_map, nu=basis.nu, x_grid=x_grid, y_grid=y_grid
-        pt_pol = (cartesian_to_polar(pm(SVector(x,y))) for y in y_grid for x in x_grid) #keep generator here
-        #norm::T = one(T)/sqrt(basis.dim)
-        M =  length(x_grid)*length(y_grid)
-        N = length(indices)
-        B = zeros(T,M,N)
-        Threads.@threads for i in eachindex(indices)
-            B[:,i] .= (ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
-        end
-        return B 
-    end
-end
-
 
 @inline function dk_fun(basis::CornerAdaptedFourierBessel{T}, i::Int, k::T, pts::AbstractArray) where {T<:Real}
     #translation of coordiante origin
@@ -317,6 +295,28 @@ function dk_fun!(out_vec, basis::CornerAdaptedFourierBessel, i::Int, k, x::Vecto
     r = hypot.(X, Y) 
     norm = 1.0/sqrt(basis.dim)
     out_vec .=  ca_fb_dk(basis.nu*i, k, r, phi) ./ norm
+end
+
+@inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, i::Int, k::T, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real}
+    let pm = basis.cs.polar_map, nu=basis.nu, x_grid=x_grid, y_grid=y_grid
+        pt_pol = (cartesian_to_polar(pm(SVector(x,y))) for y in y_grid for x in x_grid) #keep generator here
+        #norm::T = one(T)/sqrt(basis.dim)
+        return collect(ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
+    end
+end
+
+@inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real}
+    let pm = basis.cs.polar_map, nu=basis.nu, x_grid=x_grid, y_grid=y_grid
+        pt_pol = (cartesian_to_polar(pm(SVector(x,y))) for y in y_grid for x in x_grid) #keep generator here
+        #norm::T = one(T)/sqrt(basis.dim)
+        M =  length(x_grid)*length(y_grid)
+        N = length(indices)
+        B = zeros(T,M,N)
+        Threads.@threads for i in eachindex(indices)
+            B[:,i] .= (ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
+        end
+        return B 
+    end
 end
 
 =#

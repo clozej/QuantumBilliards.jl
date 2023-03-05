@@ -91,7 +91,7 @@ function construct_matrices(solver::ScalingMethod, basis::Ba, pts::BoundaryPoint
 end
 
 function sm_results(mu,k)
-    ks = k .- 2 ./mu #.+ 2/k ./(mu.^2) 
+    ks = k .- 2 ./mu .+ 2/k ./(mu.^2) 
     ten = 2.0 .*(2.0 ./ mu).^2
     p = sortperm(ks)
     return ks[p], ten[p]

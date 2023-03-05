@@ -20,6 +20,27 @@ function fourier_nodes(N::Int; primes=(2,3,5)) #starts at 0 ends at
     return t, dt
 end
 
+function fourier_nodes(N::Int, crv_lengths; primes=(2,3,5)) #starts at 0 ends at 
+    M = nextprod(primes,N)
+    L = sum(crv_lengths)
+    ts =Vector{Vector{typeof(L)}}(undef,0)
+    dts =Vector{Vector{typeof(L)}}(undef,0)
+    start = 0.0
+    for l in crv_lengths
+        ds = L/(l*M) 
+        println(start*ds)
+        t = collect(range(start*ds,1.0,step=ds))
+        #println(t)
+        dt_end = 1.0 - t[end]
+        start = (ds - dt_end)/ds
+        push!(ts,t)
+        dt = diff(t)
+        push!(dt,dt_end)
+        push!(dts,dt)
+    end
+    return ts,dts
+end
+
 function gauss_legendre_nodes(N::Int)
     x, w = gausslegendre(N)
     t = 0.5 .* x  .+ 0.5

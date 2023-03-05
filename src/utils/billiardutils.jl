@@ -29,12 +29,14 @@ function virtual_length(billiard::Bi) where Bi<:AbsBilliard
     return L 
 end
 
-function curve_edge_lengths(billiard::Bi) where Bi<:AbsBilliard
+function curve_edge_lengths(billiard::Bi;include_virtual = true) where Bi<:AbsBilliard
     L = 0.0
     res = [L]
-    for curve in billiard.boundary
-        L += curve.length
-        push!(res,L) 
+    for crv in billiard.boundary
+        if (typeof(crv) <: AbsRealCurve || include_virtual)
+            L += crv.length
+            push!(res,L)
+        end 
     end
     return res
 end

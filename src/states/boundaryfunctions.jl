@@ -19,38 +19,69 @@ function boundary_coords(crv::C, N; sampler=fourier_nodes) where {C<:AbsCurve}
     s = arc_length(crv,t)
     ds = L.*dt #modify for different parametrizations
     return xy, normal, s, ds
-end    
+end
 
-#modify this to get fully accurate fourier transforms
+function boundary_coords(crv::C, t, dt) where {C<:AbsCurve}
+    L = crv.length
+    xy = curve(crv, t)
+    normal = normal_vec(crv,t)
+    s = arc_length(crv,t)
+    ds = L.*dt #modify for different parametrizations
+    return xy, normal, s, ds
+end 
+
+#make better
 function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, include_virtual=true) where {Bi<:AbsBilliard}
     let boundary = billiard.boundary
+        if sampler==fourier_nodes
+            crv_lengths = [crv.length for crv in boundary]
+            ts, dts = fourier_nodes(N, crv_lengths)
 
-        L = real_length(billiard)
-        if include_virtual
-        L += virtual_length(billiard) 
-        end
-        Lc = boundary[1].length
-        Nc = round(Int, N*Lc/L)
-        xy_all, normal_all, s_all, ds_all = boundary_coords(boundary[1], Nc; sampler=sampler)
-        #println(s_all)
-        l = boundary[1].length #cumulative length
-        for crv in boundary[2:end]
-            if (typeof(crv) <: AbsRealCurve || include_virtual)
-                Lc = crv.length
-                Nc = round(Int, N*Lc/L)
-                xy,nxy,s,ds = boundary_coords(crv, Nc; sampler=sampler)
-                append!(xy_all, xy)
-                append!(normal_all, nxy)
-                s = s .+ l
-                append!(s_all, s)
-                append!(ds_all, ds)
-                l += Lc
-            end    
+            xy_all, normal_all, s_all, ds_all = boundary_coords(boundary[1], ts[1], dts[1])
+            l = boundary[1].length
+            for i in 2:length(ts)
+                crv = boundary[i]
+                if (typeof(crv) <: AbsRealCurve || include_virtual)
+                    Lc = crv.length
+                    #Nc = round(Int, N*Lc/L)
+                    xy,nxy,s,ds = boundary_coords(crv, ts[i], dts[i])
+                    append!(xy_all, xy)
+                    append!(normal_all, nxy)
+                    s = s .+ l
+                    append!(s_all, s)
+                    append!(ds_all, ds)
+                    l += Lc
+                end    
+            end
+        else
+            L = real_length(billiard)
+            if include_virtual
+            L += virtual_length(billiard) 
+            end
+            Lc = boundary[1].length
+            Nc = round(Int, N*Lc/L)
+            xy_all, normal_all, s_all, ds_all = boundary_coords(boundary[1], Nc; sampler=sampler)
+            #println(s_all)
+            l = boundary[1].length #cumulative length
+            for crv in boundary[2:end]
+                if (typeof(crv) <: AbsRealCurve || include_virtual)
+                    Lc = crv.length
+                    Nc = round(Int, N*Lc/L)
+                    xy,nxy,s,ds = boundary_coords(crv, Nc; sampler=sampler)
+                    append!(xy_all, xy)
+                    append!(normal_all, nxy)
+                    s = s .+ l
+                    append!(s_all, s)
+                    append!(ds_all, ds)
+                    l += Lc
+                end    
+            end
         end
         return BoundaryPointsU(xy_all,normal_all,s_all,ds_all) 
     end
 end
 
+#this takes care of singular points
 function regularize!(u)
     idx = findall(isnan, u)
     for i in idx
@@ -72,7 +103,11 @@ function boundary_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fou
         U::Array{type,2} = dX .+ dY
         u::Vector{type} = U * vec
         regularize!(u)
-        return u, pts.s::Vector{type}
+        w = dot.(pts.normal, pts.xy) .* pts.ds
+        integrand = abs2.(u) .* w
+        norm = sum(integrand)/(2*state.k^2)
+        #println(norm)
+        return u, pts.s::Vector{type}, norm
     end
 end
 
@@ -84,6 +119,6 @@ function momentum_function(u,s)
 end
 
 function momentum_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    u, s = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+    u, s, norm = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
     return momentum_function(u,s)
 end

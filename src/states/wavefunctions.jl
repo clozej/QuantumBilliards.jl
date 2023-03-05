@@ -18,6 +18,7 @@ function basis_matrix(basis::AbsBasis,k,vec, x::Vector{T}, y::Vector{T}) where T
     return B
 end
 =#
+#try using strided to optimize this
 function compute_psi(state::S, basis::Ba, billiard::Bi, x_grid, y_grid; inside_only=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
     let vec = state.vec, k = state.k, basis=basis, eps=state.eps
         #sz = length(x_grid)*length(y_grid)
@@ -103,6 +104,10 @@ function wavefunction(state::S, basis::Ba, crv::C; sampler=linear_nodes, b=5.0) 
     phi = B * vec
     return phi, s
 end
+
+
+
+
 #=
 function wavefunction(state::AbsState, basis::AbsBasis, billiard::AbsBilliard; b=5.0, inside_only=true) 
     vec = state.vec

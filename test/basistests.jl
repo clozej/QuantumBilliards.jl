@@ -1,6 +1,6 @@
-include("../src/basis/Basis.jl")
-using .Basis
-using StaticArrays
+include("../src/QuantumBilliards.jl")
+#using Revise
+using .QuantumBilliards
 using Test
 
 @testset "Basis tests: CornerAdaptedFourierBessel" begin

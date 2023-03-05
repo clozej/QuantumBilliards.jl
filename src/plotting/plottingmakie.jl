@@ -142,7 +142,7 @@ end
 
 function plot_boundary_function!(ax,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
     b=5.0, log=false,linesargs=Dict(),axargs=Dict())
-    u, s = boundary_function(state, basis, billiard; b= b)
+    u, s, norm = boundary_function(state, basis, billiard; b= b)
     if log
         lines!(ax, s, log10.(abs.(u)); linesargs...)
     else
@@ -152,7 +152,7 @@ end
 
 function plot_husimi_function!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
     b=5.0,log=false, inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
-    u, s = boundary_function(state, basis, billiard; b= b)
+    u, s, norm = boundary_function(state, basis, billiard; b= b)
     H, qs, ps = husimi(k,u,s; w = 7.0)    
     hmap, ax = plot_heatmap!(f,qs,ps,H;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
 end
