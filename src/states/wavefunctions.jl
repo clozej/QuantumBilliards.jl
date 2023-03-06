@@ -20,7 +20,7 @@ end
 =#
 #try using strided to optimize this
 function compute_psi(state::S, basis::Ba, billiard::Bi, x_grid, y_grid; inside_only=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let vec = state.vec, k = state.k, basis=basis, eps=state.eps
+    let vec = state.vec, k = state.k_basis, basis=basis, eps=state.eps
         #sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
         #println("Points type $(eltype(pts)), $(memory_size(pts))")

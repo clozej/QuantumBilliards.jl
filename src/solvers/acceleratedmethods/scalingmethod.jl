@@ -97,6 +97,13 @@ function sm_results(mu,k)
     return ks[p], ten[p]
 end
 
+function sm_vects_results(mu,k)
+    ks = k .- 2 ./mu .+ 2/k ./(mu.^2) 
+    ten = 2.0 .*(2.0 ./ mu).^2
+    #does not sort the results
+    return ks, ten
+end
+
 function solve(solver::ScalingMethod, basis::Ba, pts::BoundaryPointsSM, k, dk) where {Ba<:AbsBasis}
     F, Fk = construct_matrices(solver, basis, pts, k)
     mu = generalized_eigvals(Symmetric(F),Symmetric(Fk);eps=solver.eps)
@@ -111,6 +118,19 @@ function solve(solver::ScalingMethod,F,Fk, k, dk)
     ks, ten = sm_results(mu,k)
     idx = abs.(ks.-k) .< dk
     return ks[idx], ten[idx]
+end
+
+function solve_vectors(solver::ScalingMethod, basis::Ba, pts::BoundaryPointsSM, k, dk) where {Ba<:AbsBasis}
+    F, Fk = construct_matrices(solver, basis, pts, k)
+    mu, Z, C = generalized_eigen(Symmetric(F),Symmetric(Fk);eps=solver.eps)
+    ks, ten = sm_vects_results(mu,k)
+    idx = abs.(ks.-k) .< dk
+    ks = ks[idx]
+    ten = ten[idx]
+    Z = Z[:,idx]
+    X = C*Z #transform into original basis 
+    X = (sqrt.(ten))' .* X
+    return  ks, ten, X
 end
 
 #missing solve_vect and solve_vectors

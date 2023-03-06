@@ -90,12 +90,12 @@ function regularize!(u)
 end
 
 function boundary_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let vec = state.vec, new_basis = resize_basis(basis,state.dim), k = state.k
+    let vec = state.vec, new_basis = resize_basis(basis,state.dim), k = state.k, k_basis = state.k_basis
         type = eltype(vec)
         L = real_length(billiard)
         N = max(round(Int, k*L*b/(2*pi)), 512)
         pts = boundary_coords(billiard, N; sampler=sampler, include_virtual=include_virtual)
-        dX, dY = gradient_matrices(new_basis, k, pts.xy)
+        dX, dY = gradient_matrices(new_basis, k_basis, pts.xy)
         nx = getindex.(pts.normal,1)
         ny = getindex.(pts.normal,2)
         dX = nx .* dX 
@@ -103,9 +103,10 @@ function boundary_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fou
         U::Array{type,2} = dX .+ dY
         u::Vector{type} = U * vec
         regularize!(u)
+        #compute the boundary norm
         w = dot.(pts.normal, pts.xy) .* pts.ds
         integrand = abs2.(u) .* w
-        norm = sum(integrand)/(2*state.k^2)
+        norm = sum(integrand)/(2*k^2)
         #println(norm)
         return u, pts.s::Vector{type}, norm
     end
@@ -115,7 +116,7 @@ function momentum_function(u,s)
     fu = rfft(u)
     sr = 1.0/diff(s)[1]
     ks = rfftfreq(length(s),sr).*(2*pi)
-    return fu, ks
+    return abs2.(fu)/length(fu), ks
 end
 
 function momentum_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}

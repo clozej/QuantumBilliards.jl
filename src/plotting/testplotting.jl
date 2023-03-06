@@ -79,8 +79,8 @@ function plot_state_test!(f,state,basis,billiard; b_psi=10.0, b_u = 20.0, log_ps
     text!(ax_u,1.0,1.0, text = "norm=$norm", align = (:right, :top), color = :black, space=:relative)
 
     ax_k = Axis(f[3,2], xlabel=L"k", ylabel=L"u_k")
-    fu, ks = momentum_function(u,s)
-    lines!(ax_k, ks, abs2.(fu))
+    mf, ks = momentum_function(u,s)
+    lines!(ax_k, ks, mf)
     vlines!(ax_k, [k]; color=:black, linewidth=0.5)
     xlims!(ax_k, 0.0, 1.2*k)
     

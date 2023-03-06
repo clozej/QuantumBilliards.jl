@@ -86,6 +86,7 @@ export plot_domain_fun!, plot_domain!
 export plot_lattice!
 export plot_wavefunction!, plot_wavefunction_gradient!, plot_probability!
 export plot_boundary_function!
+export plot_heatmap!, plot_heatmap_balaced!
 include("plotting/testplotting.jl")
 export  plot_geometry_test!, plot_basis_test!, plot_solver_test!, plot_state_test!
 
