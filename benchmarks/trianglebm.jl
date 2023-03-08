@@ -42,12 +42,32 @@ f = Figure(resolution = (1000,500))
 plot_solver_test!(f,acc_solver,basis,billiard,100.0,101.0,0.1)
 display(f)
 
-k0 = 500.00
+k0 = 500.10
 dk = 0.01
 k, ten = solve_wavenumber(acc_solver,basis, billiard,k0,dk)
 state = compute_eigenstate(sw_solver, basis, billiard, k)
 state1 = compute_eigenstate(acc_solver, basis, billiard, k0)
 
+states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0;dk =0.1, tol=0.0005)
+states.ks
+states.tens
+
+
+f = Figure(resolution = (1500,1500))
+plot_husimi_function!(f,states,basis,billiard)
+display(f)
+
+f = Figure(resolution = (1500,1500))
+plot_boundary_function!(f,states,basis,billiard)
+display(f)
+
+f = Figure(resolution = (1500,1500))
+plot_momentum_function!(f,states,basis,billiard;log=true)
+display(f)
+
+f = Figure(resolution = (1500,1500))
+plot_probability!(f,states,basis,billiard)
+display(f)
 
 f = Figure(resolution = (1500,1500))
 plot_state_test!(f,state,basis,billiard)

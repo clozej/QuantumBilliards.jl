@@ -7,7 +7,7 @@ struct Eigenstate{K,T} <: StationaryState
     k_basis::K
     vec::Vector{T}
     ten::T
-    dim::Int
+    dim::Int64
     eps::T
     #basis type
 end
@@ -52,4 +52,38 @@ function compute_eigenstate(solver::AcceleratedSolver, basis::AbsBasis, billiard
     ten = tens[idx]
     vec = X[:,idx]
     return Eigenstate(k_state, k, vec, ten)
+end
+
+struct EigenstateBundle{K,T} <: AbsState
+    ks::Vector{K}
+    k_basis::K
+    X::Matrix{T}
+    tens::Vector{T}
+    dim::Int64
+    eps::T
+    #basis type
+end
+
+function EigenstateBundle(ks, k_basis, X, tens)  
+    eps = set_precision(X[1,1])
+    type = eltype(X)
+    if  type <: Real
+        filtered_array = type.([abs(x)>eps ? x : zero(type) for x in X])
+    else 
+        filtered_array = X
+    end
+    return EigenstateBundle(ks, k_basis, filtered_array, tens, length(X[:,1]), eps)
+end
+
+function compute_eigenstate_bundle(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k;sampler=gauss_legendre_nodes, dk = 0.1, tol=1e-5)
+    L = real_length(billiard)
+    dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
+    basis_new = resize_basis(basis, dim)
+    pts = evaluate_points(solver, billiard, sampler, k)
+    ks, tens, X = solve_vectors(solver,basis_new, pts, k, dk)
+    idx = abs.(tens) .< tol
+    ks = ks[idx]
+    tens = tens[idx]
+    X = X[:,idx]
+    return EigenstateBundle(ks, k, X, tens)
 end

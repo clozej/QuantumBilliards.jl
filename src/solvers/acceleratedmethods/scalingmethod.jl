@@ -130,7 +130,8 @@ function solve_vectors(solver::ScalingMethod, basis::Ba, pts::BoundaryPointsSM, 
     Z = Z[:,idx]
     X = C*Z #transform into original basis 
     X = (sqrt.(ten))' .* X
-    return  ks, ten, X
+    p = sortperm(ks)
+    return  ks[p], ten[p], X[:,p]
 end
 
 #missing solve_vect and solve_vectors

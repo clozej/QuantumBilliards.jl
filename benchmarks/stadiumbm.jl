@@ -6,7 +6,7 @@ using .QuantumBilliards
 using CairoMakie
 #using Latexify
 
-eps = 0.2 #sqrt(2)/2 * pi
+eps = 0.02 #sqrt(2)/2 * pi
 billiard, basis = make_stadium_and_basis(eps)
 
 f = Figure(resolution = (1000,500))
@@ -41,11 +41,17 @@ f = Figure(resolution = (1000,500))
 plot_solver_test!(f,acc_solver,basis,billiard,500.0,501.0,0.05)
 display(f)
 
-k0 = 503.6
+k0 = 703.6
 dk = 0.1
 k, ten = solve_wavenumber(acc_solver,basis, billiard,k0,dk)
 #k, ten = solve_wavenumber(sw_solver,basis, billiard,k0,dk)
 state = compute_eigenstate(sw_solver, basis, billiard, k)
+
+states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0;dk =0.1, tol=0.001)
+
+f = Figure(resolution = (800,2500))
+plot_probability!(f,states,basis,billiard,b=20.0, log=(true,-5))
+display(f)
 
 f = Figure(resolution = (1500,1500))
 plot_state_test!(f,state,basis,billiard; b_u= 40.0, include_virtual=false)

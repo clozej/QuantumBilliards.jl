@@ -67,8 +67,8 @@ include("states/eigenstates.jl")
 include("states/basisstates.jl")
 include("states/randomstates.jl")
 
-export Eigenstate, BasisState, GaussianRandomState
-export compute_eigenstate
+export Eigenstate, EigenstateBundle, BasisState, GaussianRandomState
+export compute_eigenstate, compute_eigenstate_bundle
 
 include("states/wavefunctions.jl")
 include("states/boundaryfunctions.jl")
@@ -85,7 +85,7 @@ export plot_curve!, plot_boundary!
 export plot_domain_fun!, plot_domain!
 export plot_lattice!
 export plot_wavefunction!, plot_wavefunction_gradient!, plot_probability!
-export plot_boundary_function!
+export plot_boundary_function!, plot_momentum_function!, plot_husimi_function!
 export plot_heatmap!, plot_heatmap_balaced!
 include("plotting/testplotting.jl")
 export  plot_geometry_test!, plot_basis_test!, plot_solver_test!, plot_state_test!

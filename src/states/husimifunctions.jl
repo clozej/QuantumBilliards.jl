@@ -8,6 +8,7 @@ function antisym_vec(x)
 end
 
 function husimi_function(k,u,s; c = 10.0, w = 7.0)
+    #c density of points in coherent state peak, w width in units of sigma
     #compute coherrent state weights
     N = length(s)
     sig = one(k)/sqrt(k) #width of the gaussian
@@ -47,6 +48,19 @@ function husimi_function(state::S, basis::Ba, billiard::Bi;  b = 5.0, c = 10.0, 
     k = state.k
     u, s, norm = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
     return husimi_function(k,u,s; c = c, w = w)
+end
+
+function husimi_function(state_bundle::S, basis::Ba, billiard::Bi;  b = 5.0, c = 10.0, w = 7.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle,Ba<:AbsBasis,Bi<:AbsBilliard}
+    ks = state_bundle.ks
+    us, s, norm = boundary_function(state_bundle, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+    H, qs, ps = husimi_function(ks[1],us[1],s; c = c, w = w)
+    type = eltype(H)
+    Hs::Vector{Matrix{type}} = [H]
+    for i in 2:length(ks)
+        H, qs, ps = husimi_function(ks[i],us[i],s; c = c, w = w)
+        push!(Hs,H)
+    end
+    return Hs, qs, ps
 end
 #=
 function coherent(q,p,k,s,L,m::Int)
