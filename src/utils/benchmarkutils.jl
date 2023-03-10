@@ -1,6 +1,6 @@
 #include("../abstracttypes.jl")
 #include("../solvers/particularsolutionsmethod.jl")
-include("../plotting/matrixplotting.jl")
+#include("../plotting/matrixplotting.jl")
 using Makie
 
 

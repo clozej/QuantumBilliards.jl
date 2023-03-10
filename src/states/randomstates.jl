@@ -5,6 +5,7 @@ using Random, Distributions
 
 struct GaussianRandomState{K,T} <: AbsState where {K<:Number, T<:Real}
     k::K
+    k_basis::K
     vec::Vector{T}
     dim::Int64
     eps::T
@@ -16,5 +17,5 @@ function GaussianRandomState(k,dim)
     vec = rand(d, N)
     eps = set_precision(k)
     #norm = sum(abs.(vec))
-    return GaussianRandomState(k, vec, dim,eps)
+    return GaussianRandomState(k,k, vec, dim,eps)
 end

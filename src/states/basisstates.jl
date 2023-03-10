@@ -4,6 +4,7 @@
 
 struct BasisState{K,T} <: StationaryState where {K<:Number, T<:Real}
     k::K
+    k_basis::K
     vec::Vector{T}
     dim::Int64
     eps::T
@@ -15,5 +16,5 @@ function BasisState(k, i, dim)
     eps = set_precision(k)
     vec = zeros(typ,dim)
     vec[i] = one(typ)
-    return BasisState(k, vec, dim, eps)
+    return BasisState(k,k, vec, dim, eps)
 end

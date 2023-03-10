@@ -36,7 +36,11 @@ function compute_psi(state::S, basis::Ba, billiard::Bi, x_grid, y_grid; inside_o
         if memory < memory_limit
             B = basis_matrix(basis, k, pts)
             Psi_pts = B*vec
-            Psi[pts_mask] .= Psi_pts
+            if inside_only
+                Psi[pts_mask] .= Psi_pts
+            else
+                Psi .= Psi_pts
+            end
         else
             println("Warning: memory limit of $(Base.format_bytes(memory_limit)) exceded $(Base.format_bytes(memory)).")
             if inside_only

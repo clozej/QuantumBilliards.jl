@@ -86,6 +86,7 @@ function compute_spectrum(solver::AbsSolver, basis::AbsBasis, pts::AbsPoints,k1,
     return k_res, ten_res, control
 end
 
+#=
 using Makie
 function compute_spectrum_test(solver::AbsSolver, basis::AbsBasis, pts::AbsPoints,k1,k2,dk;tol=1e-4, plot_info=false)
     k0 = k1
@@ -120,3 +121,4 @@ function compute_spectrum_test(solver::AbsSolver, basis::AbsBasis, pts::AbsPoint
     display(f)
     return k_res, ten_res, control
 end
+=#

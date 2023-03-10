@@ -4,6 +4,7 @@ module QuantumBilliards
 #abstract types
 include("abstracttypes.jl")
 #utils must be included here so modules work
+export AbsBasis
 include("utils/coordinatesystems.jl")
 include("utils/geometryutils.jl")
 include("utils/billiardutils.jl")
@@ -88,7 +89,7 @@ export plot_wavefunction!, plot_wavefunction_gradient!, plot_probability!
 export plot_boundary_function!, plot_momentum_function!, plot_husimi_function!
 export plot_heatmap!, plot_heatmap_balaced!
 include("plotting/testplotting.jl")
-export  plot_geometry_test!, plot_basis_test!, plot_solver_test!, plot_state_test!
+export  plot_geometry_test!, plot_basis_test!, plot_solver_test!, plot_state_test!, plot_matrix!
 
 include("utils/benchmarkutils.jl")
 export BenchmarkInfo
