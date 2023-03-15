@@ -111,41 +111,51 @@ end
 
 #wavefunction plotting
 
-function plot_wavefunction!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
-    b=5.0,dens = 10.0, inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
-    Psi, x, y = wavefunction(state,basis,billiard;b=b, inside_only=inside_only)
+function plot_wavefunction!(f,state::AbsState; b=5.0,dens = 10.0, 
+    inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
+    Psi, x, y = wavefunction(state;b=b, inside_only=inside_only)
     #Psi[Psi .== zero(eltype(Psi))] .= NaN
-
+    billiard = state.billiard
     hmap, ax = plot_heatmap_balaced!(f,x,y,Psi ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs)
     plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
 end
 
-function plot_wavefunction_gradient!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
-    b=5.0,dens = 10.0, inside_only=true, plot_normal=false, lengthscale = 0.001, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
+function plot_wavefunction!(f,state::BasisState, billiard::AbsBilliard; b=5.0,dens = 10.0, 
+    inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
+    Psi, x, y = wavefunction(state;b=b)
+    #Psi[Psi .== zero(eltype(Psi))] .= NaN
+    hmap, ax = plot_heatmap_balaced!(f,x,y,Psi ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs)
+    plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
+end
+
+function plot_wavefunction_gradient!(f,state::AbsState; b=5.0,dens = 10.0, inside_only=true, plot_normal=false, lengthscale = 0.001, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
     #Psi[Psi .== zero(eltype(Psi))] .= NaN
     ax = Axis(f[1,1])  
-    dX, dY, x_grid, y_grid =  wavefunction_gradient(state,basis,billiard;b=b, inside_only=inside_only)
+    dX, dY, x_grid, y_grid =  wavefunction_gradient(state;b=b, inside_only=inside_only)
     arrows!(ax,x_grid,y_grid, dX,dY, color = :black, lengthscale = lengthscale)
+    billiard = state.billiard
     plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
     ax.aspect=DataAspect()
 end
 
-function plot_probability!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
-    b=5.0,dens = 100.0,log=false, inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), memory_limit = 10.0e9)
-    Psi, x, y = wavefunction(state,basis,billiard;b=b, inside_only=inside_only, memory_limit=memory_limit)
+function plot_probability!(f,state::AbsState; b=5.0,dens = 100.0,log=false, inside_only=true, 
+    plot_normal=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), memory_limit = 10.0e9)
+    Psi, x, y = wavefunction(state;b=b, inside_only=inside_only, memory_limit=memory_limit)
     Psi = abs2.(Psi)
     #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
     
     hmap, ax = plot_heatmap!(f,x,y,Psi ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
+    billiard = state.billiard
     plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
 end
 
 
-function plot_probability!(f,state_bundle::EigenstateBundle, basis::AbsBasis, billiard::AbsBilliard; 
+function plot_probability!(f,state_bundle::EigenstateBundle; 
     b=5.0,dens = 100.0,log=false, inside_only=true, plot_normal=false, 
     vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), 
     memory_limit = 10.0e9)
-    Psi_bundle, x, y = wavefunction(state_bundle,basis,billiard;b=b, inside_only=inside_only, memory_limit=memory_limit)
+    Psi_bundle, x, y = wavefunction(state_bundle;b=b, inside_only=inside_only, memory_limit=memory_limit)
+    billiard = state.billiard
     for i in eachindex(Psi_bundle)
         P = abs2.(Psi_bundle[i])   
         hmap, ax = plot_heatmap!(f[i,1],x,y,P ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
@@ -155,10 +165,11 @@ end
 
 
 
-function plot_boundary_function!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
+function plot_boundary_function!(f,state::AbsState; 
     b=5.0, log=false, include_virtual=true, linesargs=Dict(),axargs=Dict())
     ax = Axis(f[i,1]; axargs...)
-    u, s, norm = boundary_function(state, basis, billiard; b=b, include_virtual=include_virtual)
+    u, s, norm = boundary_function(state; b=b, include_virtual=include_virtual)
+    billiard = state.billiard
     edges = curve_edge_lengths(billiard;include_virtual=include_virtual)
     if log
         lines!(ax, s, log10.(abs.(u)); linesargs...)
@@ -169,9 +180,10 @@ function plot_boundary_function!(f,state::AbsState, basis::AbsBasis, billiard::A
     end
 end
 
-function plot_boundary_function!(f,state_bundle::EigenstateBundle, basis::AbsBasis, billiard::AbsBilliard; 
+function plot_boundary_function!(f,state_bundle::EigenstateBundle; 
     b=5.0, log=false, include_virtual=true, linesargs=Dict(),axargs=Dict())
-    us, s, norms = boundary_function(state_bundle, basis, billiard; b=b, include_virtual=include_virtual)
+    us, s, norms = boundary_function(state_bundle; b=b, include_virtual=include_virtual)
+    billiard = state_bundle.billiard
     edges = curve_edge_lengths(billiard;include_virtual=include_virtual)
     for i in eachindex(us)
         ax = Axis(f[i,1]; axargs...)
@@ -185,9 +197,9 @@ function plot_boundary_function!(f,state_bundle::EigenstateBundle, basis::AbsBas
     end
 end
 
-function plot_momentum_function!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
+function plot_momentum_function!(f,state::AbsState; 
     b=5.0, log=false,  include_virtual=true, linesargs=Dict(),axargs=Dict())
-    mf, k_range = momentum_function(state, basis, billiard; b=b, include_virtual=include_virtual)
+    mf, k_range = momentum_function(state; b=b, include_virtual=include_virtual)
     ax = Axis(f[i,1]; axargs...)
     if log
         lines!(ax, k_range, log10.(abs.(mf)); linesargs...)
@@ -199,9 +211,9 @@ function plot_momentum_function!(f,state::AbsState, basis::AbsBasis, billiard::A
     end
 end
 
-function plot_momentum_function!(f,state_bundle::EigenstateBundle, basis::AbsBasis, billiard::AbsBilliard; 
+function plot_momentum_function!(f,state_bundle::EigenstateBundle; 
     b=5.0, log=false,  include_virtual=true, linesargs=Dict(),axargs=Dict())
-    mfs, k_range = momentum_function(state_bundle, basis, billiard; b=b,  include_virtual=include_virtual)
+    mfs, k_range = momentum_function(state_bundle; b=b,  include_virtual=include_virtual)
     ks = state_bundle.ks
     for i in eachindex(mfs)
         ax = Axis(f[i,1]; axargs...)
@@ -217,21 +229,27 @@ function plot_momentum_function!(f,state_bundle::EigenstateBundle, basis::AbsBas
     end
 end
 
-function plot_husimi_function!(f,state::AbsState, basis::AbsBasis, billiard::AbsBilliard; 
+function plot_husimi_function!(f,state::AbsState; 
     b=5.0,log=false,  include_virtual=true, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
-    u, s, norm = boundary_function(state, basis, billiard; b=b, include_virtual=include_virtual)
-    H, qs, ps = husimi_function(k,u,s; w = 7.0)    
+    u, s, norm = boundary_function(state; b=b, include_virtual=include_virtual)
+    H, qs, ps = husimi_function(k,u,s; w = 7.0)
+    billiard = state.billiard
+    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)    
     hmap, ax = plot_heatmap!(f,qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
+    vlines!(ax, edges; color=:black, linewidth=0.5)
 end
 
 
-function plot_husimi_function!(f,state_bundle::EigenstateBundle, basis::AbsBasis, billiard::AbsBilliard; 
+function plot_husimi_function!(f,state_bundle::EigenstateBundle; 
     b=5.0,log=false,  include_virtual=true, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
-    us, s, norms = boundary_function(state_bundle, basis, billiard; b=b,  include_virtual=include_virtual)
+    us, s, norms = boundary_function(state_bundle; b=b,  include_virtual=include_virtual)
     ks = state_bundle.ks
+    billiard = state_bundle.billiard
+    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)    
     for i in eachindex(us)
         H, qs, ps = husimi_function(ks[i],us[i],s; w = 7.0)    
         hmap, ax = plot_heatmap!(f[i,1],qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
+        vlines!(ax, edges; color=:black, linewidth=0.5)
     end
 end
 

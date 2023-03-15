@@ -13,7 +13,11 @@ end
 
 #needs some work
 function fourier_nodes(N::Int; primes=(2,3,5)) #starts at 0 ends at 
-    M = nextprod(primes,N)
+    if primes == false
+        M = N
+    else
+        M = nextprod(primes,N)
+    end
     t = collect(i/M for i in 0:(M-1))
     dt = diff(t)
     dt = push!(dt,dt[1])
@@ -21,7 +25,11 @@ function fourier_nodes(N::Int; primes=(2,3,5)) #starts at 0 ends at
 end
 
 function fourier_nodes(N::Int, crv_lengths; primes=(2,3,5)) #starts at 0 ends at 
-    M = nextprod(primes,N)
+    if primes == false
+        M = N
+    else
+        M = nextprod(primes,N)
+    end
     L = sum(crv_lengths)
     ts =Vector{Vector{typeof(L)}}(undef,0)
     dts =Vector{Vector{typeof(L)}}(undef,0)

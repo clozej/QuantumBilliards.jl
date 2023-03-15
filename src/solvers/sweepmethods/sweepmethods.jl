@@ -8,7 +8,7 @@ using LinearAlgebra, Optim
 
 function solve_wavenumber(solver::SweepSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk; sampler=gauss_legendre_nodes)
     dim = round(Int, real_length(billiard)*k*solver.dim_scaling_factor/(2*pi))
-    new_basis = resize_basis(basis,dim)
+    new_basis = resize_basis(basis,billiard,dim,k)
     pts = evaluate_points(solver, billiard, sampler, k)
     function f(k)
         return solve(solver,new_basis,pts,k)
@@ -21,7 +21,7 @@ end
 function k_sweep(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard, ks; sampler=gauss_legendre_nodes)
     k = maximum(ks)
     dim = round(Int, real_length(billiard)*k*solver.dim_scaling_factor/(2*pi))
-    new_basis = resize_basis(basis,dim)
+    new_basis = resize_basis(basis,billiard,dim,k)
     pts = evaluate_points(solver, billiard, sampler, k)
     res = similar(ks)
     for (i,k) in enumerate(ks)

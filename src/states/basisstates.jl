@@ -2,19 +2,21 @@
 #include("../utils/billiardutils.jl")
 #include("../utils/typeutils.jl")
 
-struct BasisState{K,T} <: StationaryState where {K<:Number, T<:Real}
+struct BasisState{K,T,Ba} <: StationaryState 
     k::K
     k_basis::K
     vec::Vector{T}
+    idx::Int64
     dim::Int64
     eps::T
-    #basis type
+    basis::Ba
 end
 
-function BasisState(k, i, dim)  
+function BasisState(basis, k, i)  
+    dim = basis.dim
     typ = typeof(k)
     eps = set_precision(k)
     vec = zeros(typ,dim)
     vec[i] = one(typ)
-    return BasisState(k,k, vec, dim, eps)
+    return BasisState(k,k, vec, i, dim, eps, basis)
 end

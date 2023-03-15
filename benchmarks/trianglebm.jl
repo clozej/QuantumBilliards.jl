@@ -22,10 +22,18 @@ f = Figure(resolution = (1000,500))
 plot_basis_test!(f, basis, billiard)
 display(f)
 
-d = 3.5
+
+d = 3.0
 b = 5.0
 sw_solver = DecompositionMethod(d,b)
-acc_solver = ScalingMethod(d,b)
+acc_solverA = ScalingMethodA(d,b)
+acc_solverB = ScalingMethodB(d,b)
+acc_solver = acc_solverA
+
+k0 = 1000.00
+dk = 0.1
+acc_infoA = benchmark_solver(acc_solverA, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoB = benchmark_solver(acc_solverB, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
 
 k0 = 1000.001
 dk = 0.01
@@ -56,27 +64,24 @@ states.tens
 
 
 f = Figure(resolution = (1500,1500))
-plot_husimi_function!(f,states,basis,billiard)
+plot_husimi_function!(f,states)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_boundary_function!(f,states,basis,billiard)
+plot_boundary_function!(f,states)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_momentum_function!(f,states,basis,billiard;log=true)
+plot_momentum_function!(f,states;log=true)
+display(f)
+
+
+f = Figure(resolution = (1500,1500))
+plot_state_test!(f,state)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_probability!(f,states,basis,billiard)
-display(f)
-
-f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state,basis,billiard)
-display(f)
-
-f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state1,basis,billiard)
+plot_state_test!(f,state1)
 display(f)
 
 b_range =collect(range(2.0,6.0,step=0.5))

@@ -4,83 +4,6 @@
 #include("../solvers/matrixconstructors.jl")
 using FFTW
 
-struct BoundaryPointsU{T} <: AbsPoints where {T<:Real}
-    xy::Vector{SVector{2,T}}
-    normal::Vector{SVector{2,T}} #normal vectors in points
-    s::Vector{T} # arc length coords
-    ds::Vector{T} #integration weights
-end
-
-function boundary_coords(crv::C, N; sampler=fourier_nodes) where {C<:AbsCurve}
-    L = crv.length
-    t, dt = sampler(N)
-    xy = curve(crv, t)
-    normal = normal_vec(crv,t)
-    s = arc_length(crv,t)
-    ds = L.*dt #modify for different parametrizations
-    return xy, normal, s, ds
-end
-
-function boundary_coords(crv::C, t, dt) where {C<:AbsCurve}
-    L = crv.length
-    xy = curve(crv, t)
-    normal = normal_vec(crv,t)
-    s = arc_length(crv,t)
-    ds = L.*dt #modify for different parametrizations
-    return xy, normal, s, ds
-end 
-
-#make better
-function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, include_virtual=true) where {Bi<:AbsBilliard}
-    let boundary = billiard.boundary
-        if sampler==fourier_nodes
-            crv_lengths = [crv.length for crv in boundary]
-            ts, dts = fourier_nodes(N, crv_lengths)
-
-            xy_all, normal_all, s_all, ds_all = boundary_coords(boundary[1], ts[1], dts[1])
-            l = boundary[1].length
-            for i in 2:length(ts)
-                crv = boundary[i]
-                if (typeof(crv) <: AbsRealCurve || include_virtual)
-                    Lc = crv.length
-                    #Nc = round(Int, N*Lc/L)
-                    xy,nxy,s,ds = boundary_coords(crv, ts[i], dts[i])
-                    append!(xy_all, xy)
-                    append!(normal_all, nxy)
-                    s = s .+ l
-                    append!(s_all, s)
-                    append!(ds_all, ds)
-                    l += Lc
-                end    
-            end
-        else
-            L = real_length(billiard)
-            if include_virtual
-            L += virtual_length(billiard) 
-            end
-            Lc = boundary[1].length
-            Nc = round(Int, N*Lc/L)
-            xy_all, normal_all, s_all, ds_all = boundary_coords(boundary[1], Nc; sampler=sampler)
-            #println(s_all)
-            l = boundary[1].length #cumulative length
-            for crv in boundary[2:end]
-                if (typeof(crv) <: AbsRealCurve || include_virtual)
-                    Lc = crv.length
-                    Nc = round(Int, N*Lc/L)
-                    xy,nxy,s,ds = boundary_coords(crv, Nc; sampler=sampler)
-                    append!(xy_all, xy)
-                    append!(normal_all, nxy)
-                    s = s .+ l
-                    append!(s_all, s)
-                    append!(ds_all, ds)
-                    l += Lc
-                end    
-            end
-        end
-        return BoundaryPointsU(xy_all,normal_all,s_all,ds_all) 
-    end
-end
-
 #this takes care of singular points
 function regularize!(u)
     idx = findall(isnan, u)
@@ -89,8 +12,8 @@ function regularize!(u)
     end
 end
 
-function boundary_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let vec = state.vec, new_basis = resize_basis(basis,state.dim), k = state.k, k_basis = state.k_basis
+function boundary_function(state::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState}
+    let vec = state.vec, k = state.k, k_basis = state.k_basis, new_basis = state.basis, billiard=state.billiard
         type = eltype(vec)
         L = real_length(billiard)
         N = max(round(Int, k*L*b/(2*pi)), 512)
@@ -112,8 +35,8 @@ function boundary_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fou
     end
 end
 
-function boundary_function(state_bundle::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let X = state_bundle.X, new_basis = resize_basis(basis,state_bundle.dim), k_basis = state_bundle.k_basis, ks = state_bundle.ks
+function boundary_function(state_bundle::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle}
+    let X = state_bundle.X, k_basis = state_bundle.k_basis, ks = state_bundle.ks, new_basis = state_bundle.basis, billiard=state_bundle.billiard 
         type = eltype(X)
         L = real_length(billiard)
         N = max(round(Int, k_basis*L*b/(2*pi)), 512)
@@ -144,14 +67,14 @@ function momentum_function(u,s)
     return abs2.(fu)/length(fu), ks
 end
 
-function momentum_function(state::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    u, s, norm = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+function momentum_function(state::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState}
+    u, s, norm = boundary_function(state; b=b, sampler=sampler, include_virtual=include_virtual)
     return momentum_function(u,s)
 end
 
 #this can be optimized by usinf FFTW plans
-function momentum_function(state_bundle::S, basis::Ba, billiard::Bi; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle,Ba<:AbsBasis,Bi<:AbsBilliard}
-    us, s, norms = boundary_function(state_bundle, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+function momentum_function(state_bundle::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle}
+    us, s, norms = boundary_function(state_bundle; b=b, sampler=sampler, include_virtual=include_virtual)
     mf, ks = momentum_function(us[1],s)
     type = eltype(mf)
     mfs::Vector{Vector{type}} = [mf]

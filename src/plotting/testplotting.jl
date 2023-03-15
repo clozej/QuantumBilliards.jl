@@ -14,7 +14,7 @@ function plot_matrix!(f, A; log=false)
         N[S .>= 0.0] .= NaN #mask positive amplitudes
         Z[S .< 0.0] .= NaN #mask negative amplitudes
 
-        println("$m1, $m2")
+        #println("$m1, $m2")
         range_val1 = (-15,m1)
         range_val2 = (-15,m2)
 
@@ -30,7 +30,7 @@ function plot_matrix!(f, A; log=false)
     else
         m = findmax(abs.(Z))[1]
         Z[abs.(Z).<eps()] .= NaN
-        println("$m")
+        #println("$m")
         range_val = (-m,m) 
         hmap = heatmap!(ax, Z, colormap = :balance, colorrange=range_val)
         ax.yreversed=true
@@ -46,9 +46,9 @@ function plot_geometry_test!(ax,billiard)
     plot_boundary!(ax,billiard;dens=20.0)
 end
 
-function plot_basis_test!(f,basis,billiard;i=1,k=10.0,dim=10)
-    basisstate = BasisState(k, i, dim)
-    plot_wavefunction!(f, basisstate, basis, billiard, b=10.0, plot_normal=false, inside_only=false) 
+function plot_basis_test!(f,basis,billiard;i=1,k=10.0)
+    basisstate = BasisState(basis,k, i)
+    plot_wavefunction!(f, basisstate,billiard; b=10.0, plot_normal=false, inside_only=false) 
 end
 
 function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true,sampler=gauss_legendre_nodes, tol=1e-4) where {S<:AcceleratedSolver}
@@ -103,14 +103,15 @@ function plot_solver_test!(f,sw_solver::S,basis,billiard,k1,k2,dk;log=true, samp
         ax = Axis(f[1,1],xlabel=L"k", ylabel=L"t")
         lines!(ax, ks, ts)
     end
-    return ax
+    #return ax
 end
 
-function plot_state_test!(f,state,basis,billiard; b_psi=10.0, b_u = 20.0, log_psi =(true,-5), include_virtual = true)
-    plot_probability!(f[1:2,1:2], state, basis, billiard; b=b_psi, log = log_psi)
+function plot_state_test!(f,state; b_psi=10.0, b_u = 20.0, log_psi =(true,-5), include_virtual = true)
+    plot_probability!(f[1:2,1:2], state; b=b_psi, log = log_psi)
     k = state.k
+    billiard=state.billiard
     ax_u = Axis(f[3,1], xlabel=L"q", ylabel=L"u")
-    u, s, norm = boundary_function(state, basis, billiard; b=b_u, include_virtual=include_virtual)
+    u, s, norm = boundary_function(state; b=b_u, include_virtual=include_virtual)
     edges = curve_edge_lengths(billiard;include_virtual=include_virtual)
     lines!(ax_u, s, u)
     vlines!(ax_u, edges; color=:black, linewidth=0.5)

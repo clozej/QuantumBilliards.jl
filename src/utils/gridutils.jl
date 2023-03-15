@@ -42,7 +42,7 @@ end
 
 function interior_grid(billiard::AbsBilliard,size)
     xlim,ylim = boundary_limits(billiard.boundary; grd=1000)
-    println(xlim,ylim)
+    #println(xlim,ylim)
     return interior_grid(billiard,size,xlim,ylim)
 end
 

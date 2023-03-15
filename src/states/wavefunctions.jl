@@ -19,8 +19,8 @@ function basis_matrix(basis::AbsBasis,k,vec, x::Vector{T}, y::Vector{T}) where T
 end
 =#
 #try using strided to optimize this
-function compute_psi(state::S, basis::Ba, billiard::Bi, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let vec = state.vec, k = state.k_basis, basis=basis, eps=state.eps #basis is correct size
+function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:AbsState}
+    let vec = state.vec, k = state.k_basis, basis=state.basis, billiard=state.billiard, eps=state.eps #basis is correct size
         sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
         if inside_only
@@ -62,21 +62,39 @@ function compute_psi(state::S, basis::Ba, billiard::Bi, x_grid, y_grid; inside_o
     end
 end
 
-function wavefunction(state::S, basis::Ba, billiard::Bi; b=5.0, inside_only=true, memory_limit = 10.0e9) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let new_basis = resize_basis(basis, state.dim) 
-        k = state.k       
+function wavefunction(state::S; b=5.0, inside_only=true, memory_limit = 10.0e9) where {S<:AbsState}
+    let k = state.k, billiard=state.billiard       
         #println(new_basis.dim)
         type = eltype(state.vec)
         #try to find a lazy way to do this
         L = real_length(billiard)
-        xlim,ylim = boundary_limits(billiard.boundary; grd=round(Int, k*L*b/(2*pi)), type=type)
+        xlim,ylim = boundary_limits(billiard.boundary; grd=max(1000,round(Int, k*L*b/(2*pi))), type=type)
         dx = xlim[2] - xlim[1]
         dy = ylim[2] - ylim[1]
         nx = max(round(Int, k*dx*b/(2*pi)), 512)
         ny = max(round(Int, k*dy*b/(2*pi)), 512)
         x_grid::Vector{type} = collect(type,range(xlim... , nx))
         y_grid::Vector{type} = collect(type,range(ylim... , ny))
-        Psi::Vector{type} = compute_psi(state,new_basis,billiard,x_grid,y_grid;inside_only=inside_only, memory_limit = memory_limit) 
+        Psi::Vector{type} = compute_psi(state,x_grid,y_grid;inside_only=inside_only, memory_limit = memory_limit) 
+        #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
+        Psi2d::Array{type,2} = reshape(Psi, (nx,ny))
+        return Psi2d, x_grid, y_grid
+    end
+end
+
+function wavefunction(state::BasisState; xlim =(-3.0,3.0), ylim=(-3.0,3.0), b=5.0, inside_only=true, memory_limit = 10.0e9) 
+    let k = state.k, basis=state.basis      
+        #println(new_basis.dim)
+        type = eltype(state.vec)
+        #try to find a lazy way to do this
+        dx = xlim[2] - xlim[1]
+        dy = ylim[2] - ylim[1]
+        nx = max(round(Int, k*dx*b/(2*pi)), 512)
+        ny = max(round(Int, k*dy*b/(2*pi)), 512)
+        x_grid::Vector{type} = collect(type,range(xlim... , nx))
+        y_grid::Vector{type} = collect(type,range(ylim... , ny))
+        pts_grid = [SVector(x,y) for y in y_grid for x in x_grid]
+        Psi::Vector{type} = basis_fun(basis,state.idx,k,pts_grid) 
         #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
         Psi2d::Array{type,2} = reshape(Psi, (nx,ny))
         return Psi2d, x_grid, y_grid
@@ -84,8 +102,8 @@ function wavefunction(state::S, basis::Ba, billiard::Bi; b=5.0, inside_only=true
 end
 
 #this can be optimized
-function compute_psi(state_bundle::S, basis::Ba, billiard::Bi, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:EigenstateBundle,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let k = state_bundle.k_basis, basis=basis, eps=state_bundle.eps, X=state_bundle.X #basis is correct size
+function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:EigenstateBundle}
+    let k = state_bundle.k_basis, basis=state_bundle.basis, billiard=state_bundle.billiard, X=state_bundle.X #basis is correct size
         sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
         if inside_only
@@ -125,21 +143,20 @@ function compute_psi(state_bundle::S, basis::Ba, billiard::Bi, x_grid, y_grid; i
     end
 end
 
-function wavefunction(state_bundle::S, basis::Ba, billiard::Bi; b=5.0, inside_only=true, memory_limit = 10.0e9) where {S<:EigenstateBundle,Ba<:AbsBasis,Bi<:AbsBilliard}
-    let new_basis = resize_basis(basis, state_bundle.dim) 
-        k = state_bundle.k_basis       
+function wavefunction(state_bundle::S; b=5.0, inside_only=true, memory_limit = 10.0e9) where {S<:EigenstateBundle}
+    let k = state_bundle.k_basis, billiard=state_bundle.billiard       
         #println(new_basis.dim)
         type = eltype(state_bundle.X)
         #try to find a lazy way to do this
         L = real_length(billiard)
-        xlim,ylim = boundary_limits(billiard.boundary; grd=round(Int, k*L*b/(2*pi)), type=type)
+        xlim,ylim = boundary_limits(billiard.boundary; grd=max(1000,round(Int, k*L*b/(2*pi))), type=type)
         dx = xlim[2] - xlim[1]
         dy = ylim[2] - ylim[1]
         nx = max(round(Int, k*dx*b/(2*pi)), 512)
         ny = max(round(Int, k*dy*b/(2*pi)), 512)
         x_grid::Vector{type} = collect(type,range(xlim... , nx))
         y_grid::Vector{type} = collect(type,range(ylim... , ny))
-        Psi_bundle::Matrix{type} = compute_psi(state_bundle,new_basis,billiard,x_grid,y_grid;inside_only=inside_only, memory_limit = memory_limit) 
+        Psi_bundle::Matrix{type} = compute_psi(state_bundle,x_grid,y_grid;inside_only=inside_only, memory_limit = memory_limit) 
         #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
         Psi2d::Vector{Array{type,2}} = [reshape(Psi, (nx,ny)) for Psi in eachcol(Psi_bundle)]
         return Psi2d, x_grid, y_grid
@@ -150,6 +167,7 @@ end
 
 
 #not finished
+#=
 function wavefunction(state::S, basis::Ba, crv::C; sampler=linear_nodes, b=5.0) where {S<:AbsState,Ba<:AbsBasis,C<:AbsCurve}
     vec = state.vec
     #typ = eltype(vec)
@@ -172,7 +190,7 @@ function wavefunction(state::S, basis::Ba, crv::C; sampler=linear_nodes, b=5.0) 
     return phi, s
 end
 
-
+=#
 
 
 #=

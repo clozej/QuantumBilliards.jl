@@ -3,33 +3,54 @@
 #include("../basis/fourierbessel/corneradapted.jl")
 #include("geometry.jl")
 
-function make_stadium(width;radius=one(width),x0=zero(width),y0=zero(width), curve_types=[:Real,:Real,:Virtual,:Virtual],rot_angle=zero(width))
+function make_quarter_stadium(half_width;radius=one(half_width),x0=zero(half_width),y0=zero(half_width),rot_angle=zero(half_width))
     #d(x, y, x0, y0, x1, y1) = @.((y1-y0)*x-(x1-x0)*y+x1*y0-y1*x0)
     origin = SVector(x0,y0)
-    circle = CircleSegment(radius,pi/2,zero(width), width, zero(width); origin=origin, rot_angle = rot_angle)
-
-    line1 = (curve_types[2] == :Real) ? LineSegment(SVector(width, radius), SVector(zero(width), radius+y0);origin=origin,rot_angle=rot_angle) : VirtualLineSegment(SVector(width, radius), SVector(zero(width), radius+y0);origin=origin,rot_angle=rot_angle)
-    line2 = (curve_types[3] == :Real) ? LineSegment(SVector(zero(width), radius), SVector(zero(width), zero(width));origin=origin,rot_angle=rot_angle) : VirtualLineSegment(SVector(zero(width), radius), SVector(zero(width), zero(width));origin=origin,rot_angle=rot_angle)
-    line3 = (curve_types[4] == :Real) ? LineSegment(SVector(zero(width), zero(width)), SVector(width + radius, zero(width));origin=origin,rot_angle=rot_angle) : VirtualLineSegment(SVector(zero(width), zero(width)), SVector(width + radius, zero(width));origin=origin,rot_angle=rot_angle)
+    type = typeof(half_width)
+    circle = CircleSegment(radius,pi/2,zero(type), half_width, zero(type); origin=origin, rot_angle = rot_angle)
+    corners = [SVector(half_width, radius), SVector(zero(type), radius), SVector(zero(type), zero(type)), SVector(half_width + radius, zero(type))]
+    
+    line1 = LineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
+    line2 = VirtualLineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
+    line3 = VirtualLineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
     boundary = [circle, line1, line2, line3]
+    return boundary, corners
+end
 
-    return boundary
+function make_full_stadium(half_width;radius=one(half_width),x0=zero(half_width),y0=zero(half_width),rot_angle=zero(half_width))
+    #d(x, y, x0, y0, x1, y1) = @.((y1-y0)*x-(x1-x0)*y+x1*y0-y1*x0)
+    origin = SVector(x0,y0)
+    type = typeof(half_width)
+    
+    corners = [SVector(half_width, radius), SVector(-half_width, radius), SVector(-half_width, -radius), SVector(half_width, -radius)]
+    circle1 = CircleSegment(radius,1.0*pi, -pi*0.5, half_width, zero(type); origin=origin, rot_angle = rot_angle)
+    line1 = LineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
+    circle2 = CircleSegment(radius,1.0*pi, pi*0.5, -half_width, zero(type); origin=origin, rot_angle = rot_angle)
+    line2 = LineSegment(corners[3],corners[4];origin=origin,rot_angle=rot_angle)
+    boundary = [circle1, line1, circle2, line2]
+    return boundary, corners
 end
 
 struct Stadium{T}  <: AbsBilliard where {T<:Number}
     boundary::Vector
     length::T
     area::T
-    width::T
+    half_width::T
     radius::T
-         
+    corners::Vector{SVector{2,T}}
 end
 
-function Stadium(width;radius=1.0,x0=0.0,y0=0.0, curve_types=[:Real,:Real,:Virtual,:Virtual])
-    boundary = make_stadium(width;radius=radius,x0=x0,y0=y0, curve_types=curve_types)
+function Stadium(half_width;full_domain=false, radius=1.0,x0=0.0,y0=0.0)
+    if full_domain
+        boundary, corners = make_full_stadium(half_width;radius=radius,x0=x0,y0=y0)
+        area = 4.0*half_width*radius + (pi*radius^2)
+    else
+        boundary, corners = make_quarter_stadium(half_width;radius=radius,x0=x0,y0=y0)
+        area = half_width*radius + (pi*radius^2)/4.0 
+    end
     length = sum([crv.length for crv in boundary])
-    area = width*radius + (pi*radius^2)/4.0 #PolygonOps.area(collect(zip(x,y)))
-    return Stadium(boundary,length,area,width,radius)
+    #PolygonOps.area(collect(zip(x,y)))
+    return Stadium(boundary,length,area,half_width,radius,corners)
 end 
 
 

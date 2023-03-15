@@ -11,11 +11,17 @@ include("utils/billiardutils.jl")
 include("utils/typeutils.jl")
 include("utils/gridutils.jl")
 export real_length, is_inside
+
+include("billiards/boundarypoints.jl")
+export BoundaryPoints
+export boundary_coords, dilated_boundary_points
 #basis
 #include("basis/Basis.jl")
 #@reexport using .Basis
 include("basis/fourierbessel/corneradapted.jl")
 export CornerAdaptedFourierBessel
+include("basis/fundamental/fundamentalbessels.jl")
+export FundamentalBessel
 export resize_basis, basis_fun, dk_fun, gradient, basis_and_gradient 
 
 #billiards
@@ -47,11 +53,12 @@ export basis_matrix, basis_and_gradient_matrices, dk_matrix
 
 include("solvers/acceleratedmethods/acceleratedmethods.jl")
 include("solvers/sweepmethods/sweepmethods.jl")
-export ScalingMethod, DecompositionMethod
+export ScalingMethodA, ScalingMethodB, DecompositionMethod
 export BoundaryPointsSM, BoundaryPointsDM
 export evaluate_points, construct_matrices, construct_matrices_benchmark
 export solve, solve_vect
 export solve_wavenumber, solve_spectrum
+export k_sweep
 
 #spectra
 #include("spectra/Spectra.jl")
@@ -99,8 +106,8 @@ include("plotting/benchmarkplotting.jl")
 export plot_benchmarks!
 
 #convenience functions
-function make_stadium_and_basis(width; curve_types = [:Real,:Real,:Virtual,:Virtual],radius=1.0,x0=zero(width),y0=zero(width), rot_angle=zero(width))
-    billiard = Stadium(width;radius=radius,x0=x0,y0=y0, curve_types=curve_types)
+function make_stadium_and_basis(half_width;full_domain=false,radius=1.0,x0=zero(half_width),y0=zero(half_width), rot_angle=zero(half_width))
+    billiard = Stadium(half_width;full_domain=full_domain, radius=radius,x0=x0,y0=y0)
     basis = CornerAdaptedFourierBessel(1, pi/2.0, SVector(x0,y0),rot_angle) 
     return billiard, basis 
 end

@@ -6,8 +6,8 @@ using .QuantumBilliards
 using CairoMakie
 #using Latexify
 
-eps = 0.02 #sqrt(2)/2 * pi
-billiard, basis = make_stadium_and_basis(eps)
+eps = 0.2 #sqrt(2)/2 * pi
+billiard, basis = make_stadium_and_basis(eps;full_domain=true)
 
 f = Figure(resolution = (1000,500))
 ax = Axis(f[1,1])
@@ -21,11 +21,15 @@ display(f)
 d = 3.0
 b = 5.0
 sw_solver = DecompositionMethod(d,b)
-acc_solver = ScalingMethod(d,b)
+acc_solverA = ScalingMethodA(d,b)
+acc_solverB = ScalingMethodB(d,b)
+acc_solver = acc_solverA
 
 k0 = 500.00
 dk = 0.1
-acc_info = benchmark_solver(acc_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoA = benchmark_solver(acc_solverA, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoB = benchmark_solver(acc_solverB, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+
 sw_info = benchmark_solver(sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=false);
 
 
@@ -34,11 +38,15 @@ plot_solver_test!(f,sw_solver,basis,billiard,5.0,10.0,0.01)
 display(f)
 
 f = Figure(resolution = (1000,500))
-plot_solver_test!(f,acc_solver,basis,billiard,100.0,101.0,0.1)
+plot_solver_test!(f,acc_solverA,basis,billiard,100.0,101.0,0.2)
 display(f)
 
 f = Figure(resolution = (1000,500))
-plot_solver_test!(f,acc_solver,basis,billiard,500.0,501.0,0.025, tol = 1e-3)
+plot_solver_test!(f,acc_solverB,basis,billiard,100.0,101.0,0.2)
+display(f)
+
+f = Figure(resolution = (1000,500))
+plot_solver_test!(f,acc_solver,basis,billiard,500.0,501.0,0.05, tol = 1e-3)
 display(f)
 
 k0 = 1000.0

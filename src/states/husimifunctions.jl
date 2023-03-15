@@ -44,15 +44,15 @@ function husimi_function(k,u,s; c = 10.0, w = 7.0)
     return H, qs, ps    
 end
 
-function husimi_function(state::S, basis::Ba, billiard::Bi;  b = 5.0, c = 10.0, w = 7.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
+function husimi_function(state::S;  b = 5.0, c = 10.0, w = 7.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState,Ba<:AbsBasis,Bi<:AbsBilliard}
     k = state.k
-    u, s, norm = boundary_function(state, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+    u, s, norm = boundary_function(state; b=b, sampler=sampler, include_virtual=include_virtual)
     return husimi_function(k,u,s; c = c, w = w)
 end
 
-function husimi_function(state_bundle::S, basis::Ba, billiard::Bi;  b = 5.0, c = 10.0, w = 7.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle,Ba<:AbsBasis,Bi<:AbsBilliard}
+function husimi_function(state_bundle::S;  b = 5.0, c = 10.0, w = 7.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle,Ba<:AbsBasis,Bi<:AbsBilliard}
     ks = state_bundle.ks
-    us, s, norm = boundary_function(state_bundle, basis, billiard; b=b, sampler=sampler, include_virtual=include_virtual)
+    us, s, norm = boundary_function(state_bundle; b=b, sampler=sampler, include_virtual=include_virtual)
     H, qs, ps = husimi_function(ks[1],us[1],s; c = c, w = w)
     type = eltype(H)
     Hs::Vector{Matrix{type}} = [H]
