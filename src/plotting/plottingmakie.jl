@@ -1,6 +1,7 @@
 #include("../abstracttypes.jl")
 #include("../utils/gridutils.jl")
 using Makie
+using StaticArrays
 #helper functions
 function plot_heatmap!(f,x,y,Z ;vmax = 1.0,log=(false,-5.0), cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
     if log[1]
@@ -72,7 +73,8 @@ function plot_domain_fun!(f, curve::C; xlim=(-1.0,1.0),ylim=(-1.0,1.0), dens=100
     d = one(dens)/dens
     x_grid = range(xlim... ; step=d)
     y_grid = range(ylim... ; step=d)
-    Z = reshape(domain(curve,x_grid,y_grid),length(x_grid),length(y_grid))
+    pts = [SVector(x,y) for y in y_grid for x in x_grid]
+    Z = reshape(domain(curve,pts),length(x_grid),length(y_grid))
     hmap, ax = plot_heatmap_balaced!(f,x_grid,y_grid,Z) 
     ax.aspect=DataAspect()
     return ax, hmap
@@ -82,7 +84,8 @@ function plot_domain!(ax, curve::AbsCurve;xlim=(-1.0,1.0),ylim=(-1.0,1.0), dens=
     d = one(dens)/dens
     x_grid = range(xlim... ; step=d)
     y_grid = range(ylim... ; step=d)
-    Z = reshape(is_inside(curve,x_grid,y_grid),length(x_grid),length(y_grid))
+    pts = [SVector(x,y) for y in y_grid for x in x_grid]
+    Z = reshape(is_inside(curve,pts),length(x_grid),length(y_grid))
     hmap = heatmap!(ax, x_grid, y_grid, Z, colormap = cmap, colorrange=(-1,1) ,hmargs...)
     ax.aspect=DataAspect()
 end
@@ -93,7 +96,8 @@ function plot_domain!(ax, billiard::AbsBilliard; dens=100.0, hmargs=Dict(),cmap=
     xlim, ylim = boundary_limits(billiard.boundary; grd=1000, type=typeof(Float32)) 
     x_grid = range(xlim... ; step=d)
     y_grid = range(ylim... ; step=d)
-    Z = reshape(is_inside(billiard,x_grid,y_grid),length(x_grid),length(y_grid))
+    pts = [SVector(x,y) for y in y_grid for x in x_grid]
+    Z = reshape(is_inside(billiard,pts),length(x_grid),length(y_grid))
     hmap = heatmap!(ax, x_grid, y_grid, Z, colormap = cmap, colorrange=(-1,1) ,hmargs...)
     ax.aspect=DataAspect()
 end
@@ -155,7 +159,7 @@ function plot_probability!(f,state_bundle::EigenstateBundle;
     vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), 
     memory_limit = 10.0e9)
     Psi_bundle, x, y = wavefunction(state_bundle;b=b, inside_only=inside_only, memory_limit=memory_limit)
-    billiard = state.billiard
+    billiard = state_bundle.billiard
     for i in eachindex(Psi_bundle)
         P = abs2.(Psi_bundle[i])   
         hmap, ax = plot_heatmap!(f[i,1],x,y,P ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)

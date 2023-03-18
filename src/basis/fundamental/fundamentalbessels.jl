@@ -19,8 +19,10 @@ function FundamentalBessel()
 end
 
 function resize_basis(basis::Ba, billiard::Bi, dim::Int, k) where {Ba<:FundamentalBessel,Bi<:AbsBilliard}
-    pos = dilated_boundary_points(billiard, dim, k; sampler=fourier_nodes, include_virtual=false)
-    return FundamentalBessel(length(pos),2*pi/k,pos)
+    k_min = 25.0
+    k_basis = max(k_min,k)
+    pos = dilated_boundary_points(billiard, dim, k_basis; sampler=fourier_nodes, include_virtual=false)
+    return FundamentalBessel(length(pos),2*pi/k_basis,pos)
 end
 
 

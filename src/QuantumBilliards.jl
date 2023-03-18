@@ -28,13 +28,18 @@ export resize_basis, basis_fun, dk_fun, gradient, basis_and_gradient
 #include("billiards/Billiards.jl")
 #@reexport using .Billiards
 
-include("billiards/geometry.jl")
+include("billiards/geometry/geometry.jl")
+export LineSegment, VirtualLineSegment
+export CircleSegment, VirtualCircleSegment
+export DispersingCircleSegment, VirtualDispersingCircleSegment
+export curve, arc_length, tangent, tangent_vec, normal_vec
 include("billiards/stadium.jl")
+include("billiards/sinai.jl")
 include("billiards/triangle.jl")
 export adapt_basis
 #include("limacon.jl")
 #include("rectangle.jl")
-export Stadium, Triangle
+export Stadium, Triangle, Sinai
 export curve, tangent, normal, arc_length
 export tangent_vec, normal_vec
 #convenience functions may be moved somewhere else

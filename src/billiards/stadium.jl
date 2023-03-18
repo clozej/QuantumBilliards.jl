@@ -31,7 +31,7 @@ function make_full_stadium(half_width;radius=one(half_width),x0=zero(half_width)
     return boundary, corners
 end
 
-struct Stadium{T}  <: AbsBilliard where {T<:Number}
+struct Stadium{T}  <: AbsBilliard where {T<:Real}
     boundary::Vector
     length::T
     area::T

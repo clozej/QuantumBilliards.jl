@@ -7,7 +7,7 @@ using CairoMakie
 #using Latexify
 
 eps = 0.2 #sqrt(2)/2 * pi
-billiard, basis = make_stadium_and_basis(eps;full_domain=true)
+billiard, basis = make_stadium_and_basis(eps;full_domain=false)
 
 f = Figure(resolution = (1000,500))
 ax = Axis(f[1,1])
@@ -49,7 +49,7 @@ f = Figure(resolution = (1000,500))
 plot_solver_test!(f,acc_solver,basis,billiard,500.0,501.0,0.05, tol = 1e-3)
 display(f)
 
-k0 = 1000.0
+k0 = 500.0
 dk = 0.01
 k, ten = solve_wavenumber(acc_solver,basis, billiard,k0,dk)
 ks, ten = solve_spectrum(acc_solver,basis, billiard,k0,dk)
@@ -62,17 +62,18 @@ states.ks
 states.tens
 
 f = Figure(resolution = (800,2500))
-plot_probability!(f,states,basis,billiard,b=20.0, log=(true,-5))
+plot_probability!(f,states,b=10.0, log=(true,-5))
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_momentum_function!(f,states,basis,billiard;log=true)
+plot_momentum_function!(f,states;log=true)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state,basis,billiard; b_u= 20.0, include_virtual=false)
+plot_state_test!(f,state; b_u= 10.0, include_virtual=false)
 display(f)
 
+#=
 using LinearAlgebra, StaticArrays
 using TimerOutputs
 
@@ -137,7 +138,7 @@ function construct_matrices_benchmark2(solver::ScalingMethod, basis::Ba, pts::Bo
     print_timer(to)    
     return F, Fk        
 end
-
+=#
 
 #=
 k0 = 500.10

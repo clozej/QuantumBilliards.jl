@@ -1,30 +1,12 @@
-#include("../abstracttypes.jl")
-#include("../utils/billiardutils.jl")
-#include("../utils/gridutils.jl")
-#include("../utils/benchmarkutils.jl")
-#include("../solvers/matrixconstructors.jl")
+using StaticArrays
 
-
-#=
-function basis_matrix(basis::AbsBasis,k,vec, x::Vector{T}, y::Vector{T}) where T<:Number
-    M =  length(x)
-    N = basis.dim
-    B = Array{T}(0.0,M,N)  #basis matrix
-    
-    idx = collect(1:N)[abs.(vec).!=0.0]
-    @inbounds Threads.@threads for i in idx
-        B[:,i] = basis_fun(basis, i, k, x, y)
-    end 
-    return B
-end
-=#
 #try using strided to optimize this
 function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:AbsState}
     let vec = state.vec, k = state.k_basis, basis=state.basis, billiard=state.billiard, eps=state.eps #basis is correct size
         sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
         if inside_only
-            pts_mask = is_inside(billiard,x_grid,y_grid)
+            pts_mask = is_inside(billiard,pts)
             pts = pts[pts_mask]
         end
         n_pts = length(pts)
@@ -107,7 +89,7 @@ function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_l
         sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
         if inside_only
-            pts_mask = is_inside(billiard,x_grid,y_grid)
+            pts_mask = is_inside(billiard,pts)
             pts = pts[pts_mask]
         end
         n_pts = length(pts)
