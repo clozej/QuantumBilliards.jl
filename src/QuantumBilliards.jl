@@ -10,6 +10,8 @@ include("utils/geometryutils.jl")
 include("utils/billiardutils.jl")
 include("utils/typeutils.jl")
 include("utils/gridutils.jl")
+include("utils/symmetry.jl")
+export Reflection, XReflection, YReflection, XYReflection
 export real_length, is_inside
 
 include("billiards/boundarypoints.jl")

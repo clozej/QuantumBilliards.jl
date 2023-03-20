@@ -17,6 +17,6 @@ abstract type StationaryState <: AbsState end
 #grid iterators
 abstract type AbsGrid end
 
-
+abstract type AbsSymmetry end
 #unsed
 abstract type AbsObservable end

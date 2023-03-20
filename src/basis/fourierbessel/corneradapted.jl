@@ -36,22 +36,23 @@ function _bessel_diff_formula(v, z, n, L, phase)
 end
 =#
 
-struct CornerAdaptedFourierBessel{T} <: AbsBasis where  {T<:Real}
+struct CornerAdaptedFourierBessel{T,Sy} <: AbsBasis where  {T<:Real,Sy<:Union{AbsSymmetry,Nothing}}
     cs::PolarCS{T}
     dim::Int64 #using concrete type
     corner_angle::T
     nu::T #order constant, order=nu*i
+    symmetries::Union{Vector{Sy},Nothing}
 end
 
 function CornerAdaptedFourierBessel(dim, corner_angle, origin, rot_angle)
     cs = PolarCS(origin, rot_angle)
     nu = pi/corner_angle
-    return CornerAdaptedFourierBessel(cs, dim, corner_angle, nu)
+    return CornerAdaptedFourierBessel(cs, dim, corner_angle, nu, nothing)
 end
 
 function CornerAdaptedFourierBessel(dim, corner_angle, cs::CoordinateSystem)
     nu = pi/corner_angle
-    return CornerAdaptedFourierBessel(cs, dim, corner_angle, nu)
+    return CornerAdaptedFourierBessel(cs, dim, corner_angle, nu, nothing)
 end
 
 toFloat32(basis::CornerAdaptedFourierBessel) = CornerAdaptedFourierBessel(basis.dim, Float32(basis.corner_angle), Float32.(basis.cs.origin), Float32(basis.cs.rot_angle))
