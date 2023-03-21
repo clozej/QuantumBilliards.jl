@@ -47,12 +47,12 @@ end
 function CornerAdaptedFourierBessel(dim, corner_angle, origin, rot_angle)
     cs = PolarCS(origin, rot_angle)
     nu = pi/corner_angle
-    return CornerAdaptedFourierBessel(cs, dim, corner_angle, nu, nothing)
+    return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing)
 end
 
 function CornerAdaptedFourierBessel(dim, corner_angle, cs::CoordinateSystem)
     nu = pi/corner_angle
-    return CornerAdaptedFourierBessel(cs, dim, corner_angle, nu, nothing)
+    return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing)
 end
 
 toFloat32(basis::CornerAdaptedFourierBessel) = CornerAdaptedFourierBessel(basis.dim, Float32(basis.corner_angle), Float32.(basis.cs.origin), Float32(basis.cs.rot_angle))

@@ -1,5 +1,5 @@
-using MKL
-using Revise
+#using MKL
+#using Revise
 include("../src/QuantumBilliards.jl")
 
 using .QuantumBilliards
