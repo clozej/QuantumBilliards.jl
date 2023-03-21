@@ -31,7 +31,7 @@ function resize_basis(basis::Ba, billiard::Bi, dim::Int, k) where {Ba<:Fundament
     else
         pos = dilated_boundary_points(billiard, dim, k_basis; sampler=fourier_nodes, include_virtual=false)
     end
-    return FundamentalBessel(length(pos),2*pi/k_basis,pos,basis.symmetries)
+    return FundamentalBessel{typeof(k),eltype(basis.symmetries)}(length(pos),2*pi/k_basis,pos,basis.symmetries)
 end
 
 
