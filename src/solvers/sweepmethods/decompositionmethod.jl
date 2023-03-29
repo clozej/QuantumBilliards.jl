@@ -4,7 +4,7 @@
 #include("../samplers.jl")
 #include("../src/billiards/triangle.jl")
 #include("../../utils/benchmarkutils.jl")
-using LinearAlgebra, StaticArrays
+using LinearAlgebra, StaticArrays, TimerOutputs
 
 struct DecompositionMethod{T} <: SweepSolver where T<:Real
     dim_scaling_factor::T
@@ -12,7 +12,7 @@ struct DecompositionMethod{T} <: SweepSolver where T<:Real
     eps::T
 end
 
-DecompositionMethod(dim_scaling_factor, pts_scaling_factor) = DecompositionMethod(dim_scaling_factor, pts_scaling_factor, 10.0*eps())
+DecompositionMethod(dim_scaling_factor, pts_scaling_factor) = DecompositionMethod(dim_scaling_factor, pts_scaling_factor, eps(typeof(dim_scaling_factor)))
 
 struct BoundaryPointsDM{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
@@ -131,5 +131,3 @@ function solve_vect(solver::DecompositionMethod,basis::AbsBasis, pts::BoundaryPo
     t = 1.0/lam0
     return  t, x./sqrt(lam0)
 end
-
-

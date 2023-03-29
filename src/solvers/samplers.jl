@@ -74,7 +74,7 @@ function random_interior_points(billiard::AbsBilliard, N::Int; grd::Int = 1000)
         x = (dx .* rand() .+ xlim[1]) 
         y = (dy .* rand() .+ ylim[1])
         pt = SVector(x,y)
-        if is_inside(billiard, pt)
+        if is_inside(billiard, [pt])[1] #rework this
             push!(pts,pt)
         end
     end

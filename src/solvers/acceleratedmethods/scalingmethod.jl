@@ -13,7 +13,7 @@ struct ScalingMethodA{T} <: AbsScalingMethod where T<:Real
     eps::T
 end
 
-ScalingMethodA(dim_scaling_factor, pts_scaling_factor) = ScalingMethodA(dim_scaling_factor, pts_scaling_factor, 10.0*eps(typeof(dim_scaling_factor)))
+ScalingMethodA(dim_scaling_factor, pts_scaling_factor) = ScalingMethodA(dim_scaling_factor, pts_scaling_factor, eps(typeof(dim_scaling_factor)))
 
 
 struct ScalingMethodB{T} <: AbsScalingMethod where T<:Real
@@ -22,7 +22,7 @@ struct ScalingMethodB{T} <: AbsScalingMethod where T<:Real
     eps::T
 end
 
-ScalingMethodB(dim_scaling_factor, pts_scaling_factor) = ScalingMethodB(dim_scaling_factor, pts_scaling_factor, 10.0*eps(typeof(dim_scaling_factor)))
+ScalingMethodB(dim_scaling_factor, pts_scaling_factor) = ScalingMethodB(dim_scaling_factor, pts_scaling_factor, eps(typeof(dim_scaling_factor)))
 
 
 struct BoundaryPointsSM{T} <: AbsPoints where {T<:Real}

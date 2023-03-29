@@ -2,7 +2,7 @@
 #include("../../utils/billiardutils.jl")
 #include("decompositions.jl")
 #include("../samplers.jl")
-#include("particularsolutionsmethod.jl")
+include("particularsolutionsmethod.jl")
 include("decompositionmethod.jl")
 using LinearAlgebra, Optim
 

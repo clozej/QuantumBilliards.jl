@@ -36,12 +36,13 @@ export CircleSegment, VirtualCircleSegment
 export DispersingCircleSegment, VirtualDispersingCircleSegment
 export curve, arc_length, tangent, tangent_vec, normal_vec
 include("billiards/stadium.jl")
+include("billiards/lemon.jl")
 include("billiards/sinai.jl")
 include("billiards/triangle.jl")
 export adapt_basis
 #include("limacon.jl")
 #include("rectangle.jl")
-export Stadium, Triangle, Sinai
+export Stadium, Lemon, Triangle, Sinai
 export curve, tangent, normal, arc_length
 export tangent_vec, normal_vec
 #convenience functions may be moved somewhere else
@@ -60,7 +61,8 @@ export basis_matrix, basis_and_gradient_matrices, dk_matrix
 
 include("solvers/acceleratedmethods/acceleratedmethods.jl")
 include("solvers/sweepmethods/sweepmethods.jl")
-export ScalingMethodA, ScalingMethodB, DecompositionMethod
+export ScalingMethodA, ScalingMethodB 
+export DecompositionMethod, ParticularSolutionsMethod
 export BoundaryPointsSM, BoundaryPointsDM
 export evaluate_points, construct_matrices, construct_matrices_benchmark
 export solve, solve_vect
@@ -119,6 +121,13 @@ function make_stadium_and_basis(half_width;full_domain=false,radius=1.0,x0=zero(
     return billiard, basis 
 end
 export make_stadium_and_basis
+
+function make_lemon_and_basis(half_separation;full_domain=false,radius=1.0,x0=zero(half_separation),y0=zero(half_separation), rot_angle=zero(half_separation))
+    billiard = Lemon(half_separation;full_domain=full_domain, radius=radius,x0=x0,y0=y0)
+    basis = CornerAdaptedFourierBessel(1, pi/2.0, SVector(x0,y0),rot_angle) 
+    return billiard, basis 
+end
+export make_lemon_and_basis
 
 function make_triangle_and_basis(gamma,chi; edge_i=1)
     cor = Triangle(gamma,chi).corners
