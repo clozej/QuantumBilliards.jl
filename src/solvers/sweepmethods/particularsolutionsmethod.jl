@@ -1,13 +1,14 @@
 using LinearAlgebra, StaticArrays, TimerOutputs
 
-struct ParticularSolutionsMethod{T} <: SweepSolver where T<:Real
+struct ParticularSolutionsMethod{T,F} <: SweepSolver where {T<:Real,F<:Function}
     dim_scaling_factor::T
     pts_scaling_factor::T
     int_pts_scaling_factor::T
+    sampler::F
     eps::T
 end
 
-ParticularSolutionsMethod(d,b,b_int) = ParticularSolutionsMethod(d,b,b_int,eps(typeof(d)))
+ParticularSolutionsMethod(d,b,b_int) = ParticularSolutionsMethod(d,b,b_int,gauss_legendre_nodes,eps(typeof(d)))
 ParticularSolutionsMethod(d,b) = ParticularSolutionsMethod(d,b, 0.2*b)
 
 struct PointsPSM{T} <: AbsPoints where {T<:Real}
@@ -15,7 +16,8 @@ struct PointsPSM{T} <: AbsPoints where {T<:Real}
     xy_interior::Vector{SVector{2,T}} #normal vectors in points
 end
 
-function evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, sampler::Function, k) where {Bi<:AbsBilliard}
+function evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
+    sampler = solver.sampler
     b = solver.pts_scaling_factor
     b_int = solver.int_pts_scaling_factor
     type = typeof(solver.pts_scaling_factor)

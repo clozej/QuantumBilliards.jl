@@ -6,13 +6,14 @@
 #include("../../utils/benchmarkutils.jl")
 using LinearAlgebra, StaticArrays, TimerOutputs
 
-struct DecompositionMethod{T} <: SweepSolver where T<:Real
+struct DecompositionMethod{T,F} <: SweepSolver where {T<:Real,F<:Function}
     dim_scaling_factor::T
     pts_scaling_factor::T
+    sampler::F
     eps::T
 end
 
-DecompositionMethod(dim_scaling_factor, pts_scaling_factor) = DecompositionMethod(dim_scaling_factor, pts_scaling_factor, eps(typeof(dim_scaling_factor)))
+DecompositionMethod(dim_scaling_factor, pts_scaling_factor) = DecompositionMethod(dim_scaling_factor, pts_scaling_factor, gauss_legendre_nodes, eps(typeof(dim_scaling_factor)))
 
 struct BoundaryPointsDM{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
@@ -21,7 +22,8 @@ struct BoundaryPointsDM{T} <: AbsPoints where {T<:Real}
     w_n::Vector{T} #normalization weights
 end
 
-function evaluate_points(solver::DecompositionMethod, billiard::Bi, sampler::Function, k) where {Bi<:AbsBilliard}
+function evaluate_points(solver::DecompositionMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
+    sampler = solver.sampler
     b = solver.pts_scaling_factor
     type = typeof(solver.pts_scaling_factor)
     xy_all = Vector{SVector{2,type}}()

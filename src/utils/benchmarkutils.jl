@@ -27,10 +27,10 @@ function print_benchmark_info(info::BenchmarkInfo)
     println("Results: $(info.results)")
 end
 
-function benchmark_solver(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilliard, sampler::Function, k, dk; btimes = 1, print_info=true, plot_matrix=false,log=false, kwargs...) 
+function benchmark_solver(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; btimes = 1, print_info=true, plot_matrix=false,log=false, kwargs...) 
     let L = real_length(billiard), dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
         basis_new = resize_basis(basis,billiard, dim, k)
-        pts = evaluate_points(solver, billiard, sampler, k)
+        pts = evaluate_points(solver, billiard, k)
 
         function run(fun, args...; kwargs...)
             times = Float64[]
@@ -66,7 +66,7 @@ function benchmark_solver(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilli
         
         if typeof(solver) <:SweepSolver
             t, decomp_time = run(solve, solver, mat_res[1],mat_res[2])
-            res, sol_time = run(solve_wavenumber,solver, basis, billiard,k,dk;sampler=sampler)
+            res, sol_time = run(solve_wavenumber,solver, basis, billiard,k,dk)
             info = BenchmarkInfo(solver,mat_dim,mat_mem,mat_time,decomp_time,sol_time,res) 
         end
                 
@@ -89,10 +89,10 @@ function benchmark_solver(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilli
 end
 
 
-function compute_benchmarks(solver, basis, billiard, sampler, k, dk; d_range = [2.0], b_range=[2.0],btimes=1)
-    eps = solver.eps
-    make_solver(solver,d,b) = typeof(solver)(d,b,eps) 
+function compute_benchmarks(solver, basis, billiard, k, dk; d_range = [2.0], b_range=[2.0],btimes=1)
+    #eps = solver.eps
+    make_solver(solver,d,b) = typeof(solver)(d,b) 
     grid_indices = CartesianIndices((length(d_range), length(b_range)))
-    info_matrix = [benchmark_solver(make_solver(solver,d_range[i[1]],b_range[i[2]]),basis,billiard,sampler,k,dk;print_info=false,btimes=btimes) for i in grid_indices]
+    info_matrix = [benchmark_solver(make_solver(solver,d_range[i[1]],b_range[i[2]]),basis,billiard,k,dk;print_info=false,btimes=btimes) for i in grid_indices]
     return info_matrix
 end

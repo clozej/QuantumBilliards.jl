@@ -7,22 +7,24 @@ using LinearAlgebra, StaticArrays
 using TimerOutputs
 abstract type AbsScalingMethod <: AcceleratedSolver 
 end
-struct ScalingMethodA{T} <: AbsScalingMethod where T<:Real
+struct ScalingMethodA{T,F} <: AbsScalingMethod where {T<:Real,F<:Function}
     dim_scaling_factor::T
     pts_scaling_factor::T
+    sampler::F
     eps::T
 end
 
-ScalingMethodA(dim_scaling_factor, pts_scaling_factor) = ScalingMethodA(dim_scaling_factor, pts_scaling_factor, eps(typeof(dim_scaling_factor)))
+ScalingMethodA(dim_scaling_factor, pts_scaling_factor) = ScalingMethodA(dim_scaling_factor, pts_scaling_factor, gauss_legendre_nodes, eps(typeof(dim_scaling_factor)))
 
 
-struct ScalingMethodB{T} <: AbsScalingMethod where T<:Real
+struct ScalingMethodB{T,F} <: AbsScalingMethod where {T<:Real,F<:Function}
     dim_scaling_factor::T
     pts_scaling_factor::T
+    sampler::F
     eps::T
 end
 
-ScalingMethodB(dim_scaling_factor, pts_scaling_factor) = ScalingMethodB(dim_scaling_factor, pts_scaling_factor, eps(typeof(dim_scaling_factor)))
+ScalingMethodB(dim_scaling_factor, pts_scaling_factor) = ScalingMethodB(dim_scaling_factor, pts_scaling_factor, gauss_legendre_nodes, eps(typeof(dim_scaling_factor)))
 
 
 struct BoundaryPointsSM{T} <: AbsPoints where {T<:Real}
@@ -30,7 +32,8 @@ struct BoundaryPointsSM{T} <: AbsPoints where {T<:Real}
     w::Vector{T}
 end
 
-function evaluate_points(solver::AbsScalingMethod, billiard::Bi, sampler::Function, k) where {Bi<:AbsBilliard}
+function evaluate_points(solver::AbsScalingMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
+    sampler = solver.sampler
     b = solver.pts_scaling_factor
     type = typeof(solver.pts_scaling_factor)
     xy_all = Vector{SVector{2,type}}()

@@ -1,9 +1,9 @@
 using Makie
 
-function plot_benchmarks!(f, solver, basis, billiard, sampler, k, dk, d_range::AbstractArray, b)
+function plot_benchmarks!(f, solver, basis, billiard, k, dk, d_range::AbstractArray, b)
     d_range = collect(d_range)
     b_range = [b]
-    info_matrix = compute_benchmarks(solver, basis, billiard, sampler, k, dk; d_range = d_range, b_range = b_range)
+    info_matrix = compute_benchmarks(solver, basis, billiard, k, dk; d_range = d_range, b_range = b_range)
     info = info_matrix[:,1]
     ks = [i.results[1] for i in info]
     ten = [i.results[2] for i in info]
@@ -23,10 +23,10 @@ function plot_benchmarks!(f, solver, basis, billiard, sampler, k, dk, d_range::A
     scatter!(ax_tim, d_range, dec_time) 
 end
 
-function plot_benchmarks!(f, solver, basis, billiard, sampler, k, dk, d, b_range::AbstractArray)
+function plot_benchmarks!(f, solver, basis, billiard, k, dk, d, b_range::AbstractArray)
     b_range = collect(b_range)
     d_range = [d]
-    info_matrix = compute_benchmarks(solver, basis, billiard, sampler, k, dk; d_range = d_range, b_range = b_range)
+    info_matrix = compute_benchmarks(solver, basis, billiard, k, dk; d_range = d_range, b_range = b_range)
     info = info_matrix[1,:]
     ks = [i.results[1] for i in info]
     ten = [i.results[2] for i in info]

@@ -32,13 +32,13 @@ acc_solver = acc_solverA
 
 k0 = 1000.00
 dk = 0.1
-acc_infoA = benchmark_solver(acc_solverA, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-acc_infoB = benchmark_solver(acc_solverB, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoA = benchmark_solver(acc_solverA, basis, billiard, k0, dk; plot_matrix=true);
+acc_infoB = benchmark_solver(acc_solverB, basis, billiard, k0, dk; plot_matrix=true);
 
 k0 = 1000.001
 dk = 0.01
-acc_info = benchmark_solver(acc_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-sw_info = benchmark_solver(sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=true);
+acc_info = benchmark_solver(acc_solver, basis, billiard, k0, dk; plot_matrix=true);
+sw_info = benchmark_solver(sw_solver, basis, billiard, k0, dk; plot_matrix=true, log=true);
 
 
 
@@ -86,7 +86,7 @@ display(f)
 
 b_range =collect(range(2.0,6.0,step=0.5))
 f = Figure(resolution = (1000,500))
-plot_benchmarks!(f, sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk, 3.5, b_range)
+plot_benchmarks!(f, sw_solver, basis, billiard, k0, dk, 3.5, b_range)
 display(f)
 
 

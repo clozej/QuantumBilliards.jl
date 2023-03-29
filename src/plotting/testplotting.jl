@@ -56,7 +56,7 @@ function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true,samp
     k0 = k1
     k0s = [k0]
     #initial computation
-    k_res, ten_res = solve_spectrum(acc_solver, basis, billiard, k0, dk+tol; sampler=sampler)
+    k_res, ten_res = solve_spectrum(acc_solver, basis, billiard, k0, dk+tol)
     #println("initial: $k_res")
     control = [false for i in 1:length(k_res)]
     cycle = Makie.wong_colors()[1:6]
@@ -74,7 +74,7 @@ function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true,samp
         #println("iteration $i")
         k0 += dk
         push!(k0s)
-        k_new, ten_new = solve_spectrum(acc_solver, basis, billiard, k0, dk+tol; sampler=sampler)
+        k_new, ten_new = solve_spectrum(acc_solver, basis, billiard, k0, dk+tol)
         scatter!(ax, k_new, log10.(ten_new),color=(cycle[mod1(i+1,6)], alpha))
         scatter!(ax, k_new, zeros(length(k_new)),color=(cycle[mod1(i+1,6)], alpha))
         vlines!(ax, [k0], color=(cycle[mod1(i+1,6)], 0.8), linewidth= 0.75)
@@ -93,9 +93,9 @@ end
 
 
 
-function plot_solver_test!(f,sw_solver::S,basis,billiard,k1,k2,dk;log=true, sampler=gauss_legendre_nodes) where {S<:SweepSolver}
+function plot_solver_test!(f,sw_solver::S,basis,billiard,k1,k2,dk;log=true) where {S<:SweepSolver}
     ks = collect(range(k1, k2, step=dk))
-    ts = k_sweep(sw_solver,basis,billiard,ks;sampler=sampler)
+    ts = k_sweep(sw_solver,basis,billiard,ks)
     if log
         ax = Axis(f[1,1],xlabel=L"k", ylabel=L"\log(t)")
         lines!(ax, ks, log10.(ts))
