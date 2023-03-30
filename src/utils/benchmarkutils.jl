@@ -28,7 +28,7 @@ function print_benchmark_info(info::BenchmarkInfo)
 end
 
 function benchmark_solver(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; btimes = 1, print_info=true, plot_matrix=false,log=false, kwargs...) 
-    let L = real_length(billiard), dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
+    let L = billiard.length, dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
         basis_new = resize_basis(basis,billiard, dim, k)
         pts = evaluate_points(solver, billiard, k)
 

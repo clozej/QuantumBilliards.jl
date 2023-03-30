@@ -1,7 +1,7 @@
 
 function real_length(billiard::Bi) where Bi<:AbsBilliard
     L = 0.0
-    for curve in billiard.boundary
+    for curve in billiard.fundamental_boundary
         if typeof(curve) <: AbsRealCurve
             L += curve.length
         end
@@ -11,7 +11,7 @@ end
 
 function virtual_length(billiard::Bi) where Bi<:AbsBilliard
     L = 0.0
-    for curve in billiard.boundary
+    for curve in billiard.fundamental_boundary
         if typeof(curve) <: AbsVirtualCurve
             L += curve.length
         end
@@ -19,11 +19,11 @@ function virtual_length(billiard::Bi) where Bi<:AbsBilliard
     return L 
 end
 
-function curve_edge_lengths(billiard::Bi;include_virtual = true) where Bi<:AbsBilliard
+function curve_edge_lengths(billiard::Bi) where Bi<:AbsBilliard
     L = 0.0
     res = [L]
-    for crv in billiard.boundary
-        if (typeof(crv) <: AbsRealCurve || include_virtual)
+    for crv in billiard.full_boundary
+        if (typeof(crv) <: AbsRealCurve)
             L += crv.length
             push!(res,L)
         end 
@@ -33,12 +33,12 @@ end
 
 
 function is_inside(billiard::Bi, pt) where Bi<:AbsBilliard
-    return all(is_inside(crv, pt) for crv in billiard.boundary) 
+    return all(is_inside(crv, pt) for crv in billiard.fundamental_boundary) 
 end
 
 
 function is_inside(billiard::Bi, pts::AbstractArray) where Bi<:AbsBilliard
-    let curves = billiard.boundary
+    let curves = billiard.fundamental_boundary
         inside = is_inside(curves[1], pts)
         for i in 2:length(curves)
             inside = inside .& is_inside(curves[i], pts)

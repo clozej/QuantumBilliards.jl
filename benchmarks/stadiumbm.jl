@@ -6,8 +6,8 @@ using .QuantumBilliards
 using CairoMakie
 #using Latexify
 
-eps = 0.2 #sqrt(2)/2 * pi
-billiard, basis = make_stadium_and_basis(eps;full_domain=false)
+eps = 0.5 #sqrt(2)/2 * pi
+billiard, basis = make_stadium_and_basis(eps)
 
 f = Figure(resolution = (1000,500))
 ax = Axis(f[1,1])
@@ -18,7 +18,7 @@ f = Figure(resolution = (1000,500))
 plot_basis_test!(f, basis, billiard)
 display(f)
 
-d = 3.0
+d = 3.0/4.0
 b = 5.0
 sw_solver = DecompositionMethod(d,b)
 acc_solverA = ScalingMethodA(d,b)
@@ -70,7 +70,27 @@ plot_momentum_function!(f,states;log=true)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state; b_u= 10.0, include_virtual=false)
+plot_momentum_function!(f,states;log=false)
+display(f)
+
+
+
+f = Figure(resolution = (1500,1500))
+plot_state_test!(f,state; b_u= 10.0)
+display(f)
+
+k0 = 500.0
+dk = 0.01
+k, ten = solve_wavenumber(acc_solver,basis, billiard,k0,dk)
+state = compute_eigenstate(sw_solver, basis, billiard, k)
+state1 = compute_eigenstate(acc_solver, basis, billiard, k0)
+
+f = Figure(resolution = (1500,1500))
+plot_state_test!(f,state; b_u= 10.0)
+display(f)
+
+f = Figure(resolution = (1500,1500))
+plot_state_test!(f,state1; b_u= 10.0)
 display(f)
 
 #=

@@ -12,9 +12,9 @@ function triangle_corners(angles, x0, y0, h) #x0, y0 position of gamma corner
     return SVector(A,B,C)
 end
 
-
 struct Triangle{T}  <: AbsBilliard where {T<:Real}
-    boundary :: Vector{Any}
+    fundamental_boundary :: Vector
+    full_boundary::Vector
     length:: T
     area :: T
     corners :: SVector{3, SVector{2, T}}
@@ -29,9 +29,10 @@ function Triangle(gamma, chi; curve_types = [:Real, :Virtual, :Virtual] , x0=zer
     #println("α=$alpha, β=$beta, γ=$gamma")
     corners = triangle_corners(angles, x0, y0, h)
     boundary = make_polygon(corners, curve_types)
-    length = sum([crv.length for crv in boundary])
+    full_boundary = make_polygon(corners, [:Real, :Real, :Real])
+    length = sum([crv.length for crv in full_boundary])
     area = 0.5*h*abs(corners[1][1]-corners[3][1])#PolygonOps.area(collect(zip(x,y)))
-    return Triangle(boundary,length,area,corners,angles)
+    return Triangle(boundary,full_boundary,length,area,corners,angles)
 end
 
 function adapt_basis(triangle::T,i) where {T<:Triangle}

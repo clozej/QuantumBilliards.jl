@@ -115,15 +115,15 @@ include("plotting/benchmarkplotting.jl")
 export plot_benchmarks!
 
 #convenience functions
-function make_stadium_and_basis(half_width;full_domain=false,radius=1.0,x0=zero(half_width),y0=zero(half_width), rot_angle=zero(half_width))
-    billiard = Stadium(half_width;full_domain=full_domain, radius=radius,x0=x0,y0=y0)
+function make_stadium_and_basis(half_width;radius=1.0,x0=zero(half_width),y0=zero(half_width), rot_angle=zero(half_width))
+    billiard = Stadium(half_width; radius=radius,x0=x0,y0=y0)
     basis = CornerAdaptedFourierBessel(1, pi/2.0, SVector(x0,y0),rot_angle) 
     return billiard, basis 
 end
 export make_stadium_and_basis
 
 function make_lemon_and_basis(half_separation;full_domain=false,radius=1.0,x0=zero(half_separation),y0=zero(half_separation), rot_angle=zero(half_separation))
-    billiard = Lemon(half_separation;full_domain=full_domain, radius=radius,x0=x0,y0=y0)
+    billiard = Lemon(half_separation; radius=radius,x0=x0,y0=y0)
     basis = CornerAdaptedFourierBessel(1, pi/2.0, SVector(x0,y0),rot_angle) 
     return billiard, basis 
 end

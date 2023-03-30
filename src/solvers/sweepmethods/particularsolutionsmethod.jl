@@ -24,7 +24,7 @@ function evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, k) whe
     xy_all = Vector{SVector{2,type}}()
     xy_int_all = Vector{SVector{2,type}}()
 
-    for crv in billiard.boundary
+    for crv in billiard.fundamental_boundary
         if typeof(crv) <: AbsRealCurve
             L = crv.length
             N = round(Int, k*L*b/(2*pi))
@@ -33,7 +33,7 @@ function evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, k) whe
             append!(xy_all, xy)
         end
     end
-    L = real_length(billiard)
+    L = billiard.length
     M = round(Int, k*L*b_int/(2*pi))
     xy_int_all = random_interior_points(billiard,M)
     return PointsPSM{type}(xy_all, xy_int_all)

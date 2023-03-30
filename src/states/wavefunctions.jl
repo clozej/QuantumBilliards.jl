@@ -49,8 +49,8 @@ function wavefunction(state::S; b=5.0, inside_only=true, memory_limit = 10.0e9) 
         #println(new_basis.dim)
         type = eltype(state.vec)
         #try to find a lazy way to do this
-        L = real_length(billiard)
-        xlim,ylim = boundary_limits(billiard.boundary; grd=max(1000,round(Int, k*L*b/(2*pi))), type=type)
+        L = billiard.length
+        xlim,ylim = boundary_limits(billiard.fundamental_boundary; grd=max(1000,round(Int, k*L*b/(2*pi))), type=type)
         dx = xlim[2] - xlim[1]
         dy = ylim[2] - ylim[1]
         nx = max(round(Int, k*dx*b/(2*pi)), 512)
@@ -130,8 +130,8 @@ function wavefunction(state_bundle::S; b=5.0, inside_only=true, memory_limit = 1
         #println(new_basis.dim)
         type = eltype(state_bundle.X)
         #try to find a lazy way to do this
-        L = real_length(billiard)
-        xlim,ylim = boundary_limits(billiard.boundary; grd=max(1000,round(Int, k*L*b/(2*pi))), type=type)
+        L = billiard.length
+        xlim,ylim = boundary_limits(billiard.fundamental_boundary; grd=max(1000,round(Int, k*L*b/(2*pi))), type=type)
         dx = xlim[2] - xlim[1]
         dy = ylim[2] - ylim[1]
         nx = max(round(Int, k*dx*b/(2*pi)), 512)
@@ -184,7 +184,7 @@ function wavefunction(state::AbsState, basis::AbsBasis, billiard::AbsBilliard; b
     #new_basis = resize_basis(basis, dim)
     
     #try to find a lazy way to do this
-    L = real_length(billiard)
+    L = billiard.length
     xlim,ylim,dx,dy= boundary_limits(billiard.boundary; grd=round(Int, k*L*b/(2*pi)))
     nx = max(round(Int, k*dx*b/(2*pi)), 400)
     ny = max(round(Int, k*dy*b/(2*pi)), 400)

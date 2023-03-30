@@ -12,12 +12,12 @@ function regularize!(u)
     end
 end
 
-function boundary_function(state::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState}
+function boundary_function(state::S; b=5.0, sampler=fourier_nodes) where {S<:AbsState}
     let vec = state.vec, k = state.k, k_basis = state.k_basis, new_basis = state.basis, billiard=state.billiard
         type = eltype(vec)
-        L = real_length(billiard)
+        L = billiard.length
         N = max(round(Int, k*L*b/(2*pi)), 512)
-        pts = boundary_coords(billiard, N; sampler=sampler, include_virtual=include_virtual)
+        pts = boundary_coords(billiard, N; sampler=sampler)
         dX, dY = gradient_matrices(new_basis, k_basis, pts.xy)
         nx = getindex.(pts.normal,1)
         ny = getindex.(pts.normal,2)
@@ -35,12 +35,12 @@ function boundary_function(state::S; b=5.0, sampler=fourier_nodes, include_virtu
     end
 end
 
-function boundary_function(state_bundle::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle}
+function boundary_function(state_bundle::S; b=5.0, sampler=fourier_nodes) where {S<:EigenstateBundle}
     let X = state_bundle.X, k_basis = state_bundle.k_basis, ks = state_bundle.ks, new_basis = state_bundle.basis, billiard=state_bundle.billiard 
         type = eltype(X)
-        L = real_length(billiard)
+        L = billiard.length
         N = max(round(Int, k_basis*L*b/(2*pi)), 512)
-        pts = boundary_coords(billiard, N; sampler=sampler, include_virtual=include_virtual)
+        pts = boundary_coords(billiard, N; sampler=sampler)
         dX, dY = gradient_matrices(new_basis, k_basis, pts.xy)
         nx = getindex.(pts.normal,1)
         ny = getindex.(pts.normal,2)
@@ -67,14 +67,14 @@ function momentum_function(u,s)
     return abs2.(fu)/length(fu), ks
 end
 
-function momentum_function(state::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:AbsState}
-    u, s, norm = boundary_function(state; b=b, sampler=sampler, include_virtual=include_virtual)
+function momentum_function(state::S; b=5.0, sampler=fourier_nodes) where {S<:AbsState}
+    u, s, norm = boundary_function(state; b=b, sampler=sampler)
     return momentum_function(u,s)
 end
 
 #this can be optimized by usinf FFTW plans
-function momentum_function(state_bundle::S; b=5.0, sampler=fourier_nodes, include_virtual=true) where {S<:EigenstateBundle}
-    us, s, norms = boundary_function(state_bundle; b=b, sampler=sampler, include_virtual=include_virtual)
+function momentum_function(state_bundle::S; b=5.0, sampler=fourier_nodes) where {S<:EigenstateBundle}
+    us, s, norms = boundary_function(state_bundle; b=b, sampler=sampler)
     mf, ks = momentum_function(us[1],s)
     type = eltype(mf)
     mfs::Vector{Vector{type}} = [mf]

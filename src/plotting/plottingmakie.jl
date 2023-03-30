@@ -64,7 +64,7 @@ function plot_curve!(ax, crv::AbsVirtualCurve; plot_normal=false, dens = 10.0)
 end
 
 function plot_boundary!(ax, billiard::AbsBilliard; dens = 100.0, plot_normal=true)
-    for curve in billiard.boundary
+    for curve in billiard.fundamental_boundary
         plot_curve!(ax, curve; dens = dens, plot_normal = plot_normal)
     end
 end
@@ -93,7 +93,7 @@ end
 function plot_domain!(ax, billiard::AbsBilliard; dens=100.0, hmargs=Dict(),cmap=Reverse(:binary))
     d = one(dens)/dens
     #sz = (d,d)
-    xlim, ylim = boundary_limits(billiard.boundary; grd=1000, type=typeof(Float32)) 
+    xlim, ylim = boundary_limits(billiard.fundamental_boundary; grd=1000, type=typeof(Float32)) 
     x_grid = range(xlim... ; step=d)
     y_grid = range(ylim... ; step=d)
     pts = [SVector(x,y) for y in y_grid for x in x_grid]
@@ -170,11 +170,11 @@ end
 
 
 function plot_boundary_function!(f,state::AbsState; 
-    b=5.0, log=false, include_virtual=true, linesargs=Dict(),axargs=Dict())
+    b=5.0, log=false, linesargs=Dict(),axargs=Dict())
     ax = Axis(f[i,1]; axargs...)
-    u, s, norm = boundary_function(state; b=b, include_virtual=include_virtual)
+    u, s, norm = boundary_function(state; b=b)
     billiard = state.billiard
-    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)
+    edges = curve_edge_lengths(billiard)
     if log
         lines!(ax, s, log10.(abs.(u)); linesargs...)
         vlines!(ax, edges; color=:black, linewidth=0.5)
@@ -185,10 +185,10 @@ function plot_boundary_function!(f,state::AbsState;
 end
 
 function plot_boundary_function!(f,state_bundle::EigenstateBundle; 
-    b=5.0, log=false, include_virtual=true, linesargs=Dict(),axargs=Dict())
-    us, s, norms = boundary_function(state_bundle; b=b, include_virtual=include_virtual)
+    b=5.0, log=false, linesargs=Dict(),axargs=Dict())
+    us, s, norms = boundary_function(state_bundle; b=b)
     billiard = state_bundle.billiard
-    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)
+    edges = curve_edge_lengths(billiard)
     for i in eachindex(us)
         ax = Axis(f[i,1]; axargs...)
         if log
@@ -202,9 +202,9 @@ function plot_boundary_function!(f,state_bundle::EigenstateBundle;
 end
 
 function plot_momentum_function!(f,state::AbsState; 
-    b=5.0, log=false,  include_virtual=true, linesargs=Dict(),axargs=Dict())
-    mf, k_range = momentum_function(state; b=b, include_virtual=include_virtual)
-    ax = Axis(f[i,1]; axargs...)
+    b=5.0, log=false,  linesargs=Dict(),axargs=Dict())
+    mf, k_range = momentum_function(state; b=b)
+    ax = Axis(f[1,1]; axargs...)
     if log
         lines!(ax, k_range, log10.(abs.(mf)); linesargs...)
         vlines!(ax, [state.k]; color=:black, linewidth=0.5)
@@ -216,8 +216,8 @@ function plot_momentum_function!(f,state::AbsState;
 end
 
 function plot_momentum_function!(f,state_bundle::EigenstateBundle; 
-    b=5.0, log=false,  include_virtual=true, linesargs=Dict(),axargs=Dict())
-    mfs, k_range = momentum_function(state_bundle; b=b,  include_virtual=include_virtual)
+    b=5.0, log=false, linesargs=Dict(),axargs=Dict())
+    mfs, k_range = momentum_function(state_bundle; b=b)
     ks = state_bundle.ks
     for i in eachindex(mfs)
         ax = Axis(f[i,1]; axargs...)
@@ -234,22 +234,22 @@ function plot_momentum_function!(f,state_bundle::EigenstateBundle;
 end
 
 function plot_husimi_function!(f,state::AbsState; 
-    b=5.0,log=false,  include_virtual=true, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
-    u, s, norm = boundary_function(state; b=b, include_virtual=include_virtual)
+    b=5.0,log=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
+    u, s, norm = boundary_function(state; b=b)
     H, qs, ps = husimi_function(k,u,s; w = 7.0)
     billiard = state.billiard
-    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)    
+    edges = curve_edge_lengths(billiard)    
     hmap, ax = plot_heatmap!(f,qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
     vlines!(ax, edges; color=:black, linewidth=0.5)
 end
 
 
 function plot_husimi_function!(f,state_bundle::EigenstateBundle; 
-    b=5.0,log=false,  include_virtual=true, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
-    us, s, norms = boundary_function(state_bundle; b=b,  include_virtual=include_virtual)
+    b=5.0,log=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
+    us, s, norms = boundary_function(state_bundle; b=b)
     ks = state_bundle.ks
     billiard = state_bundle.billiard
-    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)    
+    edges = curve_edge_lengths(billiard)    
     for i in eachindex(us)
         H, qs, ps = husimi_function(ks[i],us[i],s; w = 7.0)    
         hmap, ax = plot_heatmap!(f[i,1],qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)

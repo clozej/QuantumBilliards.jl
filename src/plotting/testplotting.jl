@@ -106,13 +106,13 @@ function plot_solver_test!(f,sw_solver::S,basis,billiard,k1,k2,dk;log=true) wher
     #return ax
 end
 
-function plot_state_test!(f,state; b_psi=10.0, b_u = 20.0, log_psi =(true,-5), include_virtual = true)
+function plot_state_test!(f,state; b_psi=10.0, b_u = 20.0, log_psi =(true,-5))
     plot_probability!(f[1:2,1:2], state; b=b_psi, log = log_psi)
     k = state.k
     billiard=state.billiard
     ax_u = Axis(f[3,1], xlabel=L"q", ylabel=L"u")
-    u, s, norm = boundary_function(state; b=b_u, include_virtual=include_virtual)
-    edges = curve_edge_lengths(billiard;include_virtual=include_virtual)
+    u, s, norm = boundary_function(state; b=b_u)
+    edges = curve_edge_lengths(billiard)
     lines!(ax_u, s, u)
     vlines!(ax_u, edges; color=:black, linewidth=0.5)
     text!(ax_u,1.0,1.0, text = "norm=$norm", align = (:right, :top), color = :black, space=:relative)

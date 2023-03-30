@@ -33,7 +33,8 @@ function make_full_lemon(half_separation;radius=one(half_separation),x0=zero(hal
 end
 
 struct Lemon{T}  <: AbsBilliard where {T<:Real}
-    boundary::Vector
+    fundamental_boundary::Vector
+    full_boundary::Vector
     length::T
     area::T
     half_separation::T
@@ -41,17 +42,12 @@ struct Lemon{T}  <: AbsBilliard where {T<:Real}
     corners::Vector{SVector{2,T}}
 end
 
-function Lemon(half_separation;full_domain=false, radius=1.0,x0=0.0,y0=0.0)
+function Lemon(half_separation; radius=1.0,x0=0.0,y0=0.0)
     theta = acos(half_separation/radius)
-    quarter_area = 0.25 * radius^2*(2*theta - sin(2*theta))
-    if full_domain
-        boundary, corners = make_full_lemon(half_separation;radius=radius,x0=x0,y0=y0)
-        area = 4.0*quarter_area
-    else
-        boundary, corners = make_quarter_lemon(half_separation;radius=radius,x0=x0,y0=y0)
-        area = quarter_area
-    end
-    length = sum([crv.length for crv in boundary])
+    area = radius^2*(2*theta - sin(2*theta))
+    full_boundary, _ = make_full_lemon(half_separation;radius=radius,x0=x0,y0=y0)
+    fundamental_boundary, corners = make_quarter_lemon(half_separation;radius=radius,x0=x0,y0=y0)
+    length = sum([crv.length for crv in full_boundary])
     #PolygonOps.area(collect(zip(x,y)))
-    return Lemon(boundary,length,area,half_separation,radius,corners)
+    return Lemon(fundamental_boundary,full_boundary,length,area,half_separation,radius,corners)
 end 

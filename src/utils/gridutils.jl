@@ -41,7 +41,7 @@ function interior_grid(billiard::AbsBilliard,size::Tuple{T,T},xlim,ylim) where T
 end
 
 function interior_grid(billiard::AbsBilliard,size)
-    xlim,ylim = boundary_limits(billiard.boundary; grd=1000)
+    xlim,ylim = boundary_limits(billiard.fundamental_boundary; grd=1000)
     #println(xlim,ylim)
     return interior_grid(billiard,size,xlim,ylim)
 end

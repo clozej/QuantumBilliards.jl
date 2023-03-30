@@ -18,7 +18,7 @@ f = Figure(resolution = (1000,500))
 plot_basis_test!(f, basis, billiard)
 display(f)
 
-d = 3.0
+d = 1.0
 b = 5.0
 sw_solver = DecompositionMethod(d,b)
 acc_solverA = ScalingMethodA(d,b)
@@ -27,10 +27,10 @@ acc_solver = acc_solverA
 
 k0 = 500.00
 dk = 0.1
-acc_infoA = benchmark_solver(acc_solverA, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-acc_infoB = benchmark_solver(acc_solverB, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoA = benchmark_solver(acc_solverA, basis, billiard, k0, dk; plot_matrix=true);
+acc_infoB = benchmark_solver(acc_solverB, basis, billiard, k0, dk; plot_matrix=true);
 
-sw_info = benchmark_solver(sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=false);
+sw_info = benchmark_solver(sw_solver, basis, billiard, k0, dk; plot_matrix=true, log=false);
 
 
 f = Figure(resolution = (1000,500))
@@ -49,14 +49,14 @@ f = Figure(resolution = (1000,500))
 plot_solver_test!(f,acc_solver,basis,billiard,500.0,501.0,0.125, tol = 1e-3)
 display(f)
 
-k0 = 1000.0
+k0 = 500.0
 dk = 0.1
 k, ten = solve_wavenumber(acc_solver,basis, billiard,k0,dk)
 ks, ten = solve_spectrum(acc_solver,basis, billiard,k0,dk)
 k, ten = solve_wavenumber(sw_solver,basis, billiard,k0,dk)
 state = compute_eigenstate(sw_solver, basis, billiard, k)
 
-states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0;dk =0.1, tol=0.0025)
+states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0;dk =0.1, tol=0.1)
 states.X
 states.ks
 states.tens
@@ -70,11 +70,11 @@ plot_momentum_function!(f,states;log=false)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_husimi_function!(f,states;log=false,include_virtual=false)
+plot_husimi_function!(f,states;log=false)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state; b_u= 10.0, include_virtual=false)
+plot_state_test!(f,state; b_u= 10.0)
 display(f)
 
 #=

@@ -51,14 +51,14 @@ plot_solver_test!(f,acc_solver,basis,billiard,100.0,101.0,0.1)
 display(f)
 
 k0 = 500.10
-dk = 0.01
+dk = 0.1
 k, ten = solve_wavenumber(acc_solver,basis, billiard,k0,dk)
-k, ten = solve_spectrum(acc_solver,basis, billiard,k0,dk)
-k, ten = solve_wavenumber(sw_solver,basis, billiard,k0,dk)
+#k, ten = solve_spectrum(acc_solver,basis, billiard,k0,dk)
+#k, ten = solve_wavenumber(sw_solver,basis, billiard,k0,dk)
 state = compute_eigenstate(sw_solver, basis, billiard, k)
 state1 = compute_eigenstate(acc_solver, basis, billiard, k0)
 
-states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0;dk =0.1, tol=0.0005)
+states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0;dk =0.1, tol=0.005)
 states.ks
 states.tens
 
@@ -74,7 +74,8 @@ display(f)
 f = Figure(resolution = (1500,1500))
 plot_momentum_function!(f,states;log=true)
 display(f)
-
+state1.k
+state.k
 
 f = Figure(resolution = (1500,1500))
 plot_state_test!(f,state)
@@ -84,11 +85,12 @@ f = Figure(resolution = (1500,1500))
 plot_state_test!(f,state1)
 display(f)
 
+#=
 b_range =collect(range(2.0,6.0,step=0.5))
 f = Figure(resolution = (1000,500))
 plot_benchmarks!(f, sw_solver, basis, billiard, k0, dk, 3.5, b_range)
 display(f)
-
+=#
 
 #=
 using LinearAlgebra, StaticArrays

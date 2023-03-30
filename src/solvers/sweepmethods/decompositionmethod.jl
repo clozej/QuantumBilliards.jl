@@ -31,7 +31,7 @@ function evaluate_points(solver::DecompositionMethod, billiard::Bi, k) where {Bi
     w_all = Vector{type}()
     w_n_all = Vector{type}()
 
-    for crv in billiard.boundary
+    for crv in billiard.fundamental_boundary
         if typeof(crv) <: AbsRealCurve
             L = crv.length
             N = round(Int, k*L*b/(2*pi))
@@ -53,7 +53,14 @@ end
 
 function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
     to = TimerOutput()
-
+    w = pts.w
+    w_n = pts.w_n
+    symmetries=basis.symmetries
+    if ~isnothing(symmetries)
+        norm = (length(symmetries)+1.0)
+        w = w./norm
+        w_n = w_n./norm
+    end
     #basis and gradient matrices
     @timeit to "basis_and_gradient_matrices" B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
     N = basis.dim
@@ -62,7 +69,7 @@ function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pt
     G = similar(F)
     
     @timeit to "F construction" begin 
-        @timeit to "weights" T = (pts.w .* B) #reused later
+        @timeit to "weights" T = (w .* B) #reused later
         @timeit to "product" mul!(F,B',T) #boundary norm matrix
     end
 
@@ -76,7 +83,7 @@ function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pt
         @timeit to "normal derivative" B = dX .+ dY
     
     #B is now normal derivative matrix (u function)
-        @timeit to "weights" T = (pts.w_n .* B) #apply integration weights
+        @timeit to "weights" T = (w_n .* B) #apply integration weights
         @timeit to "product" mul!(G,B',T)#norm matrix
     end
     print_timer(to)
@@ -85,6 +92,14 @@ end
 
 function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
     #basis and gradient matrices
+    w = pts.w
+    w_n = pts.w_n
+    symmetries=basis.symmetries
+    if ~isnothing(symmetries)
+        norm = (length(symmetries)+1.0)
+        w = w./norm
+        w_n = w_n./norm
+    end
     B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
     type = eltype(B)
     #allocate matrices
@@ -92,7 +107,7 @@ function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::Boundar
     F = zeros(type,(N,N))
     G = similar(F)
     #apply weights
-    T = (pts.w .* B) #reused later
+    T = (w .* B) #reused later
     mul!(F,B',T) #boundary norm matrix
     nx = getindex.(pts.normal,1)
     ny = getindex.(pts.normal,2)
@@ -102,7 +117,7 @@ function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::Boundar
     #reuse B
     B = dX .+ dY
     #B is now normal derivative matrix (u function)
-    T = (pts.w_n .* B) #apply integration weights
+    T = (w_n .* B) #apply integration weights
     mul!(G,B',T)#norm matrix
     return F, G    
     

@@ -64,7 +64,7 @@ function chebyshev_nodes(N::Int)
 end
 
 function random_interior_points(billiard::AbsBilliard, N::Int; grd::Int = 1000)
-    xlim,ylim = boundary_limits(billiard.boundary; grd=grd)
+    xlim,ylim = boundary_limits(billiard.fundamental_boundary; grd=grd)
     dx =  xlim[2] - xlim[1]
     dy =  ylim[2] - ylim[1]
     pts = []

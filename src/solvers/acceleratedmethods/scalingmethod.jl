@@ -39,7 +39,7 @@ function evaluate_points(solver::AbsScalingMethod, billiard::Bi, k) where {Bi<:A
     xy_all = Vector{SVector{2,type}}()
     w_all = Vector{type}()
 
-    for crv in billiard.boundary
+    for crv in billiard.fundamental_boundary
         if typeof(crv) <: AbsRealCurve
             L = crv.length
             N = round(Int, k*L*b/(2*pi))
@@ -59,8 +59,14 @@ end
 #generalize for other types
 function construct_matrices_benchmark(solver::ScalingMethodA, basis::Ba, pts::BoundaryPointsSM, k) where {Ba<:AbsBasis}
     to = TimerOutput()
+    symmetries = basis.symmetries 
     #type = eltype(pts.w)
     xy, w = pts.xy, pts.w
+    symmetries = basis.symmetries 
+    if ~isnothing(symmetries)
+        n = (length(symmetries)+1.0)
+        w = w./n
+    end
     #M =  length(xy)
     N = basis.dim
     #basis matrix
@@ -87,7 +93,11 @@ end
 function construct_matrices(solver::ScalingMethodA, basis::Ba, pts::BoundaryPointsSM, k) where {Ba<:AbsBasis}
     xy = pts.xy
     w = pts.w
-    basis=basis
+    symmetries=basis.symmetries
+    if ~isnothing(symmetries)
+        n = (length(symmetries)+1.0)
+        w = w./n
+    end
     N = basis.dim
     #basis matrix
     B = basis_matrix(basis, k, xy)
@@ -108,6 +118,11 @@ function construct_matrices_benchmark(solver::ScalingMethodB, basis::Ba, pts::Bo
     to = TimerOutput()
     #type = eltype(pts.w)
     xy, w = pts.xy, pts.w
+    symmetries=basis.symmetries
+    if ~isnothing(symmetries)
+        n = (length(symmetries)+1.0)
+        w = w./n
+    end
     #M =  length(xy)
     #basis and gradient matrices
     @timeit to "basis_and_gradient_matrices" B, dX, dY = basis_and_gradient_matrices(basis, k, xy)
@@ -140,7 +155,11 @@ end
 function construct_matrices(solver::ScalingMethodB, basis::Ba, pts::BoundaryPointsSM, k) where {Ba<:AbsBasis}
     xy = pts.xy
     w = pts.w
-    basis=basis
+    symmetries=basis.symmetries
+    if ~isnothing(symmetries)
+        n = (length(symmetries)+1.0)
+        w = w./n
+    end
     N = basis.dim
     #basis matrix
     B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)

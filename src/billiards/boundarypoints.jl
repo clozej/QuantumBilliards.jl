@@ -27,8 +27,8 @@ function boundary_coords(crv::C, t, dt) where {C<:AbsCurve}
 end 
 
 #make better watch out for primes parameter
-function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, include_virtual=true, primes=true) where {Bi<:AbsBilliard}
-    let boundary = billiard.boundary
+function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, primes=true) where {Bi<:AbsBilliard}
+    let boundary = billiard.full_boundary
         if sampler==fourier_nodes
             crv_lengths = [crv.length for crv in boundary]
             if primes
@@ -41,7 +41,7 @@ function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, include_virtual
             l = boundary[1].length
             for i in 2:length(ts)
                 crv = boundary[i]
-                if (typeof(crv) <: AbsRealCurve || include_virtual)
+                if (typeof(crv) <: AbsRealCurve)
                     Lc = crv.length
                     #Nc = round(Int, N*Lc/L)
                     xy,nxy,s,ds = boundary_coords(crv, ts[i], dts[i])
@@ -54,17 +54,15 @@ function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, include_virtual
                 end    
             end
         else
-            L = real_length(billiard)
-            if include_virtual
-            L += virtual_length(billiard) 
-            end
+            L = billiard.length
+
             Lc = boundary[1].length
             Nc = round(Int, N*Lc/L)
             xy_all, normal_all, s_all, ds_all = boundary_coords(boundary[1], Nc; sampler=sampler)
             #println(s_all)
             l = boundary[1].length #cumulative length
             for crv in boundary[2:end]
-                if (typeof(crv) <: AbsRealCurve || include_virtual)
+                if (typeof(crv) <: AbsRealCurve )
                     Lc = crv.length
                     Nc = round(Int, N*Lc/L)
                     xy,nxy,s,ds = boundary_coords(crv, Nc; sampler=sampler)
@@ -81,10 +79,10 @@ function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, include_virtual
     end
 end
 
-function dilated_boundary_points(billiard::Bi, N, k; sampler=fourier_nodes, include_virtual=false, primes=false) where {Bi<:AbsBilliard}
+function dilated_boundary_points(billiard::Bi, N, k; sampler=fourier_nodes, primes=false) where {Bi<:AbsBilliard}
     lam = 2*pi/k #wavelength
     #M = max(N,100)
-    pts = boundary_coords(billiard, N; sampler=sampler, include_virtual = include_virtual, primes = primes)
+    pts = boundary_coords(billiard, N; sampler=sampler, primes = primes)
     xy = pts.xy 
     n = pts.normal
     return xy .+ lam .* n

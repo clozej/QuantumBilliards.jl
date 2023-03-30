@@ -35,7 +35,8 @@ function make_full_sinai(angle1, angle2; x0=zero(angle1),y0=zero(angle1),rot_ang
 end
 
 struct Sinai{T}  <: AbsBilliard where {T<:Real}
-    boundary::Vector
+    fundamental_boundary::Vector
+    full_boundary::Vector
     length::T
     area::T
     angle1::T
@@ -43,17 +44,19 @@ struct Sinai{T}  <: AbsBilliard where {T<:Real}
     corners::Vector{SVector{2,T}}
 end
 
-function Sinai(angle1,angle2;full_domain=false,x0=0.0,y0=0.0,rot_angle=0.0)
+function Sinai(angle1,angle2; full_boundary=false, x0=0.0,y0=0.0,rot_angle=0.0)
     circ_seg_area1 = 1.0/(sin(angle1))^2*(2*angle1-sin(2.0*angle1))
     circ_seg_area2 = 1.0/(sin(angle2))^2*(2*angle2-sin(2.0*angle2))
-    if full_domain
-        boundary, corners = make_full_sinai(angle1,angle2;x0=x0,y0=y0,rot_angle=rot_angle)
-        area = 4.0 - (circ_seg_area1 + circ_seg_area2)
-    else
-        boundary, corners = make_quarter_sinai(angle1,angle2;x0=x0,y0=y0,rot_angle=rot_angle)
-        area = 1.0 - (circ_seg_area1 + circ_seg_area2)/4.0
-    end
-    length = sum([crv.length for crv in boundary])
+
+    full_boundary, corners = make_full_sinai(angle1,angle2;x0=x0,y0=y0,rot_angle=rot_angle)
+    area = 4.0 - (circ_seg_area1 + circ_seg_area2)
+    boundary, _ = make_quarter_sinai(angle1,angle2;x0=x0,y0=y0,rot_angle=rot_angle)
+
+    length = sum([crv.length for crv in full_boundary])
     #PolygonOps.area(collect(zip(x,y)))
-    return Sinai(boundary,length,area,angle1,angle2,corners)
+    if full_boundary
+        Sinai(full_boundary,full_boundary,length,area,angle1,angle2,corners)
+    else
+        return Sinai(boundary,full_boundary,length,area,angle1,angle2,corners)
+    end
 end

@@ -34,7 +34,7 @@ function Eigenstate(k, k_basis, vec, ten, basis, billiard)
 end
 
 function compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard,k)
-    L = real_length(billiard)
+    L = billiard.length
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
     basis_new = resize_basis(basis,billiard,dim,k)
     pts = evaluate_points(solver, billiard, k)
@@ -43,7 +43,7 @@ function compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsB
 end
 
 function compute_eigenstate(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1)
-    L = real_length(billiard)
+    L = billiard.length
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
     basis_new = resize_basis(basis,billiard,dim,k)
     pts = evaluate_points(solver, billiard, k)
@@ -78,7 +78,7 @@ function EigenstateBundle(ks, k_basis, X, tens, basis, billiard)
 end
 
 function compute_eigenstate_bundle(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k;sampler=gauss_legendre_nodes, dk = 0.1, tol=1e-5)
-    L = real_length(billiard)
+    L = billiard.length
     dim = round(Int, L*k*solver.dim_scaling_factor/(2*pi))
     basis_new = resize_basis(basis,billiard, dim,k)
     pts = evaluate_points(solver, billiard, k)

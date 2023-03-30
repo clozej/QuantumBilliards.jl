@@ -42,8 +42,8 @@ function wavefunction_gradient(state::S; b=20.0, inside_only=true) where {S<:Abs
     let type = eltype(state.vec), billiard = state.billiard
         k = state.k_basis
         #try to find a lazy way to do this
-        L = real_length(billiard)
-        xlim,ylim = boundary_limits(billiard.boundary; grd=round(Int, k*L*b/(2*pi)), type=type)
+        L = billiard.length
+        xlim,ylim = boundary_limits(billiard.fundamental_boundary; grd=round(Int, k*L*b/(2*pi)), type=type)
         dx = xlim[2] - xlim[1]
         dy = ylim[2] - ylim[1]
         nx = max(round(Int, b),10)
@@ -67,7 +67,7 @@ function wavefunction_gradient(state::S, basis::Ba; b=20.0,xlim=(-1,1),ylim=(-1,
         type = eltype(state.vec)
         k = state.k
         #try to find a lazy way to do this
-        L = real_length(billiard)
+        L = billiard.length
         #xlim,ylim = boundary_limits(billiard.boundary; grd=round(Int, k*L*b/(2*pi)), type=type)
         dx = xlim[2] - xlim[1]
         dy = ylim[2] - ylim[1]
