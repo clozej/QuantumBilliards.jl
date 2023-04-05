@@ -1,7 +1,7 @@
 #include("../abstracttypes.jl")
 #include("../basis/fourierbessel/corneradapted.jl")
 #include("geometry.jl")
-using StaticArrays #PolygonOps
+using StaticArrays 
 
 
 function triangle_corners(angles, x0, y0, h) #x0, y0 position of gamma corner

@@ -1,7 +1,4 @@
-include("../abstracttypes.jl")
-include("../utils/billiardutils.jl")
-include("../utils/gridutils.jl")
-using StatsBase
+
 using FastGaussQuadrature
 using StaticArrays
 

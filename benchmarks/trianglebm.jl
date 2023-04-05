@@ -23,7 +23,7 @@ plot_basis_test!(f, basis, billiard)
 display(f)
 
 
-d = 3.0
+d = 1.6
 b = 5.0
 sw_solver = DecompositionMethod(d,b)
 acc_solverA = ScalingMethodA(d,b)
@@ -35,7 +35,7 @@ dk = 0.1
 acc_infoA = benchmark_solver(acc_solverA, basis, billiard, k0, dk; plot_matrix=true);
 acc_infoB = benchmark_solver(acc_solverB, basis, billiard, k0, dk; plot_matrix=true);
 
-k0 = 1000.001
+k0 = 100.001
 dk = 0.01
 acc_info = benchmark_solver(acc_solver, basis, billiard, k0, dk; plot_matrix=true);
 sw_info = benchmark_solver(sw_solver, basis, billiard, k0, dk; plot_matrix=true, log=true);
