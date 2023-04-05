@@ -1,24 +1,22 @@
-include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+#include("../abstracttypes.jl")
+#include("../utils/billiardutils.jl")
+#include("../utils/typeutils.jl")
 
-function set_precision(a)
-    #expand for other types of numbers
-    t = typeof(a)
-    return t == Float32 ? Float32(1e-8) : convert(t,1e-16) 
-end
-
-struct Basisstate{K,T} <: StationaryState
+struct BasisState{K,T,Ba} <: StationaryState 
     k::K
+    k_basis::K
     vec::Vector{T}
-    dim::Int
+    idx::Int64
+    dim::Int64
     eps::T
-    #basis type
+    basis::Ba
 end
 
-function Basisstate(k, i, dim)  
+function BasisState(basis, k, i)  
+    dim = basis.dim
     typ = typeof(k)
     eps = set_precision(k)
     vec = zeros(typ,dim)
     vec[i] = one(typ)
-    return Basisstate(k, vec, dim, eps)
+    return BasisState(k,k, vec, i, dim, eps, basis)
 end

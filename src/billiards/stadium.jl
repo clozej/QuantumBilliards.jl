@@ -1,43 +1,53 @@
 
-include("../abstracttypes.jl")
-include("../basis/fourierbessel.jl")
-include("geometry.jl")
+#include("../abstracttypes.jl")
+#include("../basis/fourierbessel/corneradapted.jl")
+#include("geometry.jl")
 
-function make_stadium(eps;R=1,x0=0.0,y0=0.0, curve_types=[:Real,:Real,:Virtual,:Virtual])
+function make_quarter_stadium(half_width;radius=one(half_width),x0=zero(half_width),y0=zero(half_width),rot_angle=zero(half_width))
     #d(x, y, x0, y0, x1, y1) = @.((y1-y0)*x-(x1-x0)*y+x1*y0-y1*x0)
-
-    circle = CircleSegment(R, x0+eps, y0, pi/2.0, 0.0)
-
-    line1 = (curve_types[2] == :Real) ? LineSegment(eps+x0, R+y0, x0, R+y0) : VirtualLineSegment(eps+x0, R+y0, x0, R+y0)
-    line2 = (curve_types[3] == :Real) ? LineSegment(x0, R+y0, x0, y0) : VirtualLineSegment(x0, R+y0, x0, y0)
-    line3 = (curve_types[4] == :Real) ? LineSegment(x0, y0, eps + R + x0, y0) : VirtualLineSegment(x0, y0, eps + R + x0, y0)
+    origin = SVector(x0,y0)
+    type = typeof(half_width)
+    circle = CircleSegment(radius,pi/2,zero(type), half_width, zero(type); origin=origin, rot_angle = rot_angle)
+    corners = [SVector(half_width, radius), SVector(zero(type), radius), SVector(zero(type), zero(type)), SVector(half_width + radius, zero(type))]
+    
+    line1 = LineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
+    line2 = VirtualLineSegment(corners[2],corners[3];origin=origin,rot_angle=rot_angle)
+    line3 = VirtualLineSegment(corners[3],corners[4];origin=origin,rot_angle=rot_angle)
     boundary = [circle, line1, line2, line3]
-    dm = [crv.domain for crv in boundary]
-    function domain(x,y) #make better
-        res = [true for i in 1:length(x)] 
-        for f in dm
-            res .= res .&& f(x,y)
-        end
-        return res
-    end
-    return boundary, domain
+    return boundary, corners
 end
 
-struct Stadium  <: AbsBilliard
-    boundary :: Vector{Any}
-    length:: Float64
-    area :: Float64
-    domain :: Function 
-    function Stadium(eps;R=1.0,x0=0.0,y0=0.0, curve_types=[:Real,:Real,:Virtual,:Virtual])
-        boundary, domain = make_stadium(eps;R=1,x0=x0,y0=y0, curve_types=curve_types)
-        length = sum([crv.length for crv in boundary])
-        area = eps*R + (pi*R^2)/4.0 #PolygonOps.area(collect(zip(x,y)))
-        return new(boundary,length,area,domain)
-    end      
+function make_full_stadium(half_width;radius=one(half_width),x0=zero(half_width),y0=zero(half_width),rot_angle=zero(half_width))
+    #d(x, y, x0, y0, x1, y1) = @.((y1-y0)*x-(x1-x0)*y+x1*y0-y1*x0)
+    origin = SVector(x0,y0)
+    type = typeof(half_width)
+    
+    corners = [SVector(half_width, radius), SVector(-half_width, radius), SVector(-half_width, -radius), SVector(half_width, -radius)]
+    circle1 = CircleSegment(radius,1.0*pi, -pi*0.5, half_width, zero(type); origin=origin, rot_angle = rot_angle)
+    line1 = LineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
+    circle2 = CircleSegment(radius,1.0*pi, pi*0.5, -half_width, zero(type); origin=origin, rot_angle = rot_angle)
+    line2 = LineSegment(corners[3],corners[4];origin=origin,rot_angle=rot_angle)
+    boundary = [circle1, line1, circle2, line2]
+    return boundary, corners
 end
 
-function make_stadium_and_basis(eps; curve_types = [:Real,:Real,:Virtual,:Virtual],R=1.0,x0=0.0,y0=0.0)
-    billiard = Stadium(eps;R=1,x0=x0,y0=y0, curve_types=curve_types)
-    basis = CornerAdaptedFourierBessel(1, pi/2.0, 0.0, x0, y0) 
-    return billiard, basis 
+struct Stadium{T}  <: AbsBilliard where {T<:Real}
+    fundamental_boundary::Vector
+    full_boundary::Vector
+    length::T
+    area::T
+    half_width::T
+    radius::T
+    corners::Vector{SVector{2,T}}
 end
+
+function Stadium(half_width;radius=1.0,x0=0.0,y0=0.0)
+    full_boundary, corners = make_full_stadium(half_width;radius=radius,x0=x0,y0=y0)
+    area = 4.0*half_width*radius + (pi*radius^2)
+    fundamental_boundary, _ = make_quarter_stadium(half_width;radius=radius,x0=x0,y0=y0)
+    length = sum([crv.length for crv in full_boundary])
+    #PolygonOps.area(collect(zip(x,y)))
+    return Stadium(fundamental_boundary,full_boundary,length,area,half_width,radius,corners)
+end 
+
+

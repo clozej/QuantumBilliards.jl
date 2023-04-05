@@ -1,66 +1,86 @@
-include("../abstracttypes.jl")
-include("../billiards/billiard.jl")
+#include("../abstracttypes.jl")
+#include("../utils/billiardutils.jl")
 #include("../utils/gridutils.jl")
-include("../solvers/matrixconstructors.jl")
-#=
-struct BoundaryPoints{T} <: AbsPoints
-    x :: Vector{T} 
-    y :: Vector{T} 
-    nx :: Vector{T} 
-    ny :: Vector{T}
-    s :: Vector{T}
-    w :: Vector{T}
+#include("../solvers/matrixconstructors.jl")
+using FFTW
+
+#this takes care of singular points
+function regularize!(u)
+    idx = findall(isnan, u)
+    for i in idx
+        u[i] = (u[i+1] + u[i-1])/2.0
+    end
 end
-=#
-function boundary_coords(curve::AbsCurve, N; sampler=linear_nodes)
-    L = curve.length
-    t, dt = sampler(N)
-    x, y = curve.r(t)
-    nx, ny = curve.n(t)
-    s = curve.s(t)
-    ds = L*dt #modify for different parametrizations
-    return x,y,nx,ny,s,ds
-end    
 
-function boundary_coords(billiard::AbsBilliard, N; sampler=linear_nodes, include_virtual=true)
-    x_all = Float64[]
-    y_all = Float64[]
-    nx_all = Float64[]
-    ny_all = Float64[]
-    s_all = Float64[]
-    ds_all = Float64[]
-
-    L = real_length(billiard)
-    if include_virtual
-       L += virtual_length(billiard) 
+function boundary_function(state::S; b=5.0, sampler=fourier_nodes) where {S<:AbsState}
+    let vec = state.vec, k = state.k, k_basis = state.k_basis, new_basis = state.basis, billiard=state.billiard
+        type = eltype(vec)
+        L = billiard.length
+        N = max(round(Int, k*L*b/(2*pi)), 512)
+        pts = boundary_coords(billiard, N; sampler=sampler)
+        dX, dY = gradient_matrices(new_basis, k_basis, pts.xy)
+        nx = getindex.(pts.normal,1)
+        ny = getindex.(pts.normal,2)
+        dX = nx .* dX 
+        dY = ny .* dY
+        U::Array{type,2} = dX .+ dY
+        u::Vector{type} = U * vec
+        regularize!(u)
+        #compute the boundary norm
+        w = dot.(pts.normal, pts.xy) .* pts.ds
+        integrand = abs2.(u) .* w
+        norm = sum(integrand)/(2*k^2)
+        #println(norm)
+        return u, pts.s::Vector{type}, norm
     end
-    l = 0.0 #cumulative length
-    for curve in billiard.boundary
-        if (typeof(curve) <: AbsRealCurve || include_virtual)
-            Lc = curve.length
-            Nc = round(Int, N*Lc/L)
-            x,y,nx,ny,s,ds = boundary_coords(curve, Nc; sampler=sampler)
-            append!(x_all, x)
-            append!(y_all, y)
-            append!(nx_all, nx)
-            append!(ny_all, ny)
-            append!(s_all, s .+ l)
-            append!(ds_all, ds)
-            l += Lc
-        end    
-    end
-    return x_all,y_all,nx_all,ny_all,s_all,ds_all 
-end   
+end
 
-function boundary_function(state::AbsState, basis::AbsBasis, billiard::AbsBilliard; b=5.0, sampler=linear_nodes, include_virtual=true)
-    vec = state.vec
-    #typ = eltype(vec)
-    new_basis = rescale_basis(basis,state.dim)
-    k = state.k
-    L = real_length(billiard)
-    N = max(round(Int, k*L*b/(2*pi)), 400)
-    x,y,nx,ny,s,ds = boundary_coords(billiard, N; sampler=sampler, include_virtual=include_virtual)
-    U = U_matrix(new_basis,k,x,y,nx,ny)
-    u = U * vec
-    return s, u, U
+function boundary_function(state_bundle::S; b=5.0, sampler=fourier_nodes) where {S<:EigenstateBundle}
+    let X = state_bundle.X, k_basis = state_bundle.k_basis, ks = state_bundle.ks, new_basis = state_bundle.basis, billiard=state_bundle.billiard 
+        type = eltype(X)
+        L = billiard.length
+        N = max(round(Int, k_basis*L*b/(2*pi)), 512)
+        pts = boundary_coords(billiard, N; sampler=sampler)
+        dX, dY = gradient_matrices(new_basis, k_basis, pts.xy)
+        nx = getindex.(pts.normal,1)
+        ny = getindex.(pts.normal,2)
+        dX = nx .* dX 
+        dY = ny .* dY
+        U::Array{type,2} = dX .+ dY
+        u_bundle::Matrix{type} = U * X
+        for u in eachcol(u_bundle)
+            regularize!(u)
+        end
+        #compute the boundary norm
+        w = dot.(pts.normal, pts.xy) .* pts.ds
+        norms = [sum(abs2.(u_bundle[:,i]) .* w)/(2*ks[i]^2) for i in eachindex(ks)]
+        #println(norm)
+        us::Vector{Vector{type}} = [u for u in eachcol(u_bundle)]
+        return us, pts.s::Vector{type}, norms
+    end
+end
+
+function momentum_function(u,s)
+    fu = rfft(u)
+    sr = 1.0/diff(s)[1]
+    ks = rfftfreq(length(s),sr).*(2*pi)
+    return abs2.(fu)/length(fu), ks
+end
+
+function momentum_function(state::S; b=5.0, sampler=fourier_nodes) where {S<:AbsState}
+    u, s, norm = boundary_function(state; b=b, sampler=sampler)
+    return momentum_function(u,s)
+end
+
+#this can be optimized by usinf FFTW plans
+function momentum_function(state_bundle::S; b=5.0, sampler=fourier_nodes) where {S<:EigenstateBundle}
+    us, s, norms = boundary_function(state_bundle; b=b, sampler=sampler)
+    mf, ks = momentum_function(us[1],s)
+    type = eltype(mf)
+    mfs::Vector{Vector{type}} = [mf]
+    for i in 2:length(us)
+        mf, ks = momentum_function(us[i],s)
+        push!(mfs,mf)
+    end
+    return mfs, ks
 end
