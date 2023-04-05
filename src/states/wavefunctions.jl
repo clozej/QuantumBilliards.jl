@@ -45,7 +45,7 @@ function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 
 end
 
 function wavefunction(state::S; b=5.0, inside_only=true, memory_limit = 10.0e9) where {S<:AbsState}
-    let k = state.k, billiard=state.billiard       
+    let k = state.k, billiard=state.billiard, symmetries=state.basis.symmetries       
         #println(new_basis.dim)
         type = eltype(state.vec)
         #try to find a lazy way to do this
@@ -60,11 +60,14 @@ function wavefunction(state::S; b=5.0, inside_only=true, memory_limit = 10.0e9) 
         Psi::Vector{type} = compute_psi(state,x_grid,y_grid;inside_only=inside_only, memory_limit = memory_limit) 
         #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
         Psi2d::Array{type,2} = reshape(Psi, (nx,ny))
+        if ~isnothing(symmetries)
+            Psi2d, x_grid, y_grid = reflect_wavefunction(Psi2d,x_grid,y_grid,symmetries)
+        end
         return Psi2d, x_grid, y_grid
     end
 end
 
-function wavefunction(state::BasisState; xlim =(-3.0,3.0), ylim=(-3.0,3.0), b=5.0, inside_only=true, memory_limit = 10.0e9) 
+function wavefunction(state::BasisState; xlim =(-2.0,2.0), ylim=(-2.0,2.0), b=5.0, inside_only=true, memory_limit = 10.0e9) 
     let k = state.k, basis=state.basis      
         #println(new_basis.dim)
         type = eltype(state.vec)

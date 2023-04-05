@@ -58,8 +58,8 @@ function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pt
     symmetries=basis.symmetries
     if ~isnothing(symmetries)
         norm = (length(symmetries)+1.0)
-        w = w./norm
-        w_n = w_n./norm
+        w = w.*norm
+        w_n = w_n.*norm
     end
     #basis and gradient matrices
     @timeit to "basis_and_gradient_matrices" B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
@@ -97,8 +97,8 @@ function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::Boundar
     symmetries=basis.symmetries
     if ~isnothing(symmetries)
         norm = (length(symmetries)+1.0)
-        w = w./norm
-        w_n = w_n./norm
+        w = w.*norm
+        w_n = w_n.*norm
     end
     B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
     type = eltype(B)

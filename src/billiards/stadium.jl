@@ -11,8 +11,8 @@ function make_quarter_stadium(half_width;radius=one(half_width),x0=zero(half_wid
     corners = [SVector(half_width, radius), SVector(zero(type), radius), SVector(zero(type), zero(type)), SVector(half_width + radius, zero(type))]
     
     line1 = LineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
-    line2 = VirtualLineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
-    line3 = VirtualLineSegment(corners[1],corners[2];origin=origin,rot_angle=rot_angle)
+    line2 = VirtualLineSegment(corners[2],corners[3];origin=origin,rot_angle=rot_angle)
+    line3 = VirtualLineSegment(corners[3],corners[4];origin=origin,rot_angle=rot_angle)
     boundary = [circle, line1, line2, line3]
     return boundary, corners
 end

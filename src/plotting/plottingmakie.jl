@@ -27,7 +27,7 @@ end
 
 function plot_heatmap_balaced!(f,x,y,Z ;vmax = 1.0, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
     ax = Axis(f[1,1],axargs...)        
-    m = findmax(abs.(Z))[1]
+    m = findmax(abs, Z)[1]
     range_val = (-m*vmax,m*vmax)
     hmap = heatmap!(ax,x, y, Z, colormap = cmap, colorrange=range_val, hmargs...)
     ax.aspect=DataAspect()

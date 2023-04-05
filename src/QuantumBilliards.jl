@@ -20,6 +20,8 @@ export boundary_coords, dilated_boundary_points
 #basis
 #include("basis/Basis.jl")
 #@reexport using .Basis
+include("basis/planewaves/realplanewaves.jl")
+export RealPlaneWaves
 include("basis/fourierbessel/corneradapted.jl")
 export CornerAdaptedFourierBessel
 include("basis/fundamental/fundamentalbessels.jl")

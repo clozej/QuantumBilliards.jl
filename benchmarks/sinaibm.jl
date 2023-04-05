@@ -10,8 +10,8 @@ using StaticArrays
 angle1 = 0.7
 angle2 = 0.4
 
-billiard_full = Sinai(angle1,angle2;full_domain=true)
-billiard = Sinai(angle1,angle2;full_domain=false)
+billiard_full = Sinai(angle1,angle2)
+billiard = Sinai(angle1,angle2)
 
 f = Figure(resolution = (1000,500))
 ax = Axis(f[1,1])

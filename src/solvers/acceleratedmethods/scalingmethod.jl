@@ -65,7 +65,7 @@ function construct_matrices_benchmark(solver::ScalingMethodA, basis::Ba, pts::Bo
     symmetries = basis.symmetries 
     if ~isnothing(symmetries)
         n = (length(symmetries)+1.0)
-        w = w./n
+        w = w.*n
     end
     #M =  length(xy)
     N = basis.dim
@@ -96,7 +96,7 @@ function construct_matrices(solver::ScalingMethodA, basis::Ba, pts::BoundaryPoin
     symmetries=basis.symmetries
     if ~isnothing(symmetries)
         n = (length(symmetries)+1.0)
-        w = w./n
+        w = w.*n
     end
     N = basis.dim
     #basis matrix
@@ -121,7 +121,7 @@ function construct_matrices_benchmark(solver::ScalingMethodB, basis::Ba, pts::Bo
     symmetries=basis.symmetries
     if ~isnothing(symmetries)
         n = (length(symmetries)+1.0)
-        w = w./n
+        w = w.*n
     end
     #M =  length(xy)
     #basis and gradient matrices
@@ -158,7 +158,7 @@ function construct_matrices(solver::ScalingMethodB, basis::Ba, pts::BoundaryPoin
     symmetries=basis.symmetries
     if ~isnothing(symmetries)
         n = (length(symmetries)+1.0)
-        w = w./n
+        w = w.*n
     end
     N = basis.dim
     #basis matrix
