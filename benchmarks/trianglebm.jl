@@ -8,14 +8,13 @@ using CairoMakie
 #using Latexify
 
 
-gamma = 2/3*pi #sqrt(2)/2 * pi
+gamma = sqrt(2)/2 * pi #2/3*pi 
 chi  = 2.0
 
 billiard, basis = make_triangle_and_basis(gamma, chi)
 
 f = Figure(resolution = (1000,500))
-ax = Axis(f[1,1])
-plot_geometry_test!(ax, billiard)
+plot_geometry_test!(f, billiard)
 display(f)
 
 f = Figure(resolution = (1000,500))
@@ -36,7 +35,7 @@ acc_infoA = benchmark_solver(acc_solverA, basis, billiard, k0, dk; plot_matrix=t
 acc_infoB = benchmark_solver(acc_solverB, basis, billiard, k0, dk; plot_matrix=true);
 
 k0 = 100.001
-dk = 0.01
+dk = 0.1
 acc_info = benchmark_solver(acc_solver, basis, billiard, k0, dk; plot_matrix=true);
 sw_info = benchmark_solver(sw_solver, basis, billiard, k0, dk; plot_matrix=true, log=true);
 

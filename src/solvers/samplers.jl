@@ -1,6 +1,7 @@
 
 using FastGaussQuadrature
 using StaticArrays
+using StatsBase
 
 function linear_nodes(N::Int)
     t = midpoints(range(0,1.0,length = (N+1)))

@@ -32,13 +32,24 @@ function curve_edge_lengths(billiard::Bi) where Bi<:AbsBilliard
 end
 
 
-function is_inside(billiard::Bi, pt) where Bi<:AbsBilliard
-    return all(is_inside(crv, pt) for crv in billiard.fundamental_boundary) 
+function is_inside(billiard::Bi, pt; fundamental_domain = true ) where Bi<:AbsBilliard
+    if fundamental_domain 
+        boundary = billiard.fundamental_boundary  
+    else
+        boundary = billiard.full_boundary
+    end
+    return all(is_inside(crv, pt) for crv in boundary) 
 end
 
 
-function is_inside(billiard::Bi, pts::AbstractArray) where Bi<:AbsBilliard
-    let curves = billiard.fundamental_boundary
+function is_inside(billiard::Bi, pts::AbstractArray; fundamental_domain = true) where Bi<:AbsBilliard
+    let 
+        if fundamental_domain 
+            curves = billiard.fundamental_boundary  
+        else
+            curves = billiard.full_boundary
+        end
+    
         inside = is_inside(curves[1], pts)
         for i in 2:length(curves)
             inside = inside .& is_inside(curves[i], pts)
@@ -48,7 +59,7 @@ function is_inside(billiard::Bi, pts::AbstractArray) where Bi<:AbsBilliard
 end
 
 
-function boundary_limits(curves; grd=1000, type=Float64) 
+function boundary_limits(curves; grd=1000) 
     x_bnd = Vector{Any}()
     y_bnd = Vector{Any}()
     for crv in curves #names of variables not very nice
@@ -68,14 +79,3 @@ function boundary_limits(curves; grd=1000, type=Float64)
     return xlim, ylim #,dx,dy
 end
 
-#=
-function is_inside(billiard::Bi, x_grid::AbstractArray, y_grid::AbstractArray) where Bi<:AbsBilliard
-    let curves = billiard.boundary
-        inside = is_inside(curves[1], x_grid, y_grid)
-        for i in 2:length(curves)
-            inside = inside .& is_inside(curves[i], x_grid, y_grid)
-        end
-        return inside
-    end 
-end
-=#

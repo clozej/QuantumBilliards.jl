@@ -41,14 +41,14 @@ function plot_matrix!(f, A; log=false)
     return ax
 end
 
-function plot_geometry_test!(ax,billiard)
-    plot_domain!(ax,billiard)
+function plot_geometry_test!(f,billiard)
+    ax, hmap = plot_domain!(f,billiard)
     plot_boundary!(ax,billiard;dens=20.0)
 end
 
 function plot_basis_test!(f,basis,billiard;i=1,k=10.0)
     basisstate = BasisState(basis,k, i)
-    plot_wavefunction!(f, basisstate,billiard; b=10.0, plot_normal=false, inside_only=false) 
+    plot_wavefunction!(f, basisstate,billiard; b=10.0, plot_normal=false) 
 end
 
 function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true,sampler=gauss_legendre_nodes, tol=1e-4) where {S<:AcceleratedSolver}

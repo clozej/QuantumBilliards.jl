@@ -23,8 +23,8 @@ sym_idx = 6
 basis = RealPlaneWaves(10,sym_sectors[sym_idx];angle_arc=pi/2.0)
 
 f = Figure(resolution = (1000,1000))
-ax1 = Axis(f[1,1])
-plot_geometry_test!(ax1, billiard)
+
+plot_geometry_test!(f, billiard)
 display(f)
 
 f = Figure(resolution = (1000,1000))
@@ -77,7 +77,7 @@ state_rpw = compute_eigenstate(sw_solver, basis, billiard, k_rpw)
 state_fb = compute_eigenstate(sw_solver, fb_basis, billiard, k_fb)
 
 f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state_rpw; b_u= 10.0)
+plot_state_test!(f,state_rpw; b_u= 20.0)
 display(f)
 
 f = Figure(resolution = (1500,1500))
