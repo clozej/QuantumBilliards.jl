@@ -3,12 +3,13 @@ include("../src/QuantumBilliards.jl")
 #using Revise
 using .QuantumBilliards
 #using Revise 
-using GLMakie
+#using GLMakie
+using CairoMakie
 #using Latexify
 
 
 
-eps = 0.5 #sqrt(2)/2 * pi
+eps = 0.1 #sqrt(2)/2 * pi
 billiard, fb_basis = make_stadium_and_basis(eps)
 odd_x = [XReflection(-1)]
 even_x = [XReflection(1)]
@@ -34,9 +35,9 @@ plot_basis_test!(f[2,1], basis, billiard; i=3)
 plot_basis_test!(f[2,2], basis, billiard; i=4)
 display(f)
 
-d = 3.0
-b = 5.0
-sw_solver = DecompositionMethod(d,b)
+d = 1.5
+b = [5.0,10.0]
+sw_solver = DecompositionMethod(d,5.0)
 acc_solverA = ScalingMethodA(d,b)
 acc_solverB = ScalingMethodB(d,b)
 acc_solver = acc_solverA
@@ -68,7 +69,7 @@ f = Figure(resolution = (1000,500))
 plot_solver_test!(f,acc_solver,basis,billiard,500.0,501.0,0.05, tol = 1e-3)
 display(f)
 
-k0 = 102.0
+k0 = 302.0
 dk = 0.1
 k_rpw, ten = solve_wavenumber(acc_solver, basis, billiard,k0,dk)
 k_fb, ten = solve_wavenumber(acc_solver, fb_basis, billiard,k0,dk)
@@ -81,7 +82,7 @@ plot_state_test!(f,state_rpw; b_u= 20.0)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_wavefunction!(f,state_rpw; b= 5.0)
+plot_wavefunction!(f,state_rpw; b= 5.0, dens = 100.0, fundamental_domain=false)
 display(f)
 
 

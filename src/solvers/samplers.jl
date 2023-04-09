@@ -54,6 +54,7 @@ function gauss_legendre_nodes(N::Int)
     return t, dt
 end
 
+#this one is not working yet
 function chebyshev_nodes(N::Int)
     x = [cos((2*i-1)/(2*N)*pi) for i in 1:N]
     t = 0.5 .* x  .+ 0.5
@@ -78,4 +79,5 @@ function random_interior_points(billiard::AbsBilliard, N::Int; grd::Int = 1000)
     end
     return pts
 end
+
 

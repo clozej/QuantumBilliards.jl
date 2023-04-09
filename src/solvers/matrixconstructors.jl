@@ -1,4 +1,4 @@
-include("../abstracttypes.jl")
+#include("../abstracttypes.jl")
 
 function filter_matrix!(M; ϵ = eps(eltype(M)))
     type = eltype(M)
@@ -14,7 +14,7 @@ function filter_matrix!(M; ϵ = eps(eltype(M)))
 end
 
 #this will be usefull for basis sets containing several functions (plane and evanscent waves etc.)
-function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
+function basis_matrix(basis::Ba, k, pts::Vector{SVector{2,T}}) where {T<:Real, Ba<:AbsBasis}
     let dim = basis.dim
         B = basis_fun(basis,1:dim,k,pts)
         return filter_matrix!(B)
@@ -22,7 +22,7 @@ function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:R
 end
 
 #perhaps unnecesary
-function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real}
+function basis_matrix(basis::Ba, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real, Ba<:AbsBasis}
     let N = basis.dim
         M =  length(pts)
         B = zeros(T,M,N) 
@@ -37,14 +37,14 @@ function basis_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::Ab
 end
 
 #rework these
-function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real}
+function basis_matrix(basis::Ba, k, x_grid::AbstractArray, y_grid::AbstractArray) where {T<:Real, Ba<:AbsBasis}
     let dim = basis.dim
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid) 
         return basis_fun(basis,1:dim,k,pts)
     end
 end
 
-function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::AbstractArray, indices::AbstractArray) where {T<:Real}
+function basis_matrix(basis::Ba, k, x_grid::AbstractArray, y_grid::AbstractArray, indices::AbstractArray) where {T<:Real, Ba<:AbsBasis}
     let N = basis.dim
         M =  length(x_grid)*length(y_grid)
         B = zeros(eltype(x_grid),M,N) 
@@ -59,7 +59,7 @@ function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::Abstrac
     end
 end
 
-function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::AbstractArray, indices::AbstractArray) where {T<:Real}
+function basis_matrix(basis::Ba, k, x_grid::AbstractArray, y_grid::AbstractArray, indices::AbstractArray) where {T<:Real, Ba<:AbsBasis}
     let N = basis.dim
         M =  length(x_grid)*length(y_grid)
         B = zeros(eltype(x_grid),M,N)
@@ -74,14 +74,14 @@ function basis_matrix(basis::AbsBasis, k, x_grid::AbstractArray, y_grid::Abstrac
     end
 end
 
-function gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
+function gradient_matrices(basis::Ba, k, pts::Vector{SVector{2,T}}) where {T<:Real, Ba<:AbsBasis}
     let dim = basis.dim
         dB_dx, dB_dy = gradient(basis,1:dim,k,pts)
         return filter_matrix!(dB_dx), filter_matrix!(dB_dy)
     end
 end
 
-function gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real}
+function gradient_matrices(basis::Ba, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real, Ba<:AbsBasis}
     let N = basis.dim
         M =  length(pts)
         dX = zeros(T,M,N)
@@ -99,14 +99,14 @@ function gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indice
     end
 end
 
-function basis_and_gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
+function basis_and_gradient_matrices(basis::Ba, k, pts::Vector{SVector{2,T}}) where {T<:Real, Ba<:AbsBasis}
     let dim = basis.dim
         B, dB_dx, dB_dy = basis_and_gradient(basis,1:dim,k,pts)
         return filter_matrix!(B), filter_matrix!(dB_dx), filter_matrix!(dB_dy)
     end
 end
 
-function basis_and_gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real}
+function basis_and_gradient_matrices(basis::Ba, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real, Ba<:AbsBasis}
     let N = basis.dim
         M =  length(pts)
         dX = zeros(T,M,N)
@@ -127,14 +127,14 @@ function basis_and_gradient_matrices(basis::AbsBasis, k, pts::Vector{SVector{2,T
     end
 end
 
-function dk_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}) where {T<:Real}
+function dk_matrix(basis::Ba, k, pts::Vector{SVector{2,T}}) where {T<:Real, Ba<:AbsBasis}
     let dim = basis.dim
         dB_dk = dk_fun(basis,1:dim,k,pts)
         return filter_matrix!(dB_dk)
     end
 end
 
-function dk_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real}
+function dk_matrix(basis::Ba, k, pts::Vector{SVector{2,T}}, indices::AbstractArray) where {T<:Real, Ba<:AbsBasis}
     let N = basis.dim
         M =  length(pts)
         dB1 = zeros(T,M,N) 
@@ -148,94 +148,3 @@ function dk_matrix(basis::AbsBasis, k, pts::Vector{SVector{2,T}}, indices::Abstr
         return dB1
     end
 end
-#=
-function basis_matrix(billiard::AbsBilliard, basis::AbsBasis, k, x_grid::Vector{T}, y_grid::Vector{T}) where {T<:Number} #pts_gen is a generator object
-    mx, my = length(x_grid), length(y_grid)
-    M = mx * my
-    N = basis.dim
-    #type = eltype(basis.cs.origin) #find better way
-    B = zeros(T,M,N)  #basis matrix
-    x0, dx = x_grid[1], x_grid[2] - x_grid[1]
-    y0, dy = y_grid[1], y_grid[2] - y_grid[1]
-    f(idx) =  SVector(x0 + dx*idx[1], y0 + dy*idx[2])
-   
-    @inbounds Threads.@threads for i in axes(B,2)
-        @inbounds  for (j,idx) in enumerate(CartesianIndices((mx,my)))
-            B[j,i] = basis_fun(billiard, basis, i, k, f(idx))
-        end
-    end 
-    return B
-end
-
-function basis_matrix(billiard::AbsBilliard, basis::AbsBasis,k, x_grid::Vector{T}, y_grid::Vector{T}, dim_ind) where T<:Number
-    mx, my = length(x_grid), length(y_grid)
-    M = mx * my
-    N = basis.dim
-    #type = eltype(basis.cs.origin) #find better way
-    B = zeros(T,M,N)  #basis matrix
-    x0, dx = x_grid[1], x_grid[2] - x_grid[1]
-    y0, dy = y_grid[1], y_grid[2] - y_grid[1]
-    f(idx) =  SVector(x0 + dx*idx[1], y0 + dy*idx[2])
-   
-    @inbounds Threads.@threads for i in dim_ind
-        @inbounds  for (j,idx) in enumerate(CartesianIndices((mx,my)))
-            B[j,i] = basis_fun(billiard, basis, i, k, f(idx))
-        end
-    end
-    return B
-end
-=#
-
-
-
-#=
-function basis_matrix(basis::AbsBasis, k, x::Vector{T}, y::Vector{T}) where T<:Number
-    M =  length(x)
-    N = basis.dim
-    B = zeros(T,M,N)  #basis matrix
-    @inbounds Threads.@threads for i in axes(B,2)
-        @inbounds @simd for j in axes(B,1)
-            B[j,i] = basis_fun(basis, i, k, x[j], y[j])
-        end
-    end 
-    return B
-end
-
-
-function basis_matrix(basis::AbsBasis,k, x::Vector{T}, y::Vector{T}, dim_ind) where T<:Number
-    M =  length(x)
-    N = basis.dim
-    B = zeros(T,M,N)  #basis matrix
-    @inbounds Threads.@threads for i in dim_ind
-        @inbounds @simd for j in axes(B,1)
-            B[j,i] = basis_fun( basis, i, k, x[j], y[j])
-        end
-    end 
-    return B
-end
-
-function basis_matrix(basis::AbsBasis,k, x::Vector{T}, y::Vector{T}, dim_ind, pts_ind) where T<:Number
-    M =  length(x)
-    N = basis.dim
-    B = zeros(T,M,N)  #basis matrix
-    @inbounds Threads.@threads for i in dim_ind
-        @inbounds @simd for j in pts_ind
-            B[j,i] = basis_fun( basis, i, k, x[j], y[j])
-        end
-    end 
-    return B
-end
-
-function U_matrix(basis::AbsBasis,k, x::Vector{T}, y::Vector{T},nx::Vector{T}, ny::Vector{T}) where T<:Number
-    M =  length(x)
-    N = basis.dim
-    U = zeros(T,M,N)  #basis matrix
-    @inbounds Threads.@threads for i in axes(U,2) #
-        @inbounds @simd for j in axes(U,1)
-            dx, dy = grad_fun(basis, i, k, x[j], y[j])
-            U[j,i] = dx*nx[j] + dy*ny[j]
-        end
-    end 
-    return U
-end
-=#
