@@ -289,7 +289,7 @@ function plot_basis_function!(ax, basis::AbsBasis, i, k; xlim=(-1,1), ylim=(-1,1
 end
 
 function plot_basis_function!(ax, basis::AbsBasis, i, k, curve::AbsCurve, sampler;  grid::Int = 200)
-    t, dt = sampler(grid)
+    t, dt = sample_points(sampler, grid)
     x, y = curve.r(t)
     phi = basis_fun(basis, i, k, x, y) 
     

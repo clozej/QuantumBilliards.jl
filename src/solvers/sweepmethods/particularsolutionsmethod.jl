@@ -6,6 +6,9 @@ struct ParticularSolutionsMethod{T,F} <: SweepSolver where {T<:Real,F<:Function}
     int_pts_scaling_factor::T
     sampler::F
     eps::T
+    min_dim::Int64
+    min_pts::Int64
+    min_int_pts::Int64
 end
 
 ParticularSolutionsMethod(d,b,b_int) = ParticularSolutionsMethod(d,b,b_int,gauss_legendre_nodes,eps(typeof(d)))
@@ -27,14 +30,14 @@ function evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, k) whe
     for crv in billiard.fundamental_boundary
         if typeof(crv) <: AbsRealCurve
             L = crv.length
-            N = round(Int, k*L*b/(2*pi))
-            t, dt = sampler(N)
+            N = max(solver.min_pts,round(Int, k*L*b/(2*pi)))
+            t, dt = sample_points(sampler, N)
             xy = curve(crv,t)
             append!(xy_all, xy)
         end
     end
     L = billiard.length
-    M = round(Int, k*L*b_int/(2*pi))
+    M = max(solver.min_int_pts,round(Int, k*L*b_int/(2*pi)))
     xy_int_all = random_interior_points(billiard,M)
     return PointsPSM{type}(xy_all, xy_int_all)
 end

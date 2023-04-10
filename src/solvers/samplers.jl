@@ -3,11 +3,39 @@ using FastGaussQuadrature
 using StaticArrays
 using StatsBase
 
-function linear_nodes(N::Int)
+struct LinearNodes <: AbsSampler 
+end 
+
+function sample_points(sampler::LinearNodes, N::Int)
     t = midpoints(range(0,1.0,length = (N+1)))
     dt = diff(range(0,1.0,length =(N+1)))
     return t, dt
 end
+
+struct GaussLegendreNodes <: AbsSampler 
+end 
+
+function sample_points(sampler::GaussLegendreNodes, N::Int)
+    x, w = gausslegendre(N)
+    t = 0.5 .* x  .+ 0.5
+    dt = w .* 0.5 
+    return t, dt
+end
+
+#=
+#this one is not working yet
+function chebyshev_nodes(N::Int)
+    x = [cos((2*i-1)/(2*N)*pi) for i in 1:N]
+    t = 0.5 .* x  .+ 0.5
+    dt = ones(N)  #wrong
+    return t, dt
+end
+=#
+
+struct FourierNodes{T} <: AbsSampler where T<:Real
+    primes::Union{Tuple{Int64},Nothing}
+    lengths::Vector{T} 
+end 
 
 #needs some work
 function fourier_nodes(N::Int; primes=(2,3,5)) #starts at 0 ends at 
@@ -47,20 +75,7 @@ function fourier_nodes(N::Int, crv_lengths; primes=(2,3,5)) #starts at 0 ends at
     return ts,dts
 end
 
-function gauss_legendre_nodes(N::Int)
-    x, w = gausslegendre(N)
-    t = 0.5 .* x  .+ 0.5
-    dt = w .* 0.5 
-    return t, dt
-end
 
-#this one is not working yet
-function chebyshev_nodes(N::Int)
-    x = [cos((2*i-1)/(2*N)*pi) for i in 1:N]
-    t = 0.5 .* x  .+ 0.5
-    dt = ones(N)  #wrong
-    return t, dt
-end
 
 function random_interior_points(billiard::AbsBilliard, N::Int; grd::Int = 1000)
     xlim,ylim = boundary_limits(billiard.fundamental_boundary; grd=grd)

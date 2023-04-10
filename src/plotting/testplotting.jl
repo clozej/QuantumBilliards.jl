@@ -51,7 +51,7 @@ function plot_basis_test!(f,basis,billiard;i=1,k=10.0)
     plot_wavefunction!(f, basisstate,billiard; b=10.0, plot_normal=false) 
 end
 
-function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true,sampler=gauss_legendre_nodes, tol=1e-4) where {S<:AcceleratedSolver}
+function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true, tol=1e-4) where {S<:AcceleratedSolver}
     alpha = 0.6
     k0 = k1
     k0s = [k0]

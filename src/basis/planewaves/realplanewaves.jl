@@ -1,5 +1,5 @@
 
-struct RealPlaneWaves{T,Sy,F} <: AbsBasis where  {T<:Real, Sy<:Union{AbsSymmetry,Nothing}, F<:Function}
+struct RealPlaneWaves{T,Sy,Sa} <: AbsBasis where  {T<:Real, Sy<:Union{AbsSymmetry,Nothing}, Sa<:AbsSampler}
     #cs::PolarCS{T} #not fully implemented
     dim::Int64 #using concrete type
     symmetries::Union{Vector{Sy},Nothing}
@@ -8,7 +8,7 @@ struct RealPlaneWaves{T,Sy,F} <: AbsBasis where  {T<:Real, Sy<:Union{AbsSymmetry
     angles::Vector{T}
     parity_x::Vector{Int64}
     parity_y::Vector{Int64}
-    sampler::F
+    sampler::Sa
 end
 
 function parity_pattern(symmetries)
@@ -31,11 +31,11 @@ function parity_pattern(symmetries)
     return parity_x, parity_y
 end
 
-function RealPlaneWaves(dim, symmetries; angle_arc = pi, angle_shift=0.0, sampler=linear_nodes)
+function RealPlaneWaves(dim, symmetries; angle_arc = pi, angle_shift=0.0, sampler=LinearNodes())
     par_x, par_y = parity_pattern(symmetries)
     pl = length(par_x)
     eff_dim = dim*pl
-    t, dt = sampler(dim)
+    t, dt = sample_points(sampler, dim)
     angles = @. t*angle_arc + angle_shift
     angles = repeat(angles, inner=pl)
     par_x = repeat(par_x, outer=dim)
@@ -43,12 +43,12 @@ function RealPlaneWaves(dim, symmetries; angle_arc = pi, angle_shift=0.0, sample
     return RealPlaneWaves(eff_dim, symmetries, angle_arc, angle_shift, angles, par_x, par_y, sampler)
 end
 
-function RealPlaneWaves(dim; angle_arc = pi, angle_shift=0.0, sampler=linear_nodes)
+function RealPlaneWaves(dim; angle_arc = pi, angle_shift=0.0, sampler=LinearNodes())
     symmetries = nothing
     par_x, par_y = parity_pattern(symmetries)
     pl = length(par_x)
     eff_dim = dim*pl
-    t, dt = sampler(dim)
+    t, dt = sample_points(sampler, dim)
     angles = @. t*angle_arc + angle_shift
     angles = repeat(angles, inner=pl)
     par_x = repeat(par_x, outer=dim)

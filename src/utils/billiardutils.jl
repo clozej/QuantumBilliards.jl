@@ -64,7 +64,7 @@ function boundary_limits(curves; grd=1000)
     y_bnd = Vector{Any}()
     for crv in curves #names of variables not very nice
         L = crv.length
-        N_bnd = round(Int, grd/L)
+        N_bnd = max(512,round(Int, grd/L))
         t = range(0.0,1.0, N_bnd)[1:end-1]
         pts = curve(crv,t)
         append!(x_bnd, getindex.(pts,1))

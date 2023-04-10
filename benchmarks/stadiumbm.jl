@@ -28,16 +28,19 @@ f = Figure(resolution = (1000,1000))
 plot_geometry_test!(f, billiard)
 display(f)
 
+
 f = Figure(resolution = (1000,1000))
 plot_basis_test!(f[1,1], basis, billiard; i=1)
 plot_basis_test!(f[1,2], basis, billiard; i=2)
 plot_basis_test!(f[2,1], basis, billiard; i=3)
 plot_basis_test!(f[2,2], basis, billiard; i=4)
 display(f)
+typeof( linear_nodes)
+typeof(gauss_legendre_nodes)
 
 d = 1.5
 b = [5.0,10.0]
-sw_solver = DecompositionMethod(d,5.0)
+sw_solver = DecompositionMethod(d,b)
 acc_solverA = ScalingMethodA(d,b)
 acc_solverB = ScalingMethodB(d,b)
 acc_solver = acc_solverA
@@ -91,12 +94,6 @@ plot_state_test!(f,state_fb; b_u= 10.0)
 display(f)
 
 
-
-f = Figure(resolution = (800,800))
-plot_heatmap_balaced!(f, x_grid, y_grid, Psi2)
-display(f)
-x_grid
-Psi2
 ks, ten = solve_spectrum(acc_solver,basis, billiard,k0,dk)
 k, ten = solve_wavenumber(sw_solver,basis, billiard,k0,dk)
 state = compute_eigenstate(sw_solver, basis, billiard, k)

@@ -6,14 +6,28 @@
 #include("../../utils/benchmarkutils.jl")
 using LinearAlgebra, StaticArrays, TimerOutputs
 
-struct DecompositionMethod{T,F} <: SweepSolver where {T<:Real,F<:Function}
+struct DecompositionMethod{T} <: SweepSolver where {T<:Real}
     dim_scaling_factor::T
-    pts_scaling_factor::T
-    sampler::F
+    pts_scaling_factor::Vector{T}
+    sampler::Vector
     eps::T
+    min_dim::Int64
+    min_pts::Int64
 end
 
-DecompositionMethod(dim_scaling_factor, pts_scaling_factor) = DecompositionMethod(dim_scaling_factor, pts_scaling_factor, gauss_legendre_nodes, eps(typeof(dim_scaling_factor)))
+
+function DecompositionMethod(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    sampler = [GaussLegendreNodes()]
+return DecompositionMethod(d, bs, sampler, eps(T), min_dim, min_pts)
+end
+
+function DecompositionMethod(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    return DecompositionMethod(d, bs, samplers, eps(T), min_dim, min_pts)
+end
 
 struct BoundaryPointsDM{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
@@ -23,19 +37,21 @@ struct BoundaryPointsDM{T} <: AbsPoints where {T<:Real}
 end
 
 function evaluate_points(solver::DecompositionMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
-    sampler = solver.sampler
-    b = solver.pts_scaling_factor
-    type = typeof(solver.pts_scaling_factor)
+    bs, samplers = adjust_scaling_and_samplers(solver, billiard)
+    curves = billiard.fundamental_boundary
+    type = eltype(solver.pts_scaling_factor)
     xy_all = Vector{SVector{2,type}}()
     normal_all = Vector{SVector{2,type}}()
     w_all = Vector{type}()
     w_n_all = Vector{type}()
 
-    for crv in billiard.fundamental_boundary
+    for i in eachindex(curves)
+        crv = curves[i]
         if typeof(crv) <: AbsRealCurve
             L = crv.length
-            N = round(Int, k*L*b/(2*pi))
-            t, dt = sampler(N)
+            N = max(solver.min_pts,round(Int, k*L*bs[i]/(2*pi)))
+            sampler = samplers[i]
+            t, dt = sample_points(sampler,N)
             ds = L*dt #modify this
             xy = curve(crv,t)
             normal = normal_vec(crv,t)

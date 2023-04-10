@@ -7,50 +7,49 @@ using LinearAlgebra, StaticArrays
 using TimerOutputs
 abstract type AbsScalingMethod <: AcceleratedSolver 
 end
-struct ScalingMethodA{T,F} <: AbsScalingMethod where {T<:Real,F<:Function}
+struct ScalingMethodA{T} <: AbsScalingMethod where {T<:Real}
     dim_scaling_factor::T
     pts_scaling_factor::Vector{T}
-    sampler::Vector{F}
+    sampler::Vector
     eps::T
     min_dim::Int64
     min_pts::Int64
 end
 
-function ScalingMethodA(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; default_sampler=[gauss_legendre_nodes], min_dim = 100, min_pts = 500) where T<:Real 
-        d = dim_scaling_factor
-        bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
-        sampler = default_sampler
-    return ScalingMethodA(d, bs, sampler, eps(typeof(dim_scaling_factor)),min_dim,min_pts)
-end
 
-function ScalingMethodA(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{F}; min_dim = 100, min_pts = 500) where {T<:Real, F<:Function} 
+function ScalingMethodA(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
     d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
-    sampler = samplers
-return ScalingMethodA(d, bs, sampler, eps(typeof(dim_scaling_factor)),min_dim,min_pts)
+    sampler = [GaussLegendreNodes()]
+return ScalingMethodA(d, bs, sampler, eps(T), min_dim, min_pts)
 end
 
-struct ScalingMethodB{T,F} <: AbsScalingMethod where {T<:Real,F<:Function}
+function ScalingMethodA(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    return ScalingMethodA(d, bs, samplers, eps(T), min_dim, min_pts)
+end
+
+struct ScalingMethodB{T} <: AbsScalingMethod where {T<:Real}
     dim_scaling_factor::T
     pts_scaling_factor::Vector{T}
-    sampler::Vector{F}
+    sampler::Vector
     eps::T
     min_dim::Int64
     min_pts::Int64
 end
 
-function ScalingMethodB(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; default_sampler=[gauss_legendre_nodes], min_dim = 100, min_pts = 500) where T<:Real 
+function ScalingMethodB(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
     d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
-    sampler = default_sampler
-return ScalingMethodB(d, bs, sampler, eps(typeof(dim_scaling_factor)),min_dim,min_pts)
+    sampler = [GaussLegendreNodes()]
+return ScalingMethodB(d, bs, sampler, eps(T), min_dim, min_pts)
 end
 
-function ScalingMethodB(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{F}; min_dim = 100, min_pts = 500) where {T<:Real, F<:Function} 
-d = dim_scaling_factor
-bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
-sampler = samplers
-return ScalingMethodB(d, bs, sampler, eps(typeof(dim_scaling_factor)),min_dim,min_pts)
+function ScalingMethodB(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    return ScalingMethodB(d, bs, samplers, eps(T), min_dim, min_pts)
 end
 struct BoundaryPointsSM{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
@@ -68,9 +67,9 @@ function evaluate_points(solver::AbsScalingMethod, billiard::Bi, k) where {Bi<:A
         crv = curves[i]
         if typeof(crv) <: AbsRealCurve
             L = crv.length
-            N = round(Int, k*L*bs[i]/(2*pi))
-            sam = samplers[i]
-            t, dt = sam(N)
+            N = max(solver.min_pts,round(Int, k*L*bs[i]/(2*pi)))
+            sampler = samplers[i]
+            t, dt = sample_points(sampler, N)
             
             ds = L*dt #this needs modification!!!
             xy = curve(crv,t)

@@ -56,7 +56,8 @@ export tangent_vec, normal_vec
 #include("solvers/Solvers.jl")
 #@reexport using .Solvers
 include("solvers/samplers.jl")
-export linear_nodes, gauss_legendre_nodes, fourier_nodes
+export GaussLegendreNodes, LinearNodes, FourierNodes
+export sample_points, fourier_nodes
 include("solvers/decompositions.jl")
 include("solvers/matrixconstructors.jl")
 export basis_matrix, basis_and_gradient_matrices, dk_matrix
@@ -137,7 +138,6 @@ function make_triangle_and_basis(gamma,chi; edge_i=1)
     re = [:Virtua, :Virtual, :Virtual]
     re[edge_i] = :Real 
     tr = Triangle(gamma,chi; curve_types = re, x0 = x0, y0 =y0)
-    #dim = round(Int, tr.boundary[edge_i].length*k*solver.dim_scaling_factor/(2*pi))
     basis = CornerAdaptedFourierBessel(1, adapt_basis(tr,edge_i+2)...) 
     return tr, basis 
 end

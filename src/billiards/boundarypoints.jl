@@ -9,7 +9,7 @@ end
 
 function boundary_coords(crv::C, N; sampler=fourier_nodes) where {C<:AbsCurve}
     L = crv.length
-    t, dt = sampler(N)
+    t, dt = sample_points(sampler, N)
     xy = curve(crv, t)
     normal = normal_vec(crv,t)
     s = arc_length(crv,t)
@@ -43,7 +43,6 @@ function boundary_coords(billiard::Bi, N; sampler=fourier_nodes, primes=true) wh
                 crv = boundary[i]
                 if (typeof(crv) <: AbsRealCurve)
                     Lc = crv.length
-                    #Nc = round(Int, N*Lc/L)
                     xy,nxy,s,ds = boundary_coords(crv, ts[i], dts[i])
                     append!(xy_all, xy)
                     append!(normal_all, nxy)
