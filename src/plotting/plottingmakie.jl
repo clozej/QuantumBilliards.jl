@@ -39,7 +39,7 @@ end
 #curve and billiard ploting
 function plot_curve!(ax, crv::AbsRealCurve; plot_normal=true, dens = 20.0)
     L = crv.length
-    grid = round(Int, L*dens)
+    grid = max(round(Int, L*dens),3)
     t = range(0.0,1.0, grid)
     pts = curve(crv,t)
     lines!(ax,pts, color = :black )
@@ -52,7 +52,7 @@ end
 
 function plot_curve!(ax, crv::AbsVirtualCurve; plot_normal=false, dens = 10.0)
     L = crv.length
-    grid = round(Int, L*dens)
+    grid = max(round(Int, L*dens),3)
     t = range(0.0,1.0, grid)
     pts = curve(crv,t)
     lines!(ax,pts, color = :black, linestyle = :dash)

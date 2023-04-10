@@ -62,7 +62,7 @@ function fourier_nodes(N::Int, crv_lengths; primes=(2,3,5)) #starts at 0 ends at
     start = 0.0
     for l in crv_lengths
         ds = L/(l*M) 
-        println(start*ds)
+        #println(start*ds)
         t = collect(range(start*ds,1.0,step=ds))
         #println(t)
         dt_end = 1.0 - t[end]

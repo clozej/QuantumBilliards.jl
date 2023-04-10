@@ -28,15 +28,13 @@ f = Figure(resolution = (1000,1000))
 plot_geometry_test!(f, billiard)
 display(f)
 
-
 f = Figure(resolution = (1000,1000))
 plot_basis_test!(f[1,1], basis, billiard; i=1)
 plot_basis_test!(f[1,2], basis, billiard; i=2)
 plot_basis_test!(f[2,1], basis, billiard; i=3)
 plot_basis_test!(f[2,2], basis, billiard; i=4)
 display(f)
-typeof( linear_nodes)
-typeof(gauss_legendre_nodes)
+
 
 d = 1.5
 b = [5.0,10.0]
