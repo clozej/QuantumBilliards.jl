@@ -36,9 +36,9 @@ end
 function compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard,k)
     L = billiard.length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
-    basis_new = resize_basis(basis,billiard,dim,k)
+    basis_new = resize_basis(basis,billiard, dim, k)
     pts = evaluate_points(solver, billiard, k)
-    ten, vec = solve_vect(solver,basis_new, pts, k)
+    ten, vec = solve_vect(solver, basis_new, pts, k)
     return Eigenstate(k, vec, ten, basis_new, billiard)
 end
 

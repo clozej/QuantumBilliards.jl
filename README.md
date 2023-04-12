@@ -52,6 +52,8 @@ Fixes and improvements
 - separate plotting to separate package
 - make unit tests
 - fix bugs in symmetrized plots
+- add more samplers
+- fix integration weights for nonlinear boundary functions 
 
 
 # Dependencies

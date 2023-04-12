@@ -89,7 +89,7 @@ function random_interior_points(billiard::AbsBilliard, N::Int; grd::Int = 1000)
     pts = []
  
     #println(length(pts))
-    while length(pts)<=N
+    while length(pts)<N
         x = (dx .* rand() .+ xlim[1]) 
         y = (dy .* rand() .+ ylim[1])
         pt = SVector(x,y)
