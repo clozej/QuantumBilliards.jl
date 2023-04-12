@@ -41,9 +41,16 @@ New features:
 - neutrino billiards
 - optical cavities
 - scattering solutions
+- add arbitrary precision features
 
 Documentation:
 - all of it
+
+Fixes and improvements
+- improve wavefunction computation for large memory
+- add type conversions
+- separate plotting to separate package
+- make unit tests
 
 
 # Dependencies
