@@ -9,7 +9,7 @@ using CairoMakie
 
 
 
-eps = 0.1 #sqrt(2)/2 * pi
+eps = 0.02 #sqrt(2)/2 * pi
 billiard, fb_basis = make_stadium_and_basis(eps)
 odd_x = [XReflection(-1)]
 even_x = [XReflection(1)]
@@ -37,7 +37,7 @@ display(f)
 
 
 d = 1.5
-b = [5.0,10.0]
+b = [5.0,20.0]
 sw_solver = DecompositionMethod(d,b)
 acc_solverA = ScalingMethodA(d,b)
 acc_solverB = ScalingMethodB(d,b)
