@@ -14,9 +14,11 @@ Solvers:
 - Boundary integral method
 - Vebles accelerated method
 - Gague Freedom method
+
 Basis sets:
 - Fourier Bessel functions (symmetrized)
 - Fundamnetal basis Hankel functions
+
 Billiards:
 - Mushroom
 - Squash
@@ -30,6 +32,7 @@ Billiards:
 - Rough billiards
 - Annular
 - Track billiards
+
 New features:
 - Wigner functions
 - time evolution
@@ -38,6 +41,7 @@ New features:
 - neutrino billiards
 - optical cavities
 - scattering solutions
+
 Documentation:
 - all of it
 
