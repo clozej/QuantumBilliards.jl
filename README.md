@@ -10,7 +10,38 @@ The folowing methods have been fully or partialy implemented:
 - Decomposition method
 - Particular solutions method
 # To do list
+Solvers:
 - Boundary integral method
+- Vebles accelerated method
+- Gague Freedom method
+Basis sets:
+- Fourier Bessel functions (symmetrized)
+- Fundamnetal basis Hankel functions
+Billiards:
+- Mushroom
+- Squash
+- Cut circle
+- Limacon
+- Squrcle
+- Circle
+- Rectangle
+- Barrier
+- Isospectral polygons
+- Rough billiards
+- Annular
+- Track billiards
+New features:
+- Wigner functions
+- time evolution
+- classical billiards
+- new symmetry clases (rotational symmetry)
+- neutrino billiards
+- optical cavities
+- scattering solutions
+Documentation:
+- all of it
+
+
 # Dependencies
 - Bessels
 - CircularArrays
