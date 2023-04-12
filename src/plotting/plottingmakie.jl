@@ -253,9 +253,11 @@ end
 
 function plot_husimi_function!(f,state::AbsState; 
     b=5.0,log=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
-    u, s, norm = boundary_function(state; b=b)
-    H, qs, ps = husimi_function(k,u,s; w = 7.0)
     billiard = state.billiard
+    L = billiard.length
+    u, s, norm = boundary_function(state; b=b)
+    H, qs, ps = husimi_function(k,u,s,L; w = 7.0)
+    
     edges = curve_edge_lengths(billiard)    
     hmap, ax = plot_heatmap!(f,qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
     vlines!(ax, edges; color=:black, linewidth=0.5)
@@ -264,12 +266,13 @@ end
 
 function plot_husimi_function!(f,state_bundle::EigenstateBundle; 
     b=5.0,log=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
+    billiard = state_bundle.billiard
+    L = billiard.length
     us, s, norms = boundary_function(state_bundle; b=b)
     ks = state_bundle.ks
-    billiard = state_bundle.billiard
     edges = curve_edge_lengths(billiard)    
     for i in eachindex(us)
-        H, qs, ps = husimi_function(ks[i],us[i],s; w = 7.0)    
+        H, qs, ps = husimi_function(ks[i],us[i],s,L; w = 7.0)    
         hmap, ax = plot_heatmap!(f[i,1],qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
         vlines!(ax, edges; color=:black, linewidth=0.5)
     end

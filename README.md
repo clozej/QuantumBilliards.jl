@@ -51,6 +51,7 @@ Fixes and improvements
 - add type conversions
 - separate plotting to separate package
 - make unit tests
+- fix bugs in symmetrized plots
 
 
 # Dependencies
