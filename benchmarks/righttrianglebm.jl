@@ -46,20 +46,20 @@ display(f)
 
 k0 = 500.00
 dk = 0.05
-acc_infoA = benchmark_solver(acc_solverA, basis1, billiard1, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-acc_infoB = benchmark_solver(acc_solverB, basis1, billiard1, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoA = benchmark_solver(acc_solverA, basis1, billiard1, k0, dk; plot_matrix=true);
+acc_infoB = benchmark_solver(acc_solverB, basis1, billiard1, k0, dk; plot_matrix=true);
 
-acc_infoA = benchmark_solver(acc_solverA, basis2, billiard2, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-acc_infoB = benchmark_solver(acc_solverB, basis2, billiard2, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoA = benchmark_solver(acc_solverA, basis2, billiard2, k0, dk; plot_matrix=true);
+acc_infoB = benchmark_solver(acc_solverB, basis2, billiard2, k0, dk; plot_matrix=true);
 
-acc_infoA = benchmark_solver(acc_solverA, basis3, billiard3, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-acc_infoB = benchmark_solver(acc_solverB, basis3, billiard3, gauss_legendre_nodes, k0, dk; plot_matrix=true);
+acc_infoA = benchmark_solver(acc_solverA, basis3, billiard3, k0, dk; plot_matrix=true);
+acc_infoB = benchmark_solver(acc_solverB, basis3, billiard3, k0, dk; plot_matrix=true);
 
 
 k0 = 1000.001
 dk = 0.001
-acc_info = benchmark_solver(acc_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true);
-sw_info = benchmark_solver(sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=true);
+acc_info = benchmark_solver(acc_solver, basis, billiard, k0, dk; plot_matrix=true);
+sw_info = benchmark_solver(sw_solver, basis, billiard, k0, dk; plot_matrix=true, log=true);
 
 k1a, ten1a = solve_spectrum(acc_solverA,basis1, billiard1,k0,dk)
 k1b, ten1b = solve_spectrum(acc_solverB,basis1, billiard1,k0,dk)
@@ -104,31 +104,31 @@ states.tens
 
 
 f = Figure(resolution = (1500,1500))
-plot_husimi_function!(f,states,basis,billiard)
+plot_husimi_function!(f,states)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_boundary_function!(f,states,basis,billiard)
+plot_boundary_function!(f,states)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_momentum_function!(f,states,basis,billiard;log=true)
+plot_momentum_function!(f,states;log=true)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_probability!(f,states,basis,billiard)
+plot_probability!(f,states)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state,basis,billiard)
+plot_state_test!(f,state)
 display(f)
 
 f = Figure(resolution = (1500,1500))
-plot_state_test!(f,state1,basis,billiard)
+plot_state_test!(f,state1)
 display(f)
 
 b_range =collect(range(2.0,6.0,step=0.5))
 f = Figure(resolution = (1000,500))
-plot_benchmarks!(f, sw_solver, basis, billiard, gauss_legendre_nodes, k0, dk, 3.5, b_range)
+plot_benchmarks!(f, sw_solver, basis, billiard, k0, dk, 3.5, b_range)
 display(f)
 

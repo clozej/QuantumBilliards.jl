@@ -7,43 +7,70 @@ using LinearAlgebra, StaticArrays
 using TimerOutputs
 abstract type AbsScalingMethod <: AcceleratedSolver 
 end
-struct ScalingMethodA{T,F} <: AbsScalingMethod where {T<:Real,F<:Function}
+struct ScalingMethodA{T} <: AbsScalingMethod where {T<:Real}
     dim_scaling_factor::T
-    pts_scaling_factor::T
-    sampler::F
+    pts_scaling_factor::Vector{T}
+    sampler::Vector
     eps::T
+    min_dim::Int64
+    min_pts::Int64
 end
 
-ScalingMethodA(dim_scaling_factor, pts_scaling_factor) = ScalingMethodA(dim_scaling_factor, pts_scaling_factor, gauss_legendre_nodes, eps(typeof(dim_scaling_factor)))
 
-
-struct ScalingMethodB{T,F} <: AbsScalingMethod where {T<:Real,F<:Function}
-    dim_scaling_factor::T
-    pts_scaling_factor::T
-    sampler::F
-    eps::T
+function ScalingMethodA(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    sampler = [GaussLegendreNodes()]
+return ScalingMethodA(d, bs, sampler, eps(T), min_dim, min_pts)
 end
 
-ScalingMethodB(dim_scaling_factor, pts_scaling_factor) = ScalingMethodB(dim_scaling_factor, pts_scaling_factor, gauss_legendre_nodes, eps(typeof(dim_scaling_factor)))
+function ScalingMethodA(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    return ScalingMethodA(d, bs, samplers, eps(T), min_dim, min_pts)
+end
 
+struct ScalingMethodB{T} <: AbsScalingMethod where {T<:Real}
+    dim_scaling_factor::T
+    pts_scaling_factor::Vector{T}
+    sampler::Vector
+    eps::T
+    min_dim::Int64
+    min_pts::Int64
+end
 
+function ScalingMethodB(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    sampler = [GaussLegendreNodes()]
+return ScalingMethodB(d, bs, sampler, eps(T), min_dim, min_pts)
+end
+
+function ScalingMethodB(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
+    d = dim_scaling_factor
+    bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
+    return ScalingMethodB(d, bs, samplers, eps(T), min_dim, min_pts)
+end
 struct BoundaryPointsSM{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
     w::Vector{T}
 end
 
 function evaluate_points(solver::AbsScalingMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
-    sampler = solver.sampler
-    b = solver.pts_scaling_factor
-    type = typeof(solver.pts_scaling_factor)
+    bs, samplers = adjust_scaling_and_samplers(solver, billiard)
+    curves = billiard.fundamental_boundary
+    type = eltype(solver.pts_scaling_factor)
     xy_all = Vector{SVector{2,type}}()
     w_all = Vector{type}()
-
-    for crv in billiard.fundamental_boundary
+    
+    for i in eachindex(curves)
+        crv = curves[i]
         if typeof(crv) <: AbsRealCurve
             L = crv.length
-            N = round(Int, k*L*b/(2*pi))
-            t, dt = sampler(N)
+            N = max(solver.min_pts,round(Int, k*L*bs[i]/(2*pi)))
+            sampler = samplers[i]
+            t, dt = sample_points(sampler, N)
+            
             ds = L*dt #this needs modification!!!
             xy = curve(crv,t)
             normal = normal_vec(crv,t)
@@ -232,38 +259,3 @@ function solve_vectors(solver::AbsScalingMethod, basis::Ba, pts::BoundaryPointsS
     return  ks[p], ten[p], X[:,p]
 end
 
-#missing solve_vect and solve_vectors
-
-
-#=
-function construct_matrices(solver::ScalingMethod, basis::AbsBasis, k)#{T} where T<:Real
-    x, y, w = pts.x, pts.y, pts.w
-    M =  length(x)
-    N = basis.dim
-    B = Array{Float64}(undef,M,N)  #basis matrix
-    for i in 1:N
-        B[:,i] = basis_fun(basis, i, k, x, y)
-    end 
-    T = (w .* B) #reused later
-    F = B' * T #boundary norm matrix
-    #reuse B
-    for i in 1:N
-        B[:,i] = dk_fun(basis, i, k, x, y)
-    end
-    Fk = B' * T #B is now derivative matrix
-    #symmetrize matrix
-    Fk = Fk + Fk'
-    return F, Fk    
-end
-=#
-
-#=
-#non allocating version
-function construct_matrices!(out,basis::AbsBasis, pts::SMPoints, k) where T<:Real
-    N = basis.dim
-      #basis matrix
-    for i in 1:N
-        out[:,i] = basis_fun(basis, i, k, pts.x, pts.y)
-    end 
-end
-=#

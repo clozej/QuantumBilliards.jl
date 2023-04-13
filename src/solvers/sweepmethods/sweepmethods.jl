@@ -7,7 +7,7 @@ include("decompositionmethod.jl")
 using LinearAlgebra, Optim
 
 function solve_wavenumber(solver::SweepSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk)
-    dim = round(Int, billiard.length*k*solver.dim_scaling_factor/(2*pi))
+    dim = max(solver.min_dim,round(Int, billiard.length*k*solver.dim_scaling_factor/(2*pi)))
     new_basis = resize_basis(basis,billiard,dim,k)
     pts = evaluate_points(solver, billiard, k)
     function f(k)
@@ -20,7 +20,7 @@ end
 
 function k_sweep(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard, ks)
     k = maximum(ks)
-    dim = round(Int, billiard.length*k*solver.dim_scaling_factor/(2*pi))
+    dim = max(solver.min_dim,round(Int, billiard.length*k*solver.dim_scaling_factor/(2*pi)))
     new_basis = resize_basis(basis,billiard,dim,k)
     pts = evaluate_points(solver, billiard, k)
     res = similar(ks)

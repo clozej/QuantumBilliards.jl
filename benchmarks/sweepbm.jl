@@ -1,4 +1,4 @@
-using MKL
+#using MKL
 #using Revise
 include("../src/QuantumBilliards.jl")
 
@@ -16,8 +16,8 @@ f = Figure(resolution = (1000,500))
 plot_basis_test!(f, basis, billiard)
 display(f)
 
-d = 5.0
-b = 10.0
+d = 1.6
+b = 5.0
 b_int = b
 dm_solver = DecompositionMethod(d,b)
 psm_solver = ParticularSolutionsMethod(d,b,b)
@@ -41,6 +41,7 @@ scatter!(ax,k_psm,log10.(ten_psm))
 vlines!(ax, [k0]; color=:black, linewidth=0.5)
 display(f)
 
+
 state_dm = compute_eigenstate(dm_solver, basis, billiard, k_dm)
 state_psm = compute_eigenstate(psm_solver, basis, billiard, k_psm)
 k_dm
@@ -58,19 +59,25 @@ plot_probability!(f[1,1],state_psm;log=false,inside_only=false)
 plot_probability!(f[2,1],state_psm;log=(true,-5),inside_only=false)
 display(f)
 
-sw_info = benchmark_solver(dm_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=false);
-sw_info = benchmark_solver(psm_solver, basis, billiard, gauss_legendre_nodes, k0, dk; plot_matrix=true, log=false);
-
+sw_info = benchmark_solver(dm_solver, basis, billiard, k0, dk; plot_matrix=true, log=false);
+sw_info = benchmark_solver(psm_solver, basis, billiard,  k0, dk; plot_matrix=true, log=false);
 
 using LinearAlgebra
-B = rand(10,10)
-B_int = rand(5,10)
+basis = resize_basis(basis, billiard, 100, 50.0)
+pts = evaluate_points(psm_solver, billiard, 50.0)
+
+B, B_int = construct_matrices(psm_solver,basis,pts, 50.0)
+B
+B_int
+
 F = svd(B, B_int)
-#H = F.R*F.Q'
+F.R
+F.Q
+H = F.R * F.Q'
 idx = 1:F.k + F.l #inidices containing the singular values we need
 sv = F.a[idx] ./ F.b[idx] #generalized singular values
 U = F.U[:,idx]
-U*
+
 i_min = argmin(sv)
 F = svd(B, B_int)
 #H = F.R*F.Q'

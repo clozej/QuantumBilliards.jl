@@ -10,7 +10,7 @@ abstract type AbsSolver end
 abstract type AbsPoints end
 abstract type SweepSolver <: AbsSolver end
 abstract type AcceleratedSolver <: AbsSolver end
-#abstract type AbsSampler end
+abstract type AbsSampler end
 
 abstract type AbsState end
 abstract type StationaryState <: AbsState end

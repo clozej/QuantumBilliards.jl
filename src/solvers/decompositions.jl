@@ -42,3 +42,25 @@ function generalized_eigvals(A,B;eps=1e-15)
 end
 
 directsum(A,B) = [A zeros(size(A,1), size(B,2)); zeros(size(B,1), size(A,2)) B]
+
+function adjust_scaling_and_samplers(solver::AbsSolver, billiard::AbsBilliard)
+    bs = solver.pts_scaling_factor
+    samplers = solver.sampler
+    default = samplers[1]
+    n_curves = 0
+    for crv in billiard.fundamental_boundary
+        if typeof(crv) <: AbsRealCurve
+            n_curves += 1
+        end
+    end
+
+    b_min = minimum(bs)
+    while length(bs)<n_curves
+        push!(bs, b_min)
+    end
+    
+    while length(samplers)<n_curves
+        push!(samplers, default)
+    end
+    return bs, samplers
+end

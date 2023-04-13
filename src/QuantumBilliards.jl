@@ -14,6 +14,14 @@ include("utils/symmetry.jl")
 export Reflection, XReflection, YReflection, XYReflection
 export real_length, is_inside
 
+
+#solvers
+#include("solvers/Solvers.jl")
+#@reexport using .Solvers
+include("solvers/samplers.jl")
+export GaussLegendreNodes, LinearNodes, FourierNodes
+export sample_points
+
 include("billiards/boundarypoints.jl")
 export BoundaryPoints
 export boundary_coords, dilated_boundary_points
@@ -51,12 +59,6 @@ export tangent_vec, normal_vec
 #export make_stadium_and_basis, make_triangle_and_basis 
 
 
-
-#solvers
-#include("solvers/Solvers.jl")
-#@reexport using .Solvers
-include("solvers/samplers.jl")
-export linear_nodes, gauss_legendre_nodes, fourier_nodes
 include("solvers/decompositions.jl")
 include("solvers/matrixconstructors.jl")
 export basis_matrix, basis_and_gradient_matrices, dk_matrix
@@ -95,7 +97,7 @@ include("states/husimifunctions.jl")
 
 export wavefunction #wavefunction_norm 
 export boundary_function, momentum_function, husimi_function
-export boundary_coords
+
 #plotting functions in Makie
 #include("plotting/Plotting.jl")
 #@reexport using .Plotting
@@ -137,7 +139,6 @@ function make_triangle_and_basis(gamma,chi; edge_i=1)
     re = [:Virtua, :Virtual, :Virtual]
     re[edge_i] = :Real 
     tr = Triangle(gamma,chi; curve_types = re, x0 = x0, y0 =y0)
-    #dim = round(Int, tr.boundary[edge_i].length*k*solver.dim_scaling_factor/(2*pi))
     basis = CornerAdaptedFourierBessel(1, adapt_basis(tr,edge_i+2)...) 
     return tr, basis 
 end

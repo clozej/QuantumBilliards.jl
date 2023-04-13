@@ -41,17 +41,17 @@ function plot_matrix!(f, A; log=false)
     return ax
 end
 
-function plot_geometry_test!(ax,billiard)
-    plot_domain!(ax,billiard)
+function plot_geometry_test!(f,billiard)
+    ax, hmap = plot_domain!(f,billiard)
     plot_boundary!(ax,billiard;dens=20.0)
 end
 
 function plot_basis_test!(f,basis,billiard;i=1,k=10.0)
     basisstate = BasisState(basis,k, i)
-    plot_wavefunction!(f, basisstate,billiard; b=10.0, plot_normal=false, inside_only=false) 
+    plot_wavefunction!(f, basisstate,billiard; b=10.0, plot_normal=false) 
 end
 
-function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true,sampler=gauss_legendre_nodes, tol=1e-4) where {S<:AcceleratedSolver}
+function plot_solver_test!(f,acc_solver::S,basis,billiard,k1,k2,dk;log=true, tol=1e-4) where {S<:AcceleratedSolver}
     alpha = 0.6
     k0 = k1
     k0s = [k0]
@@ -110,6 +110,7 @@ function plot_state_test!(f,state; b_psi=10.0, b_u = 20.0, log_psi =(true,-5))
     plot_probability!(f[1:2,1:2], state; b=b_psi, log = log_psi)
     k = state.k
     billiard=state.billiard
+    L = billiard.length
     ax_u = Axis(f[3,1], xlabel=L"q", ylabel=L"u")
     u, s, norm = boundary_function(state; b=b_u)
     edges = curve_edge_lengths(billiard)
@@ -123,7 +124,7 @@ function plot_state_test!(f,state; b_psi=10.0, b_u = 20.0, log_psi =(true,-5))
     vlines!(ax_k, [k]; color=:black, linewidth=0.5)
     xlims!(ax_k, 0.0, 1.2*k)
     
-    H, qs, ps = husimi_function(k,u,s; w = 7.0)    
+    H, qs, ps = husimi_function(k,u,s,L; w = 7.0)    
     hmap, ax_H = plot_heatmap!(f[4,1:2],qs,ps,H)
     vlines!(ax_H, edges; color=:black, linewidth=0.5)
 end

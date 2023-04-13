@@ -39,7 +39,7 @@ end
 #curve and billiard ploting
 function plot_curve!(ax, crv::AbsRealCurve; plot_normal=true, dens = 20.0)
     L = crv.length
-    grid = round(Int, L*dens)
+    grid = max(round(Int, L*dens),3)
     t = range(0.0,1.0, grid)
     pts = curve(crv,t)
     lines!(ax,pts, color = :black )
@@ -52,7 +52,7 @@ end
 
 function plot_curve!(ax, crv::AbsVirtualCurve; plot_normal=false, dens = 10.0)
     L = crv.length
-    grid = round(Int, L*dens)
+    grid = max(round(Int, L*dens),3)
     t = range(0.0,1.0, grid)
     pts = curve(crv,t)
     lines!(ax,pts, color = :black, linestyle = :dash)
@@ -63,8 +63,14 @@ function plot_curve!(ax, crv::AbsVirtualCurve; plot_normal=false, dens = 10.0)
     ax.aspect=DataAspect()
 end
 
-function plot_boundary!(ax, billiard::AbsBilliard; dens = 100.0, plot_normal=true)
-    for curve in billiard.fundamental_boundary
+function plot_boundary!(ax, billiard::AbsBilliard; fundamental_domain = true, dens = 100.0, plot_normal=true)
+    if fundamental_domain 
+        boundary = billiard.fundamental_boundary  
+    else
+        boundary = billiard.full_boundary
+    end
+    
+    for curve in boundary 
         plot_curve!(ax, curve; dens = dens, plot_normal = plot_normal)
     end
 end
@@ -90,18 +96,26 @@ function plot_domain!(ax, curve::AbsCurve;xlim=(-1.0,1.0),ylim=(-1.0,1.0), dens=
     ax.aspect=DataAspect()
 end
 #modify for consistency
-function plot_domain!(ax, billiard::AbsBilliard; dens=100.0, hmargs=Dict(),cmap=Reverse(:binary))
+function plot_domain!(f, billiard::AbsBilliard; fundamental_domain = true, dens=100.0, hmargs=Dict(),cmap=Reverse(:binary))
     d = one(dens)/dens
     #sz = (d,d)
-    xlim, ylim = boundary_limits(billiard.fundamental_boundary; grd=1000, type=typeof(Float32)) 
+    if fundamental_domain 
+        curves = billiard.fundamental_boundary  
+    else
+        curves = billiard.full_boundary
+    end
+    xlim, ylim = boundary_limits(curves; grd=1000) 
     x_grid = range(xlim... ; step=d)
     y_grid = range(ylim... ; step=d)
     pts = [SVector(x,y) for y in y_grid for x in x_grid]
-    Z = reshape(is_inside(billiard,pts),length(x_grid),length(y_grid))
+    Z = reshape(is_inside(billiard,pts;fundamental_domain=fundamental_domain),length(x_grid),length(y_grid))
+    ax = Axis(f[1,1])
     hmap = heatmap!(ax, x_grid, y_grid, Z, colormap = cmap, colorrange=(-1,1) ,hmargs...)
     ax.aspect=DataAspect()
+    return ax, hmap
 end
 
+#=
 function plot_lattice!(ax, billiard::AbsBilliard; dens=50.0, scargs=Dict())
     d = one(dens)/dens
     sz = (d,d)
@@ -110,28 +124,31 @@ function plot_lattice!(ax, billiard::AbsBilliard; dens=50.0, scargs=Dict())
     hmap = scatter!(ax,X)
     ax.aspect=DataAspect()
 end
-
+=#
 
 
 #wavefunction plotting
 
-function plot_wavefunction!(f,state::AbsState; b=5.0,dens = 10.0, 
+function plot_wavefunction!(f,state::AbsState; b=5.0,dens = 10.0, fundamental_domain = true,
     inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
-    Psi, x, y = wavefunction(state;b=b, inside_only=inside_only)
+    Psi, x, y = wavefunction(state;b=b, fundamental_domain=fundamental_domain, inside_only=inside_only)
     #Psi[Psi .== zero(eltype(Psi))] .= NaN
     billiard = state.billiard
     hmap, ax = plot_heatmap_balaced!(f,x,y,Psi ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs)
     plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
+    return ax, hmap
 end
 
 function plot_wavefunction!(f,state::BasisState, billiard::AbsBilliard; b=5.0,dens = 10.0, 
-    inside_only=true, plot_normal=false, vmax = 1.0, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
+    plot_normal=false, vmax = 1.0, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
     Psi, x, y = wavefunction(state;b=b)
     #Psi[Psi .== zero(eltype(Psi))] .= NaN
     hmap, ax = plot_heatmap_balaced!(f,x,y,Psi ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs)
     plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
+    return ax, hmap
 end
 
+#not finished yet
 function plot_wavefunction_gradient!(f,state::AbsState; b=5.0,dens = 10.0, inside_only=true, plot_normal=false, lengthscale = 0.001, cmap=Reverse(:balance),hmargs=Dict(),axargs=Dict())
     #Psi[Psi .== zero(eltype(Psi))] .= NaN
     ax = Axis(f[1,1])  
@@ -142,23 +159,24 @@ function plot_wavefunction_gradient!(f,state::AbsState; b=5.0,dens = 10.0, insid
     ax.aspect=DataAspect()
 end
 
-function plot_probability!(f,state::AbsState; b=5.0,dens = 100.0,log=false, inside_only=true, 
+function plot_probability!(f,state::AbsState; b=5.0,dens = 100.0,log=false, fundamental_domain = true, inside_only=true, 
     plot_normal=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), memory_limit = 10.0e9)
-    Psi, x, y = wavefunction(state;b=b, inside_only=inside_only, memory_limit=memory_limit)
+    Psi, x, y = wavefunction(state;b=b,fundamental_domain=fundamental_domain, inside_only=inside_only, memory_limit=memory_limit)
     Psi = abs2.(Psi)
     #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
     
     hmap, ax = plot_heatmap!(f,x,y,Psi ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
     billiard = state.billiard
     plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
+    return ax, hmap
 end
 
 
 function plot_probability!(f,state_bundle::EigenstateBundle; 
-    b=5.0,dens = 100.0,log=false, inside_only=true, plot_normal=false, 
+    b=5.0,dens = 100.0,log=false, inside_only=true, fundamental_domain = true, plot_normal=false, 
     vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), 
     memory_limit = 10.0e9)
-    Psi_bundle, x, y = wavefunction(state_bundle;b=b, inside_only=inside_only, memory_limit=memory_limit)
+    Psi_bundle, x, y = wavefunction(state_bundle;b=b,fundamental_domain=fundamental_domain, inside_only=inside_only, memory_limit=memory_limit)
     billiard = state_bundle.billiard
     for i in eachindex(Psi_bundle)
         P = abs2.(Psi_bundle[i])   
@@ -235,9 +253,11 @@ end
 
 function plot_husimi_function!(f,state::AbsState; 
     b=5.0,log=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
-    u, s, norm = boundary_function(state; b=b)
-    H, qs, ps = husimi_function(k,u,s; w = 7.0)
     billiard = state.billiard
+    L = billiard.length
+    u, s, norm = boundary_function(state; b=b)
+    H, qs, ps = husimi_function(k,u,s,L; w = 7.0)
+    
     edges = curve_edge_lengths(billiard)    
     hmap, ax = plot_heatmap!(f,qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
     vlines!(ax, edges; color=:black, linewidth=0.5)
@@ -246,12 +266,13 @@ end
 
 function plot_husimi_function!(f,state_bundle::EigenstateBundle; 
     b=5.0,log=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
+    billiard = state_bundle.billiard
+    L = billiard.length
     us, s, norms = boundary_function(state_bundle; b=b)
     ks = state_bundle.ks
-    billiard = state_bundle.billiard
     edges = curve_edge_lengths(billiard)    
     for i in eachindex(us)
-        H, qs, ps = husimi_function(ks[i],us[i],s; w = 7.0)    
+        H, qs, ps = husimi_function(ks[i],us[i],s,L; w = 7.0)    
         hmap, ax = plot_heatmap!(f[i,1],qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
         vlines!(ax, edges; color=:black, linewidth=0.5)
     end
@@ -271,7 +292,7 @@ function plot_basis_function!(ax, basis::AbsBasis, i, k; xlim=(-1,1), ylim=(-1,1
 end
 
 function plot_basis_function!(ax, basis::AbsBasis, i, k, curve::AbsCurve, sampler;  grid::Int = 200)
-    t, dt = sampler(grid)
+    t, dt = sample_points(sampler, grid)
     x, y = curve.r(t)
     phi = basis_fun(basis, i, k, x, y) 
     
