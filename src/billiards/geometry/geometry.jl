@@ -17,6 +17,23 @@ function normal_vec(curve::L, ts::AbstractArray{T,1}) where {T<:Real,L<:AbsCurve
     return [SVector(ti[2], -ti[1]) for ti in ta]
 end
 
+function curvature(crv::L, ts::AbstractArray{T,1}) where {T<:Real,L<:AbsCurve}
+    let 
+        r(t) = curve(crv, t)
+        dr(t) = ForwardDiff.derivative(r, t)
+        ddr(t) = ForwardDiff.derivative(dr, t)
+        kappa = similar(ts)
+        for i in eachindex(ts)
+            der = dr(ts[i])
+            der2 = ddr(ts[i])
+            norm = hypot(der[1], der[2])^3
+            kap = der[1]*der2[2] - der[2]*der2[1]
+            kappa[i] = kap/norm
+        end
+        #ForwardDiff.derivative(r, t)
+        return kappa
+    end
+end
 
 function make_polygon(corners, curve_types; origin=(zero(corners[1][1]),zero(corners[1][1])),rot_angle=zero(corners[1][1]))
     N = length(corners)

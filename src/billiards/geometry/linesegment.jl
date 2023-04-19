@@ -41,6 +41,13 @@ function curve(line::L, ts::AbstractArray{T,1}) where {T<:Real,L<:LineSegments{T
     end
 end
 
+function curve(line::L, t) where {T<:Real,L<:LineSegments{T}}
+    let pt0 = line.cs.affine_map(line.pt0), pt1 = line.cs.affine_map(line.pt1)
+    return line_eq(pt0,pt1,t)
+    end
+end
+
+
 function arc_length(line::L, ts::AbstractArray{T,1}) where {T<:Real,L<:LineSegments{T}}
     s::Vector{T} = line.length.*ts
     return s

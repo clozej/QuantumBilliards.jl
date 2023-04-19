@@ -44,7 +44,7 @@ include("billiards/geometry/geometry.jl")
 export LineSegment, VirtualLineSegment
 export CircleSegment, VirtualCircleSegment
 export DispersingCircleSegment, VirtualDispersingCircleSegment
-export curve, arc_length, tangent, tangent_vec, normal_vec
+export curve, arc_length, tangent, tangent_vec, normal_vec, curvature
 include("billiards/stadium.jl")
 include("billiards/lemon.jl")
 include("billiards/sinai.jl")

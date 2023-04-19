@@ -45,7 +45,7 @@ function curve(circle::L, ts::AbstractArray{T,1}) where {T<:Real,L<:CircleSegmen
     end
 end
 
-function curve(circle::L, t::T) where {T<:Real,L<:CircleSegments{T}}
+function curve(circle::L, t) where {T<:Real,L<:CircleSegments{T}}
     let affine_map = circle.cs.affine_map, R = circle.radius, c = circle.center, a=circle.arc_angle, s=circle.shift_angle 
         return affine_map(circle_eq(R, a, s, c, t))
     end
