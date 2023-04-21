@@ -132,8 +132,9 @@ function basis_and_gradient(basis::FundamentalBessel{T}, indices::AbstractArray,
             arg = k.*r
             #println(size(s))
             B[:,i] .= Y0.(arg)
-            dB_dx[:,i] .= @. k*x/r*dY0(arg)
-            dB_dy[:,i] .= @. k*y/r*dY0(arg)
+            dY = dY0(arg)
+            dB_dx[:,i] .= @. k*x/r*dY
+            dB_dy[:,i] .= @. k*y/r*dY
             if ~isnothing(symmetries)
                 for sym in symmetries
                     pts_sym = sym.sym_map.(pts)
@@ -143,8 +144,9 @@ function basis_and_gradient(basis::FundamentalBessel{T}, indices::AbstractArray,
                     y = getindex.(pts_loc, 2) 
                     arg = k.*r
                     B[:,i] .+= sym.parity.*Y0.(arg)
-                    dB_dx[:,i] .+= @. sym.parity*k*x/r*dY0(arg)
-                    dB_dy[:,i] .+= @. sym.parity*k*y/r*dY0(arg)
+                    dY = dY0(arg)
+                    dB_dx[:,i] .+= @. sym.parity*k*x/r*dY
+                    dB_dy[:,i] .+= @. sym.parity*k*y/r*dY
                 end
             end
         end

@@ -6,6 +6,7 @@ abstract type AbsCurve end
 abstract type AbsVirtualCurve <: AbsCurve end
 abstract type AbsRealCurve <: AbsCurve end
 abstract type AbsBasis end
+abstract type AbsFundamentalBasis <: AbsBasis end
 abstract type AbsSolver end
 abstract type AbsPoints end
 abstract type SweepSolver <: AbsSolver end
