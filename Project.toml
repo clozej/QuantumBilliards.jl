@@ -38,6 +38,7 @@ Makie = "0.19"
 Optim = "1"
 Rotations = "1"
 StaticArrays = "1"
+StatsBase = "0.34"
 TimerOutputs = "0.5"
 julia = "1.8"
 
