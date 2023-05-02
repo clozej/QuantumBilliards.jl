@@ -20,11 +20,11 @@ end
 function FundamentalHankel(dim, symmetries::Vector{Sy}; type=Float64) where {T<:Real, Sy<:Union{AbsSymmetry,Nothing}}
     #cs::PolarCS{T} #not fully implemented
     return_type = Complex{type}
-    return FundamentalHankel{num_type,Sy}(dim, symmetries, return_type)
+    return FundamentalHankel{type,Sy}(dim, symmetries, return_type)
 end
 
 function resize_basis(basis::Ba, billiard::Bi, dim::Int, k) where {T<:Real, Sy<:Union{AbsSymmetry,Nothing}, Ba<:FundamentalHankel{T,Sy}, Bi<:AbsBilliard}
-    return FundamentalHankel{num_type,Sy}(dim, basis.symmetries, basis.return_type)
+    return FundamentalHankel(dim, basis.symmetries)
 end
 
 @inline function basis_fun(basis::FundamentalHankel, arg::Union{T,Vector{T}}) where {T<:Real}

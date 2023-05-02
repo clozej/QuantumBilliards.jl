@@ -5,32 +5,30 @@ struct BoundaryIntegralMethod{T} <: SweepSolver where {T<:Real}
     pts_scaling_factor::Vector{T}
     sampler::Vector
     eps::T
-    min_dim::Int64
+    min_dim::Int64 #for compatibiliy remove later
     min_pts::Int64
 end
 
-#=
-function DecompositionMethod(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
-    d = dim_scaling_factor
+
+function BoundaryIntegralMethod(pts_scaling_factor::Union{T,Vector{T}}; min_pts = 20) where T<:Real 
+    #d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
     sampler = [GaussLegendreNodes()]
-return DecompositionMethod(d, bs, sampler, eps(T), min_dim, min_pts)
+    return BoundaryIntegralMethod(1.0, bs, sampler, eps(T), min_pts, min_pts)
 end
 
-function DecompositionMethod(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
-    d = dim_scaling_factor
+function BoundaryIntegralMethod(pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector; min_pts = 20) where {T<:Real} 
+    #d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
-    return DecompositionMethod(d, bs, samplers, eps(T), min_dim, min_pts)
+    return BoundaryIntegralMethod(1.0, bs, samplers, eps(T), min_pts, min_pts)
 end
-=#
 
 struct BoundaryPointsBIM{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
     normal::Vector{SVector{2,T}} #normal vectors in points
-    kappa::Vector{T}
+    curvature::Vector{T}
     ds::Vector{T}
-    cosphi::Matrix{T} # tension weights
-    tau::Matrix{T} #normalization weights
+    #source_pts_xy::Vector{SVector{2,T}}
 end
 
 function evaluate_points(solver::BoundaryIntegralMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
@@ -40,7 +38,7 @@ function evaluate_points(solver::BoundaryIntegralMethod, billiard::Bi, k) where 
     
     xy_all = Vector{SVector{2,type}}()
     normal_all = Vector{SVector{2,type}}()
-    kappa_all::Vector{T}()
+    kappa_all = Vector{type}()
     w_all = Vector{type}()
    
     for i in eachindex(curves)
@@ -53,7 +51,7 @@ function evaluate_points(solver::BoundaryIntegralMethod, billiard::Bi, k) where 
             ds = L*dt #modify this
             xy = curve(crv,t)
             normal = normal_vec(crv,t)
-            kappa = curvature(curve,t)
+            kappa = curvature(crv,t)
             append!(xy_all, xy)
             append!(normal_all, normal)
             append!(kappa_all, kappa)
@@ -61,20 +59,7 @@ function evaluate_points(solver::BoundaryIntegralMethod, billiard::Bi, k) where 
         end
     end
 
-    N = length(xy_all)
-    cosphi = zeros(type,(N,N))
-    tau = similar(cosphi)
-
-    for j in 1:N
-        for i in 1:N
-            pt = xy_all[i] .- xy_all[j]
-            tt = hypot(pt[1],pt[2])
-            tau[i,j] = tt
-            cosphi[i,j] = dot(normal_all[i], pt) / tt 
-        end
-    end
-
-    return BoundaryPointsBIM{type}(xy_all,normal_all,kappa_all,w_all,cosphi,tau)
+    return BoundaryPointsBIM{type}(xy_all,normal_all,kappa_all,w_all)
 end
 #=
 function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
@@ -116,42 +101,40 @@ function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pt
     return F, G    
 end
 =#
-function construct_matrices(solver::BoundaryIntegralMethod, basis::Ba, pts::BoundaryPointsBIM, k) where {Ba<:AbsBasis}
+function construct_matrices(solver::BoundaryIntegralMethod, basis::Ba, pts::BoundaryPointsBIM, k) where {Ba<:AbsFundamentalBasis}
     #basis and gradient matrices
-    
     symmetries = basis.symmetries
+    xy = pts.xy
+    w = pts.ds
+    kappa = complex(pts.curvature)
+
     if ~isnothing(symmetries)
         norm = (length(symmetries)+1.0)
-
+        w = w.*norm
     end
-    xy = pts.xy
-    ds = pts.ds
-    N = basis.dim
-    #basis matrix
-    #B = basis_matrix(basis, k, xy)
-    Q = -2.0 * dk_matrix(basis, k, xy)
-    #type = eltype(G)
-    #F = zeros(type,(N,N))
-    #Fk = similar(F)
-    T = (w .* B) #reused later
-    mul!(F,B',T) #boundary norm matrix
-    #reuse B
-    #B = dk_matrix(basis,k, xy)
-    mul!(Fk,B',T) #B is now derivative matrix
-    #symmetrize matrix
-    Fk = Fk + Fk' 
-    return F, Fk    
     
+    dX, dY = greens_gradient(basis, k, xy, xy)#; return_diagonal=false)
+    nx = getindex.(pts.normal,1)
+    ny = getindex.(pts.normal,2)
+    #inplace modifications
+    dX = nx .* dX 
+    dY = ny .* dY
+    Q = @. -2.0 * dX + dY
+    Q[diagind(Q)] = @. kappa/(2.0*pi)
+    A = I - w .* Q #apply integrration weights and subtract from identity matrix
+    return A   
 end
 
-function solve(solver::DecompositionMethod,basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
-    F, G = construct_matrices(solver, basis, pts, k)
-    mu = generalized_eigvals(Symmetric(F),Symmetric(G);eps=solver.eps)
+function solve(solver::BoundaryIntegralMethod, basis::Ba, pts::BoundaryPointsBIM, k) where {Ba<:AbsFundamentalBasis}
+    A = construct_matrices(solver, basis, pts, k)
+    mu = svdvals(A)
     lam0 = mu[end]
-    t = 1.0/lam0
+    t = lam0
     return  t
 end
 
+
+#=
 function solve(solver::DecompositionMethod,F,G)
     #F, G = construct_matrices(solver, basis, pts, k)
     mu = generalized_eigvals(Symmetric(F),Symmetric(G);eps=solver.eps)
@@ -169,3 +152,4 @@ function solve_vect(solver::DecompositionMethod,basis::AbsBasis, pts::BoundaryPo
     t = 1.0/lam0
     return  t, x./sqrt(lam0)
 end
+=#

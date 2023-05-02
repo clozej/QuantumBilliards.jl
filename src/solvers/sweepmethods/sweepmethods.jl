@@ -4,6 +4,7 @@
 #include("../samplers.jl")
 include("particularsolutionsmethod.jl")
 include("decompositionmethod.jl")
+include("boundaryintegralmethod.jl")
 using LinearAlgebra, Optim
 
 function solve_wavenumber(solver::SweepSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk)

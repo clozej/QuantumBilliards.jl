@@ -57,7 +57,7 @@ k, ten = solve_wavenumber(acc_solver,basis, billiard,k0,dk)
 state = compute_eigenstate(sw_solver, basis, billiard, k)
 state1 = compute_eigenstate(acc_solver, basis, billiard, k0)
 
-states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0;dk =0.1, tol=0.005)
+states = compute_eigenstate_bundle(acc_solver, basis, billiard, k0; dk =0.1, tol=0.005)
 states.ks
 states.tens
 

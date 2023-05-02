@@ -114,22 +114,22 @@ end
         dG_dx = zeros(basis.return_type,N,N)
         dG_dy = zeros(basis.return_type,N,N)
         #fill upper triangle
-        Threads.@threads for j in 1:N
+        for j in 1:N #Threads.@threads
             for i in 1:j-1
                 pt = pts[i] - pts[j]
                 r = hypot(pt[1], pt[2])
-                x = r[1]
-                y = r[2]
+                x = pt[1]
+                y = pt[2]
                 arg = k.*r
                 dg = derivative_fun(basis, arg)
                 dG_dx[i,j] = k*x/r*dg
                 dG_dy[i,j] = k*y/r*dg
                 if ~isnothing(symmetries)
                     for sym in symmetries
-                        pt_sym = sym.sym_map.(pts[i]) - pts[j]
+                        pt_sym = sym.sym_map(pts[i]) - pts[j]
                         r = hypot(pt_sym[1], pt_sym[2])
-                        x = r[1]
-                        y = r[2]
+                        x = pt[1]
+                        y = pt[2]
                         arg = k.*r
                         dg = derivative_fun(basis, arg)
                         dG_dx[i,j] = k*x/r*dg #does this have to be abs(x)?
@@ -145,8 +145,8 @@ end
             Threads.@threads for i in 1:N
                 pt = pts[i] - pts[i]
                 r = hypot(pt[1], pt[2])
-                x = r[1]
-                y = r[2]
+                x = pt[1]
+                y = pt[2]
                 arg = k.*r
                 dg = derivative_fun(basis, arg)
                 dG_dx[i,i] = k*x/r*dg
@@ -155,8 +155,8 @@ end
                     for sym in symmetries
                         pt_sym = sym.sym_map.(pts[i]) - pts[j]
                         r = hypot(pt_sym[1], pt_sym[2])
-                        x = r[1]
-                        y = r[2]
+                        x = pt[1]
+                        y = pt[2]
                         arg = k.*r
                         dg = derivative_fun(basis, arg)
                         dG_dx[i,i] = k*x/r*dg #does this have to be abs(x)?

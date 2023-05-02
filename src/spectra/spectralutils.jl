@@ -6,8 +6,10 @@ function is_equal(x,dx,y,dy)
     X = x ± dx
     Y = y ± dy 
     Z = X ∩ Y
-    return  ~(Z == ∅)
+    #return  ~(Z == ∅)
+    return  ~IntervalArithmetic.isempty(Z)
 end
+
 
 function match_wavenumbers(ks_l,ts_l,ks_r,ts_r)
     #vectors ks_l and_ks_r must be sorted
@@ -46,6 +48,21 @@ function match_wavenumbers(ks_l,ts_l,ks_r,ts_r)
 end
 
 function overlap_and_merge!(k_left, ten_left, k_right, ten_right, control_left, kl, kr; tol=1e-3)
+    #check if intervals are empty 
+    if isempty(k_left)
+        #println("Left interval is empty.")
+        append!(k_left, k_right)
+        append!(ten_left, ten_right)
+        append!(control_left, [false for i in 1:length(k_right)])
+        return nothing #return short circuits further evaluation
+    end
+
+    #if right is empty just skip the mergeing
+    if isempty(k_right)
+        #println("Right interval is empty.")
+        return nothing
+    end
+    
     #find overlaps in interval [k1,k2]
     idx_l = k_left .> (kl-tol) .&& k_left .< (kr+tol)
     idx_r = k_right .> (kl-tol) .&& k_right .< (kr+tol)
@@ -65,11 +82,11 @@ function overlap_and_merge!(k_left, ten_left, k_right, ten_right, control_left, 
     deleteat!(control_left, idx_l)
     append!(control_left, control)
 
-    idx_last = findlast(idx_r) + 1
+    fl = findlast(idx_r)
+    idx_last = isnothing(fl) ? 1 : fl + 1
     append!(k_left, k_right[idx_last:end])
     append!(ten_left, ten_right[idx_last:end])
     append!(control_left, [false for i in idx_last:length(k_right)])
-
 end
 
 function compute_spectrum(solver::AbsSolver, basis::AbsBasis, pts::AbsPoints,k1,k2,dk;tol=1e-4, plot_info=false)
