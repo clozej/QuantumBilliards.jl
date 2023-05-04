@@ -1,7 +1,7 @@
 using MKL
-include("../src/QuantumBilliards.jl")
+include("../src/QuantumBilliardsTest.jl")
 #using Revise
-using .QuantumBilliards
+#using .QuantumBilliards
 #using Revise 
 using CairoMakie
 #using Latexify
@@ -10,8 +10,8 @@ B = 0.42 #sqrt(2)/2 * pi
 billiard, basis = make_lemon_and_basis(B;full_domain=false)
 
 f = Figure(resolution = (1000,500))
-ax = Axis(f[1,1])
-plot_geometry_test!(ax, billiard)
+#ax = Axis(f[1,1])
+plot_geometry_test!(f, billiard)
 display(f)
 
 f = Figure(resolution = (1000,500))
