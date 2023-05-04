@@ -1,8 +1,8 @@
 using MKL
 #using Revise
-include("../src/QuantumBilliards.jl")
+include("../src/QuantumBilliardsTest.jl")
 
-using .QuantumBilliards
+#using .QuantumBilliards
 #using Revise 
 using CairoMakie
 #using Latexify

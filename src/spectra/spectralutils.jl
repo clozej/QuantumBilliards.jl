@@ -89,18 +89,86 @@ function overlap_and_merge!(k_left, ten_left, k_right, ten_right, control_left, 
     append!(control_left, [false for i in idx_last:length(k_right)])
 end
 
-function compute_spectrum(solver::AbsSolver, basis::AbsBasis, pts::AbsPoints,k1,k2,dk;tol=1e-4, plot_info=false)
+function compute_spectrum(solver::AbsSolver, basis::AbsBasis, billiard::AbsBilliard,k1,k2,dk; tol=1e-4)
     k0 = k1
     #initial computation
-    k_res, ten_res = solve(solver, basis, pts, k0, dk+tol)
+    k_res, ten_res = solve_spectrum(solver, basis, billiard, k0, dk+tol)
     control = [false for i in 1:length(k_res)]
     while k0 < k2
         k0 += dk
-        k_new, ten_new = solve(solver, basis, pts, k0, dk+tol)
+        k_new, ten_new = solve_spectrum(solver, basis, billiard, k0, dk+tol)
         overlap_and_merge!(k_res, ten_res, k_new, ten_new, control, k0-dk, k0; tol=tol)
 
     end
     return k_res, ten_res, control
+end
+
+struct SpectralData{T} 
+    k::Vector{T}
+    ten::Vector{T}
+    control::Vector{Bool}
+    k_min::T
+    k_max::T
+end
+
+function SpectralData(k,ten,control)
+    k_min = minimum(k)
+    k_max = maximum(k)
+    return SpectralData(k,ten,control,k_min,k_max)
+end
+
+function merge_spectra(s1, s2; tol=1e-4)
+    first = Interval(s1.k_min-tol/2, s1.k_max+tol/2)
+    second = Interval(s2.k_min-tol/2, s2.k_max+tol/2)
+    overlap = intersect(first, second)  #this is the overlap interval
+    
+    idx_1 = [in(k, overlap) for k in s1.k]
+    idx_2 = [in(k, overlap) for k in s2.k]
+
+    ks1 = s1.k[idx_1]
+    ts1 = s1.ten[idx_1]
+    ks2 = s2.k[idx_2]
+    ts2 = s2.ten[idx_2]
+
+    ks_ov, ts_ov, cont_ov = match_wavenumbers(ks1,ts1,ks2,ts2)
+    
+    ks = append!(s1.k[.~idx_1],ks_ov)
+    ts = append!(s1.ten[.~idx_1],ts_ov)
+    control = append!(s1.control[.~idx_1],cont_ov)
+
+    append!(ks, s2.k[.~idx_2])
+    append!(ts, s2.ten[.~idx_2])
+    append!(control, s2.control[.~idx_2])
+
+    p = sortperm(ks) 
+    return SpectralData(ks[p], ts[p], control[p])
+end
+
+function compute_spectrum(solver::AbsSolver,basis::AbsBasis,billiard::AbsBilliard,N1::Int,N2::Int,dN::Int)
+    let solver=solver, basis=basis, billiard=billiard
+        N_intervals = range(N1-dN/2,N2+dN/2,step=dN)
+        #println(N_intervals)
+        if hasproperty(billiard,:angles)
+            k_intervals = [k_at_state(n, billiard.area, billiard.length, billiard.angles) for n in N_intervals]
+        else
+            k_intervals = [k_at_state(n, billiard.area, billiard.length) for n in N_intervals]
+        end
+
+        results = Vector{SpectralData}(undef,length(k_intervals)-1)
+        for i in 1:(length(k_intervals)-1)
+            k1 = k_intervals[i]
+            k2 = k_intervals[i+1]
+            dk = 2.0 * 2.0*pi / (billiard.area * k1) #fix this
+            #println(k1)
+            #println(k2)
+            #println(dk)
+            k_res, ten_res, control = compute_spectrum(solver,basis,billiard,k1,k2,dk)
+            #println(k_res)
+            results[i] = SpectralData(k_res, ten_res, control)
+        end
+
+        return reduce(merge_spectra, results)
+    end
 end
 
 #=

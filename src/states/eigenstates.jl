@@ -33,21 +33,21 @@ function Eigenstate(k, k_basis, vec, ten, basis, billiard)
     return Eigenstate(k, k_basis, filtered_vec, ten, length(vec), eps, basis, billiard)
 end
 
-function compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard,k)
+function compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard,k; parallel_matrix = true)
     L = billiard.length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
     basis_new = resize_basis(basis,billiard, dim, k)
     pts = evaluate_points(solver, billiard, k)
-    ten, vec = solve_vect(solver, basis_new, pts, k)
+    ten, vec = solve_vect(solver, basis_new, pts, k; parallel_matrix)
     return Eigenstate(k, vec, ten, basis_new, billiard)
 end
 
-function compute_eigenstate(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1)
+function compute_eigenstate(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1, parallel_matrix = true)
     L = billiard.length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
     basis_new = resize_basis(basis,billiard,dim,k)
     pts = evaluate_points(solver, billiard, k)
-    ks, tens, X = solve_vectors(solver,basis_new, pts, k, dk)
+    ks, tens, X = solve_vectors(solver,basis_new, pts, k, dk; parallel_matrix)
     idx = findmin(abs.(ks.-k))[2]
     k_state = ks[idx]
     ten = tens[idx]
@@ -77,12 +77,12 @@ function EigenstateBundle(ks, k_basis, X, tens, basis, billiard)
     return EigenstateBundle(ks, k_basis, filtered_array, tens, length(X[:,1]), eps, basis, billiard)
 end
 
-function compute_eigenstate_bundle(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1, tol=1e-5)
+function compute_eigenstate_bundle(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1, tol=1e-5, parallel_matrix = true)
     L = billiard.length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
     basis_new = resize_basis(basis,billiard, dim,k)
     pts = evaluate_points(solver, billiard, k)
-    ks, tens, X = solve_vectors(solver,basis_new, pts, k, dk)
+    ks, tens, X = solve_vectors(solver,basis_new, pts, k, dk; parallel_matrix)
     idx = abs.(tens) .< tol
     ks = ks[idx]
     tens = tens[idx]

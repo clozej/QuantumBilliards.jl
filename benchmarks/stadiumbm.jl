@@ -1,7 +1,7 @@
 using MKL
-include("../src/QuantumBilliards.jl")
+include("../src/QuantumBilliardsTest.jl")
 #using Revise
-using .QuantumBilliards
+#using .QuantumBilliards
 #using Revise 
 #using GLMakie
 using CairoMakie
@@ -9,8 +9,8 @@ using CairoMakie
 
 
 
-eps = 0.02 #sqrt(2)/2 * pi
-billiard, fb_basis = make_stadium_and_basis(eps)
+epsilon = 0.02 #sqrt(2)/2 * pi
+billiard, fb_basis = make_stadium_and_basis(epsilon)
 odd_x = [XReflection(-1)]
 even_x = [XReflection(1)]
 odd_y = [YReflection(-1)]

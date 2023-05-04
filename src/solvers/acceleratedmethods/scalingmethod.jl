@@ -84,7 +84,7 @@ function evaluate_points(solver::AbsScalingMethod, billiard::Bi, k) where {Bi<:A
 end
 
 #generalize for other types
-function construct_matrices_benchmark(solver::ScalingMethodA, basis::Ba, pts::BoundaryPointsSM, k) where {Ba<:AbsBasis}
+function construct_matrices_benchmark(solver::ScalingMethodA, basis::Ba, pts::BoundaryPointsSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     to = TimerOutput()
     symmetries = basis.symmetries 
     #type = eltype(pts.w)
@@ -97,7 +97,7 @@ function construct_matrices_benchmark(solver::ScalingMethodA, basis::Ba, pts::Bo
     #M =  length(xy)
     N = basis.dim
     #basis matrix
-    @timeit to "basis_matrix" B = basis_matrix(basis, k, xy)
+    @timeit to "basis_matrix" B = basis_matrix(basis, k, xy; parallel_matrix)
     type = eltype(B)
     F = zeros(type,(N,N))
     Fk = similar(F)
@@ -107,7 +107,7 @@ function construct_matrices_benchmark(solver::ScalingMethodA, basis::Ba, pts::Bo
         @timeit to "product" mul!(F,B',T) #boundary norm matrix
     end
     #reuse B
-    @timeit to "dk_matrix" B = dk_matrix(basis,k, xy)
+    @timeit to "dk_matrix" B = dk_matrix(basis,k, xy; parallel_matrix)
     @timeit to "Fk construction" begin 
         @timeit to "product" mul!(Fk,B',T) #B is now derivative matrix
         #symmetrize matrix
@@ -117,7 +117,7 @@ function construct_matrices_benchmark(solver::ScalingMethodA, basis::Ba, pts::Bo
     return F, Fk        
 end
 
-function construct_matrices(solver::ScalingMethodA, basis::Ba, pts::BoundaryPointsSM, k) where {Ba<:AbsBasis}
+function construct_matrices(solver::ScalingMethodA, basis::Ba, pts::BoundaryPointsSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     xy = pts.xy
     w = pts.w
     symmetries=basis.symmetries
@@ -127,21 +127,21 @@ function construct_matrices(solver::ScalingMethodA, basis::Ba, pts::BoundaryPoin
     end
     N = basis.dim
     #basis matrix
-    B = basis_matrix(basis, k, xy)
+    B = basis_matrix(basis, k, xy; parallel_matrix)
     type = eltype(B)
     F = zeros(type,(N,N))
     Fk = similar(F)
     T = (w .* B) #reused later
     mul!(F,B',T) #boundary norm matrix
     #reuse B
-    B = dk_matrix(basis,k, xy)
+    B = dk_matrix(basis,k, xy; parallel_matrix)
     mul!(Fk,B',T) #B is now derivative matrix
     #symmetrize matrix
     Fk = Fk + Fk' 
     return F, Fk    
 end
 
-function construct_matrices_benchmark(solver::ScalingMethodB, basis::Ba, pts::BoundaryPointsSM, k) where {Ba<:AbsBasis}
+function construct_matrices_benchmark(solver::ScalingMethodB, basis::Ba, pts::BoundaryPointsSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     to = TimerOutput()
     #type = eltype(pts.w)
     xy, w = pts.xy, pts.w
@@ -152,7 +152,7 @@ function construct_matrices_benchmark(solver::ScalingMethodB, basis::Ba, pts::Bo
     end
     #M =  length(xy)
     #basis and gradient matrices
-    @timeit to "basis_and_gradient_matrices" B, dX, dY = basis_and_gradient_matrices(basis, k, xy)
+    @timeit to "basis_and_gradient_matrices" B, dX, dY = basis_and_gradient_matrices(basis, k, xy; parallel_matrix)
     N = basis.dim
     type = eltype(B)
     F = zeros(type,(N,N))
@@ -179,7 +179,7 @@ function construct_matrices_benchmark(solver::ScalingMethodB, basis::Ba, pts::Bo
     return F, Fk        
 end
 
-function construct_matrices(solver::ScalingMethodB, basis::Ba, pts::BoundaryPointsSM, k) where {Ba<:AbsBasis}
+function construct_matrices(solver::ScalingMethodB, basis::Ba, pts::BoundaryPointsSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     xy = pts.xy
     w = pts.w
     symmetries=basis.symmetries
@@ -189,7 +189,7 @@ function construct_matrices(solver::ScalingMethodB, basis::Ba, pts::BoundaryPoin
     end
     N = basis.dim
     #basis matrix
-    B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
+    B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy; parallel_matrix)
     type = eltype(B)
     F = zeros(type,(N,N))
     Fk = similar(F)
@@ -223,8 +223,8 @@ function sm_vects_results(mu,k)
     return ks, ten
 end
 =#
-function solve(solver::AbsScalingMethod, basis::Ba, pts::BoundaryPointsSM, k, dk) where {Ba<:AbsBasis}
-    F, Fk = construct_matrices(solver, basis, pts, k)
+function solve(solver::AbsScalingMethod, basis::Ba, pts::BoundaryPointsSM, k, dk; parallel_matrix = true) where {Ba<:AbsBasis}
+    F, Fk = construct_matrices(solver, basis, pts, k; parallel_matrix)
     mu = generalized_eigvals(Symmetric(F),Symmetric(Fk);eps=solver.eps)
     ks, ten = sm_results(mu,k)
     idx = abs.(ks.-k) .< dk
@@ -245,8 +245,8 @@ function solve(solver::AbsScalingMethod,F,Fk, k, dk)
     return ks[p], ten[p]
 end
 
-function solve_vectors(solver::AbsScalingMethod, basis::Ba, pts::BoundaryPointsSM, k, dk) where {Ba<:AbsBasis}
-    F, Fk = construct_matrices(solver, basis, pts, k)
+function solve_vectors(solver::AbsScalingMethod, basis::Ba, pts::BoundaryPointsSM, k, dk; parallel_matrix = true) where {Ba<:AbsBasis}
+    F, Fk = construct_matrices(solver, basis, pts, k; parallel_matrix)
     mu, Z, C = generalized_eigen(Symmetric(F),Symmetric(Fk);eps=solver.eps)
     ks, ten = sm_results(mu,k)
     idx = abs.(ks.-k) .< dk

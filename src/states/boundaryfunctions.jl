@@ -12,7 +12,7 @@ function regularize!(u)
     end
 end
 
-function boundary_function(state::S; b=5.0) where {S<:AbsState}
+function boundary_function(state::S; b=5.0, parallel_matrix = true) where {S<:AbsState}
     let vec = state.vec, k = state.k, k_basis = state.k_basis, new_basis = state.basis, billiard=state.billiard
         type = eltype(vec)
         boundary = billiard.full_boundary
@@ -21,7 +21,7 @@ function boundary_function(state::S; b=5.0) where {S<:AbsState}
         L = billiard.length
         N = max(round(Int, k*L*b/(2*pi)), 512)
         pts = boundary_coords(billiard, sampler, N)
-        dX, dY = gradient_matrices(new_basis, k_basis, pts.xy)
+        dX, dY = gradient_matrices(new_basis, k_basis, pts.xy; parallel_matrix)
         nx = getindex.(pts.normal,1)
         ny = getindex.(pts.normal,2)
         dX = nx .* dX 
@@ -38,7 +38,7 @@ function boundary_function(state::S; b=5.0) where {S<:AbsState}
     end
 end
 
-function boundary_function(state_bundle::S; b=5.0) where {S<:EigenstateBundle}
+function boundary_function(state_bundle::S; b=5.0, parallel_matrix = true) where {S<:EigenstateBundle}
     let X = state_bundle.X, k_basis = state_bundle.k_basis, ks = state_bundle.ks, new_basis = state_bundle.basis, billiard=state_bundle.billiard 
         type = eltype(X)
         boundary = billiard.full_boundary
@@ -47,7 +47,7 @@ function boundary_function(state_bundle::S; b=5.0) where {S<:EigenstateBundle}
         L = billiard.length
         N = max(round(Int, k_basis*L*b/(2*pi)), 512)
         pts = boundary_coords(billiard, sampler, N)
-        dX, dY = gradient_matrices(new_basis, k_basis, pts.xy)
+        dX, dY = gradient_matrices(new_basis, k_basis, pts.xy; parallel_matrix)
         nx = getindex.(pts.normal,1)
         ny = getindex.(pts.normal,2)
         dX = nx .* dX 
@@ -73,14 +73,14 @@ function momentum_function(u,s)
     return abs2.(fu)/length(fu), ks
 end
 
-function momentum_function(state::S; b=5.0) where {S<:AbsState}
-    u, s, norm = boundary_function(state; b=b)
+function momentum_function(state::S; b=5.0, parallel_matrix = true) where {S<:AbsState}
+    u, s, norm = boundary_function(state; b, parallel_matrix)
     return momentum_function(u,s)
 end
 
 #this can be optimized by usinf FFTW plans
-function momentum_function(state_bundle::S; b=5.0) where {S<:EigenstateBundle}
-    us, s, norms = boundary_function(state_bundle; b=b)
+function momentum_function(state_bundle::S; b=5.0, parallel_matrix = true) where {S<:EigenstateBundle}
+    us, s, norms = boundary_function(state_bundle; b, parallel_matrix)
     mf, ks = momentum_function(us[1],s)
     type = eltype(mf)
     mfs::Vector{Vector{type}} = [mf]

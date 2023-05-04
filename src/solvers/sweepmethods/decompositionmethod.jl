@@ -67,7 +67,7 @@ function evaluate_points(solver::DecompositionMethod, billiard::Bi, k) where {Bi
     return BoundaryPointsDM{type}(xy_all,normal_all, w_all, w_n_all)
 end
 
-function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
+function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     to = TimerOutput()
     w = pts.w
     w_n = pts.w_n
@@ -78,7 +78,7 @@ function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pt
         w_n = w_n.*norm
     end
     #basis and gradient matrices
-    @timeit to "basis_and_gradient_matrices" B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
+    @timeit to "basis_and_gradient_matrices" B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy; parallel_matrix)
     N = basis.dim
     type = eltype(B)
     F = zeros(type,(N,N))
@@ -106,7 +106,7 @@ function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pt
     return F, G    
 end
 
-function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
+function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     #basis and gradient matrices
     w = pts.w
     w_n = pts.w_n
@@ -116,7 +116,7 @@ function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::Boundar
         w = w.*norm
         w_n = w_n.*norm
     end
-    B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy)
+    B, dX, dY = basis_and_gradient_matrices(basis, k, pts.xy; parallel_matrix)
     type = eltype(B)
     #allocate matrices
     N = basis.dim
@@ -139,8 +139,8 @@ function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::Boundar
     
 end
 
-function solve(solver::DecompositionMethod,basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
-    F, G = construct_matrices(solver, basis, pts, k)
+function solve(solver::DecompositionMethod,basis::Ba, pts::BoundaryPointsDM, k; parallel_matrix = true) where {Ba<:AbsBasis}
+    F, G = construct_matrices(solver, basis, pts, k; parallel_matrix)
     mu = generalized_eigvals(Symmetric(F),Symmetric(G);eps=solver.eps)
     lam0 = mu[end]
     t = 1.0/lam0
@@ -155,8 +155,8 @@ function solve(solver::DecompositionMethod,F,G)
     return  t
 end
 
-function solve_vect(solver::DecompositionMethod,basis::AbsBasis, pts::BoundaryPointsDM, k)
-    F, G = construct_matrices(solver, basis, pts, k)
+function solve_vect(solver::DecompositionMethod,basis::AbsBasis, pts::BoundaryPointsDM, k; parallel_matrix = true)
+    F, G = construct_matrices(solver, basis, pts, k; parallel_matrix)
     mu, Z, C = generalized_eigen(Symmetric(F),Symmetric(G);eps=solver.eps)
     x = Z[:,end]
     x = C*x #transform into original basis 

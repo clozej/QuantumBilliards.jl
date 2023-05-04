@@ -54,29 +54,29 @@ function evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, k) whe
     return PointsPSM{type}(xy_all, xy_int_all)
 end
 
-function construct_matrices_benchmark(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k) where {Ba<:AbsBasis}
+function construct_matrices_benchmark(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     to = TimerOutput()
     pts_bd = pts.xy_boundary
     pts_int = pts.xy_interior
     #basis and gradient matrices
     @timeit to "basis_matrices" begin
-        @timeit to "boundary" B = basis_matrix(basis,k,pts_bd)
-        @timeit to "interior" B_int = basis_matrix(basis,k,pts_int)
+        @timeit to "boundary" B = basis_matrix(basis,k,pts_bd; parallel_matrix)
+        @timeit to "interior" B_int = basis_matrix(basis,k,pts_int; parallel_matrix)
     end
     print_timer(to)
     return B, B_int  
 end
 
-function construct_matrices(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k) where {Ba<:AbsBasis}
+function construct_matrices(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
     pts_bd = pts.xy_boundary
     pts_int = pts.xy_interior
-    B = basis_matrix(basis,k,pts_bd)
-    B_int = basis_matrix(basis,k,pts_int)
+    B = basis_matrix(basis,k,pts_bd; parallel_matrix)
+    B_int = basis_matrix(basis,k,pts_int; parallel_matrix)
     return B, B_int  
 end
 
-function solve(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k) where {Ba<:AbsBasis}
-    B, B_int = construct_matrices(solver, basis, pts, k)
+function solve(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
+    B, B_int = construct_matrices(solver, basis, pts, k; parallel_matrix)
     solution = svdvals(B, B_int)
     return minimum(solution)
 end
@@ -86,8 +86,8 @@ function solve(solver::ParticularSolutionsMethod, B, B_int)
     return minimum(solution)
 end
 
-function solve_vect(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k) where {Ba<:AbsBasis}
-    B, B_int = construct_matrices(solver, basis, pts, k)
+function solve_vect(solver::ParticularSolutionsMethod, basis::Ba, pts::PointsPSM, k; parallel_matrix = true) where {Ba<:AbsBasis}
+    B, B_int = construct_matrices(solver, basis, pts, k; parallel_matrix)
     F = svd(B, B_int)
     H = F.R*F.Q'
     idx = 1:F.k + F.l #inidices containing the singular values we need

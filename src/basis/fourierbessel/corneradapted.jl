@@ -81,15 +81,21 @@ end
     end
 end
 
-@inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, pts::AbstractArray) where {T<:Real}
+@inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, pts::AbstractArray; parallel_matrix = true) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         pt_pol = (cartesian_to_polar(pm(pt)) for pt in pts)
         #norm::T = one(T)/sqrt(basis.dim)
         M =  length(pts)
         N = length(indices)
         B = zeros(T,M,N)
-        Threads.@threads for i in eachindex(indices)
-            B[:,i] .= (ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
+        if parallel_matrix
+            Threads.@threads for i in eachindex(indices)
+                B[:,i] .= (ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
+            end
+        else
+            for i in eachindex(indices)
+                B[:,i] .= (ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
+            end
         end
         return B 
     end
@@ -111,7 +117,7 @@ end
 end
     
 
-@inline function dk_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, pts::AbstractArray) where {T<:Real}
+@inline function dk_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, pts::AbstractArray; parallel_matrix = true) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         pt_pol = [cartesian_to_polar(pm(pt)) for pt in pts]
         #norm::T = one(T)/sqrt(basis.dim)
@@ -120,10 +126,18 @@ end
         M =  length(pts)
         N = length(indices)
         dB_dk = zeros(T,M,N)
-        Threads.@threads for i in eachindex(indices)
-            dj = @. Jvp(nu*i, k*r)
-            s = @. sin(nu*i*phi)
-            dB_dk[:,i] .= @. r*dj*s
+        if parallel_matrix
+            Threads.@threads for i in eachindex(indices)
+                dj = @. Jvp(nu*i, k*r)
+                s = @. sin(nu*i*phi)
+                dB_dk[:,i] .= @. r*dj*s
+            end
+        else
+            for i in eachindex(indices)
+                dj = @. Jvp(nu*i, k*r)
+                s = @. sin(nu*i*phi)
+                dB_dk[:,i] .= @. r*dj*s
+            end
         end
         return dB_dk
     end
@@ -151,7 +165,7 @@ function gradient(basis::CornerAdaptedFourierBessel, i::Int, k::T, pts::Abstract
     end
 end
 
-function gradient(basis::CornerAdaptedFourierBessel, indices::AbstractArray, k::T, pts::AbstractArray) where {T<:Real}
+function gradient(basis::CornerAdaptedFourierBessel, indices::AbstractArray, k::T, pts::AbstractArray; parallel_matrix=true) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         #local cartesian coords
         pt_xy = collect(pm(pt) for pt in pts)
@@ -165,18 +179,31 @@ function gradient(basis::CornerAdaptedFourierBessel, indices::AbstractArray, k::
         N = length(indices)
         dB_dx = zeros(T,M,N)
         dB_dy = zeros(T,M,N)
-        Threads.@threads for i in eachindex(indices)
-            j = Jv.(nu*i, k*r)
-            #println(size(j))
-            dj = Jvp.(nu*i, k*r) 
-            #println(size(dj))
-            s = @. sin(nu*i*phi) 
-            c = @. cos(nu*i*phi) 
-            #println(size(s))
-            dB_dx[:,i] .= @. (dj*k*(X/r)*s-nu*i*j*c*Y/(r^2))
-            dB_dy[:,i] .= @. (dj*k*(Y/r)*s+nu*i*j*c*X/(r^2))
-        end
-        #println(size(s))
+        if parallel_matrix
+            Threads.@threads for i in eachindex(indices)
+                j = Jv.(nu*i, k*r)
+                #println(size(j))
+                dj = Jvp.(nu*i, k*r) 
+                #println(size(dj))
+                s = @. sin(nu*i*phi) 
+                c = @. cos(nu*i*phi) 
+                #println(size(s))
+                dB_dx[:,i] .= @. (dj*k*(X/r)*s-nu*i*j*c*Y/(r^2))
+                dB_dy[:,i] .= @. (dj*k*(Y/r)*s+nu*i*j*c*X/(r^2))
+            end
+        else
+            for i in eachindex(indices)
+                j = Jv.(nu*i, k*r)
+                #println(size(j))
+                dj = Jvp.(nu*i, k*r) 
+                #println(size(dj))
+                s = @. sin(nu*i*phi) 
+                c = @. cos(nu*i*phi) 
+                #println(size(s))
+                dB_dx[:,i] .= @. (dj*k*(X/r)*s-nu*i*j*c*Y/(r^2))
+                dB_dy[:,i] .= @. (dj*k*(Y/r)*s+nu*i*j*c*X/(r^2))
+            end
+        end #println(size(s))
     return dB_dx, dB_dy
     end
 end
@@ -207,7 +234,7 @@ function basis_and_gradient(basis::CornerAdaptedFourierBessel, i::Int, k::T, pts
 end
 
 
-function basis_and_gradient(basis::CornerAdaptedFourierBessel, indices::AbstractArray, k::T, pts::AbstractArray) where {T<:Real}
+function basis_and_gradient(basis::CornerAdaptedFourierBessel, indices::AbstractArray, k::T, pts::AbstractArray; parallel_matrix=true) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         #local cartesian coords
         pt_xy = collect(pm(pt) for pt in pts)
@@ -223,17 +250,32 @@ function basis_and_gradient(basis::CornerAdaptedFourierBessel, indices::Abstract
         B = zeros(T,M,N)
         dB_dx = zeros(T,M,N)
         dB_dy = zeros(T,M,N)
-        Threads.@threads for i in eachindex(indices)
-            j = Jv.(nu*i, k*r)
-            #println(size(j))
-            dj = Jvp.(nu*i, k*r) 
-            #println(size(dj))
-            s = @. sin(nu*i*phi) 
-            c = @. cos(nu*i*phi) 
-            #println(size(s))
-            B[:,i] .= @. j*s
-            dB_dx[:,i] .= @. (dj*k*(X/r)*s-nu*i*j*c*Y/(r^2))
-            dB_dy[:,i] .= @. (dj*k*(Y/r)*s+nu*i*j*c*X/(r^2))
+        if parallel_matrix
+            Threads.@threads for i in eachindex(indices)
+                j = Jv.(nu*i, k*r)
+                #println(size(j))
+                dj = Jvp.(nu*i, k*r) 
+                #println(size(dj))
+                s = @. sin(nu*i*phi) 
+                c = @. cos(nu*i*phi) 
+                #println(size(s))
+                B[:,i] .= @. j*s
+                dB_dx[:,i] .= @. (dj*k*(X/r)*s-nu*i*j*c*Y/(r^2))
+                dB_dy[:,i] .= @. (dj*k*(Y/r)*s+nu*i*j*c*X/(r^2))
+            end
+        else
+            for i in eachindex(indices)
+                j = Jv.(nu*i, k*r)
+                #println(size(j))
+                dj = Jvp.(nu*i, k*r) 
+                #println(size(dj))
+                s = @. sin(nu*i*phi) 
+                c = @. cos(nu*i*phi) 
+                #println(size(s))
+                B[:,i] .= @. j*s
+                dB_dx[:,i] .= @. (dj*k*(X/r)*s-nu*i*j*c*Y/(r^2))
+                dB_dy[:,i] .= @. (dj*k*(Y/r)*s+nu*i*j*c*X/(r^2))
+            end
         end
         #println(size(s))
     return B, dB_dx, dB_dy

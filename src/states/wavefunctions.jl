@@ -1,7 +1,7 @@
 using StaticArrays
 
 #try using strided to optimize this
-function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:AbsState}
+function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9, parallel_matrix = true) where {S<:AbsState}
     let vec = state.vec, k = state.k_basis, basis=state.basis, billiard=state.billiard, eps=state.eps #basis is correct size
         sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
@@ -16,7 +16,7 @@ function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 
         Psi = zeros(type,sz)
 
         if memory < memory_limit
-            B = basis_matrix(basis, k, pts)
+            B = basis_matrix(basis, k, pts; parallel_matrix)
             Psi_pts = B*vec
             if inside_only
                 Psi[pts_mask] .= Psi_pts
@@ -44,7 +44,7 @@ function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 
     end
 end
 
-function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = true, memory_limit = 10.0e9) where {S<:AbsState}
+function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = true, memory_limit = 10.0e9, parallel_matrix = true) where {S<:AbsState}
     let k = state.k, billiard=state.billiard, symmetries=state.basis.symmetries       
         #println(new_basis.dim)
         type = eltype(state.vec)
@@ -58,7 +58,7 @@ function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = tr
         ny = max(round(Int, k*dy*b/(2*pi)), 512)
         x_grid::Vector{type} = collect(type,range(xlim... , nx))
         y_grid::Vector{type} = collect(type,range(ylim... , ny))
-        Psi::Vector{type} = compute_psi(state,x_grid,y_grid;inside_only=inside_only, memory_limit = memory_limit) 
+        Psi::Vector{type} = compute_psi(state,x_grid,y_grid; inside_only, memory_limit, parallel_matrix) 
         #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
         Psi2d::Array{type,2} = reshape(Psi, (nx,ny))
         if ~fundamental_domain 
@@ -90,7 +90,7 @@ function wavefunction(state::BasisState; xlim =(-2.0,2.0), ylim=(-2.0,2.0), b=5.
 end
 
 #this can be optimized
-function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:EigenstateBundle}
+function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9, parallel_matrix = true) where {S<:EigenstateBundle}
     let k = state_bundle.k_basis, basis=state_bundle.basis, billiard=state_bundle.billiard, X=state_bundle.X #basis is correct size
         sz = length(x_grid)*length(y_grid)
         pts = collect(SVector(x,y) for y in y_grid for x in x_grid)
@@ -107,7 +107,7 @@ function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_l
         Psi_bundle = zeros(type,(sz,n_states))    
         if memory < memory_limit
             #Psi = zeros(type,sz)
-            B = basis_matrix(basis, k, pts)
+            B = basis_matrix(basis, k, pts; parallel_matrix)
             Psi_pts = B*X
             Psi_bundle[pts_mask,:] .= Psi_pts
         else
@@ -131,7 +131,7 @@ function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_l
     end
 end
 
-function wavefunction(state_bundle::S; b=5.0, inside_only=true, fundamental_domain = true, memory_limit = 10.0e9) where {S<:EigenstateBundle}
+function wavefunction(state_bundle::S; b=5.0, inside_only=true, fundamental_domain = true, memory_limit = 10.0e9, parallel_matrix = true) where {S<:EigenstateBundle}
     let k = state_bundle.k_basis, billiard=state_bundle.billiard       
         #println(new_basis.dim)
         type = eltype(state_bundle.X)
