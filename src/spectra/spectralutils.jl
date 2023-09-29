@@ -144,7 +144,7 @@ function merge_spectra(s1, s2; tol=1e-4)
     return SpectralData(ks[p], ts[p], control[p])
 end
 
-function compute_spectrum(solver::AbsSolver,basis::AbsBasis,billiard::AbsBilliard,N1::Int,N2::Int,dN::Int; N_expect = 2.0,  parallel_matrix = false)
+function compute_spectrum(solver::AbsSolver,basis::AbsBasis,billiard::AbsBilliard,N1::Int,N2::Int,dN::Int; N_expect = 2.0, tol=1e-4, parallel_matrix = false)
     let solver=solver, basis=basis, billiard=billiard
         N_intervals = range(N1-dN/2,N2+dN/2,step=dN)
         #println(N_intervals)
@@ -162,7 +162,7 @@ function compute_spectrum(solver::AbsSolver,basis::AbsBasis,billiard::AbsBilliar
             #println(k1)
             #println(k2)
             #println(dk)
-            k_res, ten_res, control = compute_spectrum(solver,basis,billiard,k1,k2,dk; parallel_matrix)
+            k_res, ten_res, control = compute_spectrum(solver,basis,billiard,k1,k2,dk; parallel_matrix, tol)
             #println(k_res)
             results[i] = SpectralData(k_res, ten_res, control)
         end

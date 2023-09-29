@@ -63,8 +63,13 @@ states.tens
 
 
 f = Figure(resolution = (1500,1500))
+plot_husimi_function!(f,state)
+display(f)
+
+f = Figure(resolution = (1500,1500))
 plot_husimi_function!(f,states)
 display(f)
+
 
 f = Figure(resolution = (1500,1500))
 plot_boundary_function!(f,states)

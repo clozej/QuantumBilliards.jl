@@ -8,7 +8,11 @@ using FFTW
 function regularize!(u)
     idx = findall(isnan, u)
     for i in idx
-        u[i] = (u[i+1] + u[i-1])/2.0
+        if i != 1
+            u[i] = (u[i+1] + u[i-1])/2.0
+        else
+            u[i] = (u[i+1] + u[end])/2.0
+        end
     end
 end
 

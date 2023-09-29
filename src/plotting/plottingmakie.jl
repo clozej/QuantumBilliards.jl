@@ -255,8 +255,8 @@ function plot_husimi_function!(f,state::AbsState;
     b=5.0,log=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
     billiard = state.billiard
     L = billiard.length
-    u, s, norm = boundary_function(state; b=b)
-    H, qs, ps = husimi_function(k,u,s,L; w = 7.0)
+    #u, s, norm = boundary_function(state; b=b)
+    H, qs, ps = husimi_function(state;b)
     
     edges = curve_edge_lengths(billiard)    
     hmap, ax = plot_heatmap!(f,qs,ps,H; vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
