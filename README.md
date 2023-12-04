@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/clozej/QuantumBilliards.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/clozej/QuantumBilliards.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-A package for the computation, analysis and visualisation of spectra and states of quantum billiards. The package is a work in progres.
+A package for the computation, analysis and visualisation of spectra and states of quantum billiards. The package is a work in progress.
 
 # List of computational methods
 The folowing methods have been fully or partialy implemented:
