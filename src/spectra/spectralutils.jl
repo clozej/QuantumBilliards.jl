@@ -1,13 +1,14 @@
 #include("../abstracttypes.jl")
 
 using IntervalArithmetic
+using IntervalArithmetic.Symbols
 function is_equal(x,dx,y,dy)
     #check if numbers are equal within tolerances
     X = x ± dx
     Y = y ± dy 
-    Z = X ∩ Y
+    Z = IntervalArithmetic.intersect_interval(X, Y)
     #return  ~(Z == ∅)
-    return  ~IntervalArithmetic.isempty(Z)
+    return  ~IntervalArithmetic.isempty_interval(Z)
 end
 
 
@@ -118,12 +119,12 @@ function SpectralData(k,ten,control)
 end
 
 function merge_spectra(s1, s2; tol=1e-4)
-    first = Interval(s1.k_min-tol/2, s1.k_max+tol/2)
-    second = Interval(s2.k_min-tol/2, s2.k_max+tol/2)
-    overlap = intersect(first, second)  #this is the overlap interval
+    first = interval(s1.k_min-tol/2, s1.k_max+tol/2)
+    second = interval(s2.k_min-tol/2, s2.k_max+tol/2)
+    overlap = intersect_interval(first, second)  #this is the overlap interval
     
-    idx_1 = [in(k, overlap) for k in s1.k]
-    idx_2 = [in(k, overlap) for k in s2.k]
+    idx_1 = [in_interval(k, overlap) for k in s1.k]
+    idx_2 = [in_interval(k, overlap) for k in s2.k]
 
     ks1 = s1.k[idx_1]
     ts1 = s1.ten[idx_1]

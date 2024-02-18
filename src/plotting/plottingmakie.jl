@@ -3,7 +3,7 @@
 using Makie
 using StaticArrays
 #helper functions
-function plot_heatmap!(f,x,y,Z ;vmax = 1.0,log=(false,-5.0), cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict())
+function plot_heatmap!(f,x,y,Z ;vmax = 1.0,log=(false,-5.0), cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(),cbar = true)
     if log[1]
         X = log10.(Z)
         ax = Axis(f[1,1],axargs...)        
@@ -11,16 +11,20 @@ function plot_heatmap!(f,x,y,Z ;vmax = 1.0,log=(false,-5.0), cmap=Reverse(:gist_
         range_val = (log[2],m*vmax)
         hmap = heatmap!(ax,x, y, X, colormap = cmap, colorrange=range_val, hmargs...)
         ax.aspect=DataAspect()
-        Colorbar(f[1,2], colormap = cmap, limits = Float64.(range_val),tellheight=true)
-        rowsize!(f.layout, 1, ax.scene.px_area[].widths[2])
+        if cbar
+            Colorbar(f[1,2], colormap = cmap, limits = Float64.(range_val),tellheight=true)
+            rowsize!(f.layout, 1, ax.scene.px_area[].widths[2])
+        end
     else
         ax = Axis(f[1,1],axargs...)        
         m = findmax(Z)[1]
         range_val = (0,m*vmax)
         hmap = heatmap!(ax,x, y, Z, colormap = cmap, colorrange=range_val, hmargs...)
         ax.aspect=DataAspect()
-        Colorbar(f[1,2], colormap = cmap, limits = Float64.(range_val),tellheight=true)
-        rowsize!(f.layout, 1, ax.scene.px_area[].widths[2])
+        if cbar
+            Colorbar(f[1,2], colormap = cmap, limits = Float64.(range_val),tellheight=true)
+            rowsize!(f.layout, 1, ax.scene.px_area[].widths[2])
+        end
     end
     return hmap, ax
 end
@@ -42,7 +46,7 @@ function plot_curve!(ax, crv::AbsRealCurve; plot_normal=true, dens = 20.0)
     grid = max(round(Int, L*dens),3)
     t = range(0.0,1.0, grid)
     pts = curve(crv,t)
-    lines!(ax,pts, color = :black )
+    lines!(ax,pts, color = :grey, linewidth = 0.75 )
     if plot_normal
         ns = normal_vec(crv,t)
         arrows!(ax,getindex.(pts,1),getindex.(pts,2), getindex.(ns,1),getindex.(ns,2), color = :black, lengthscale = 0.1)
@@ -55,7 +59,7 @@ function plot_curve!(ax, crv::AbsVirtualCurve; plot_normal=false, dens = 10.0)
     grid = max(round(Int, L*dens),3)
     t = range(0.0,1.0, grid)
     pts = curve(crv,t)
-    lines!(ax,pts, color = :black, linestyle = :dash)
+    lines!(ax,pts, color = :grey, linestyle = :dash, linewidth = 0.75)
     if plot_normal
         ns = normal_vec(crv,t)
         arrows!(ax,getindex.(pts,1),getindex.(pts,2), getindex.(ns,1),getindex.(ns,2), color = :black, lengthscale = 0.1)
@@ -160,14 +164,14 @@ function plot_wavefunction_gradient!(f,state::AbsState; b=5.0,dens = 10.0, insid
 end
 
 function plot_probability!(f,state::AbsState; b=5.0,dens = 100.0,log=false, fundamental_domain = true, inside_only=true, 
-    plot_normal=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), memory_limit = 10.0e9)
+    plot_normal=false, vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), memory_limit = 10.0e9,cbar=true)
     Psi, x, y = wavefunction(state;b=b,fundamental_domain=fundamental_domain, inside_only=inside_only, memory_limit=memory_limit)
     Psi = abs2.(Psi)
     #println("Psi type $(eltype(Psi)), $(memory_size(Psi))")
     
-    hmap, ax = plot_heatmap!(f,x,y,Psi ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
+    hmap, ax = plot_heatmap!(f,x,y,Psi ;vmax, cmap,hmargs,axargs,log,cbar)
     billiard = state.billiard
-    plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
+    plot_boundary!(ax, billiard; dens, plot_normal, fundamental_domain)
     return ax, hmap
 end
 
@@ -175,13 +179,13 @@ end
 function plot_probability!(f,state_bundle::EigenstateBundle; 
     b=5.0,dens = 100.0,log=false, inside_only=true, fundamental_domain = true, plot_normal=false, 
     vmax = 1.0, cmap=Reverse(:gist_heat),hmargs=Dict(),axargs=Dict(), 
-    memory_limit = 10.0e9)
+    memory_limit = 10.0e9, cbar=true)
     Psi_bundle, x, y = wavefunction(state_bundle;b=b,fundamental_domain=fundamental_domain, inside_only=inside_only, memory_limit=memory_limit)
     billiard = state_bundle.billiard
     for i in eachindex(Psi_bundle)
         P = abs2.(Psi_bundle[i])   
-        hmap, ax = plot_heatmap!(f[i,1],x,y,P ;vmax = vmax, cmap=cmap,hmargs=hmargs,axargs=axargs,log=log)
-        plot_boundary!(ax, billiard; dens = dens, plot_normal=plot_normal)
+        hmap, ax = plot_heatmap!(f[i,1],x,y,P ;vmax, cmap,hmargs,axargs,log,cbar)
+        plot_boundary!(ax, billiard; dens, plot_normal, fundamental_domain)
     end
 end
 
