@@ -132,7 +132,7 @@ function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_l
 end
 
 function wavefunction(state_bundle::S; b=5.0, inside_only=true, fundamental_domain = true, memory_limit = 10.0e9, parallel_matrix = true) where {S<:EigenstateBundle}
-    let k = state_bundle.k_basis, billiard=state_bundle.billiard       
+    let k = state_bundle.k_basis, billiard=state_bundle.billiard, symmetries=state_bundle.basis.symmetries          
         #println(new_basis.dim)
         type = eltype(state_bundle.X)
         #try to find a lazy way to do this

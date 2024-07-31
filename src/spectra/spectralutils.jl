@@ -1,7 +1,7 @@
 #include("../abstracttypes.jl")
 
 using IntervalArithmetic
-using IntervalArithmetic.Symbols
+#using IntervalArithmetic.Symbols
 function is_equal(x,dx,y,dy)
     #check if numbers are equal within tolerances
     X = x ± dx
