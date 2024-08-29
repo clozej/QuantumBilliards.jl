@@ -1,6 +1,22 @@
 using StaticArrays
 
 #try using strided to optimize this
+"""
+Compute the wavefunction values on a grid for a given state.
+
+# Description
+This function computes the wavefunction values on a specified grid of points based on the provided state. It efficiently handles large matrices by checking memory usage and adjusts computation accordingly.
+
+# Arguments
+- `state::S`: The quantum state for which the wavefunction is computed, where `S` is a subtype of `AbsState`.
+- `x_grid`: A vector of x-coordinates.
+- `y_grid`: A vector of y-coordinates.
+- `inside_only::Bool=true`: If `true`, computes the wavefunction only for points inside the billiard.
+- `memory_limit`: The maximum memory allowed for computation in bytes. The default value is 10.0e9 bytes.
+
+# Returns
+- `Psi`: A vector containing the computed wavefunction values for the grid points.
+"""
 function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:AbsState}
     let vec = state.vec, k = state.k_basis, basis=state.basis, billiard=state.billiard, eps=state.eps #basis is correct size
         sz = length(x_grid)*length(y_grid)
@@ -44,6 +60,24 @@ function compute_psi(state::S, x_grid, y_grid; inside_only=true, memory_limit = 
     end
 end
 
+"""
+Compute the wavefunction over a 2D grid for a given state.
+
+# Description
+This function computes the wavefunction on a specified grid within the billiard. The grid resolution is automatically determined based on the wavenumber `k` and the geometry of the billiard. The function also supports reflection symmetries to extend the computed wavefunction to the full domain.
+
+# Arguments
+- `state::S`: The quantum state for which the wavefunction is computed, where `S` is a subtype of `AbsState`.
+- `b::Float64=5.0`: A parameter controlling the grid resolution.
+- `inside_only::Bool=true`: If `true`, computes the wavefunction only for points inside the billiard.
+- `fundamental_domain::Bool=true`: If `true`, computes the wavefunction only in the fundamental domain; otherwise, it includes reflections.
+- `memory_limit`: The maximum memory allowed for computation in bytes. The default value is 10.0e9 bytes.
+
+# Returns
+- `Psi2d`: A 2D array containing the computed wavefunction values.
+- `x_grid`: The x-coordinates of the grid.
+- `y_grid`: The y-coordinates of the grid.
+"""
 function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = true, memory_limit = 10.0e9) where {S<:AbsState}
     let k = state.k, billiard=state.billiard, symmetries=state.basis.symmetries       
         #println(new_basis.dim)
@@ -70,6 +104,23 @@ function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = tr
     end
 end
 
+"""
+Compute the wavefunction over a 2D grid for a basis state.
+
+# Description
+This function computes the wavefunction on a specified grid within a predefined Cartesian grid. The grid resolution is automatically determined based on the wavenumber `k` and the grid limits.
+
+# Arguments
+- `state::BasisState`: The basis state for which the wavefunction is computed.
+- `xlim`: A tuple specifying the limits of the x-axis.
+- `ylim`: A tuple specifying the limits of the y-axis.
+- `b::Float64=5.0`: A parameter controlling the grid resolution.
+
+# Returns
+- `Psi2d`: A 2D array containing the computed wavefunction values.
+- `x_grid`: The x-coordinates of the grid.
+- `y_grid`: The y-coordinates of the grid.
+"""
 function wavefunction(state::BasisState; xlim =(-2.0,2.0), ylim=(-2.0,2.0), b=5.0) 
     let k = state.k, basis=state.basis      
         #println(new_basis.dim)
@@ -90,6 +141,22 @@ function wavefunction(state::BasisState; xlim =(-2.0,2.0), ylim=(-2.0,2.0), b=5.
 end
 
 #this can be optimized
+"""
+Compute the wavefunction values on a grid for a bundle of eigenstates.
+
+# Description
+This function computes the wavefunction values for a bundle of eigenstates on a specified grid of points. It efficiently handles large matrices by checking memory usage and adjusts computation accordingly.
+
+# Arguments
+- `state_bundle::S`: The eigenstate bundle for which the wavefunction is computed, where `S` is a subtype of `EigenstateBundle`.
+- `x_grid`: A vector of x-coordinates.
+- `y_grid`: A vector of y-coordinates.
+- `inside_only::Bool=true`: If `true`, computes the wavefunction only for points inside the billiard.
+- `memory_limit`: The maximum memory allowed for computation in bytes. The default value is 10.0e9 bytes.
+
+# Returns
+- `Psi_bundle`: A matrix where each column represents the computed wavefunction values for a different eigenstate in the bundle.
+"""
 function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_limit = 10.0e9) where {S<:EigenstateBundle}
     let k = state_bundle.k_basis, basis=state_bundle.basis, billiard=state_bundle.billiard, X=state_bundle.X #basis is correct size
         sz = length(x_grid)*length(y_grid)
@@ -131,6 +198,24 @@ function compute_psi(state_bundle::S, x_grid, y_grid; inside_only=true, memory_l
     end
 end
 
+"""
+Compute the wavefunction over a 2D grid for a bundle of eigenstates.
+
+# Description
+This function computes the wavefunctions for a bundle of eigenstates on a specified grid within the billiard. The grid resolution is automatically determined based on the wavenumber `k` and the geometry of the billiard. The function also supports reflection symmetries to extend the computed wavefunction to the full domain.
+
+# Arguments
+- `state_bundle::S`: The eigenstate bundle for which the wavefunction is computed, where `S` is a subtype of `EigenstateBundle`.
+- `b::Float64=5.0`: A parameter controlling the grid resolution.
+- `inside_only::Bool=true`: If `true`, computes the wavefunction only for points inside the billiard.
+- `fundamental_domain::Bool=true`: If `true`, computes the wavefunction only in the fundamental domain; otherwise, it includes reflections.
+- `memory_limit`: The maximum memory allowed for computation in bytes. The default value is 10.0e9 bytes.
+
+# Returns
+- `Psi2d`: A vector of 2D arrays, each representing the wavefunction for a different eigenstate.
+- `x_grid`: The x-coordinates of the grid.
+- `y_grid`: The y-coordinates of the grid.
+"""
 function wavefunction(state_bundle::S; b=5.0, inside_only=true, fundamental_domain = true, memory_limit = 10.0e9) where {S<:EigenstateBundle}
     let k = state_bundle.k_basis, billiard=state_bundle.billiard       
         #println(new_basis.dim)
