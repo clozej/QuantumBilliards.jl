@@ -1,4 +1,17 @@
 
+"""
+Constructs the desymmetrized Lemon billiard (quarter-lemon). Is is constructed from a circle segments and and two virtual segments that connect it to the (0,0) to "close" of the boundary.
+
+# Arguments
+`half_separation`: The half-length of the distance between the two centers that define the lemon
+`radius`: The radius of the lemon's circle. Default is 1 (in the type the separation is given as)
+`x0, y0`: The coordinates of the lemon's center. Default is (0,0).
+`rot_angle`: The rotation angle of the lemon. Default is 0.
+
+# Returns
+`boundary::Vector{<:AbsCurve}` A vector containing the boundary segments of the quarter lemon boundary
+`corners::Vector{<:AbstractVector{<:Real}}` A vector containing the corners of the quarter lemon boundary
+"""
 function make_quarter_lemon(half_separation;radius=one(half_separation),x0=zero(half_separation),y0=zero(half_separation),rot_angle=zero(half_separation))
     #d(x, y, x0, y0, x1, y1) = @.((y1-y0)*x-(x1-x0)*y+x1*y0-y1*x0)
     origin = SVector(x0,y0)
@@ -16,6 +29,19 @@ function make_quarter_lemon(half_separation;radius=one(half_separation),x0=zero(
     return boundary, corners
 end
 
+"""
+Constructs the full lemon billiard (non-desymmetrized). Is is constructed from 2 `CircleSegment`s. 
+
+# Arguments
+`half_separation`: The half-length of the distance between the two centers that define the lemon
+`radius`: The radius of the lemon's circles. Default is 1 (in the type the separation is given as)
+`x0, y0`: The coordinates of the lemon's center. Default is (0,0).
+`rot_angle`: The rotation angle of the lemon. Default is 0.
+
+# Returns
+`boundary::Vector{<:AbsRealCurve}` A vector containing the boundary segments of the full lemon boundary
+`corners::Vector{<:AbstractVector{<:Real}}` A vector containing the corners of the full lemon boundary
+"""
 function make_full_lemon(half_separation;radius=one(half_separation),x0=zero(half_separation),y0=zero(half_separation),rot_angle=zero(half_separation))
     #d(x, y, x0, y0, x1, y1) = @.((y1-y0)*x-(x1-x0)*y+x1*y0-y1*x0)
     origin = SVector(x0,y0)
