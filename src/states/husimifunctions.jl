@@ -2,11 +2,45 @@
 
 using CircularArrays
 
+"""
+Generate an antisymmetric vector from a given vector.
+
+# Logic
+- This function constructs an antisymmetric vector by reversing the input vector (excluding the first element), negating it, and appending it to the original vector.
+- The result is a vector that is symmetric about the origin but with opposite signs in the mirrored sections.
+
+# Arguments
+- `x::Vector{T}`: Input vector.
+
+# Returns
+- `v::Vector{T}`: The antisymmetric vector.
+"""
 function antisym_vec(x)
     v = reverse(-x[2:end])
     return append!(v,x)
 end
 
+"""
+Compute the Husimi function for a given quantum state.
+
+# Logic
+- The Husimi function is a smoothed Wigner function used in quantum mechanics to represent the state in phase space.
+- The function computes coherent state weights, constructs evaluation points in the momentum `p` and position `q` coordinates, and then calculates the Husimi distribution.
+- Circular indexing is used to handle periodic boundary conditions effectively.
+
+# Arguments
+- `k::Number`: The wavenumber.
+- `u::Vector{T}`: The boundary function values.
+- `s::Vector{T}`: The arc length coordinates corresponding to the boundary.
+- `L::Number`: The length of the billiard boundary.
+- `c::Float64`: Density of points in the coherent state peak (default is `10.0`).
+- `w::Float64`: Width of the Gaussian in units of sigma (default is `7.0`).
+
+# Returns
+- `H::Matrix{T}`: The computed Husimi function.
+- `qs::Vector{T}`: The q-coordinates (position).
+- `ps::Vector{T}`: The p-coordinates (momentum).
+"""
 function husimi_function(k,u,s,L; c = 10.0, w = 7.0)
     #c density of points in coherent state peak, w width in units of sigma
     #L is the boundary length for periodization
@@ -48,6 +82,25 @@ function husimi_function(k,u,s,L; c = 10.0, w = 7.0)
     return H, qs, ps    
 end
 
+"""
+Compute the Husimi function for a given quantum state.
+
+# Logic
+- The function first calculates the boundary function `u` for the quantum state using the given parameters.
+- It then calls the `husimi_function` method to compute the Husimi function using the wavenumber `k`, the boundary function `u`, and the boundary length `L`.
+- The Husimi function provides a phase-space representation of the quantum state.
+
+# Arguments
+- `state::AbsState`: The quantum state for which the Husimi function is computed.
+- `b::Float64`: Scaling factor for the number of sampling points on the boundary (default is `5.0`).
+- `c::Float64`: Density of points in the coherent state peak (default is `10.0`).
+- `w::Float64`: Width of the Gaussian in units of sigma (default is `7.0`).
+
+# Returns
+- `H::Matrix{T}`: The computed Husimi function.
+- `qs::Vector{T}`: The `q`-coordinates (position).
+- `ps::Vector{T}`: The `p`-coordinates (momentum).
+"""
 function husimi_function(state::S;  b = 5.0, c = 10.0, w = 7.0) where {S<:AbsState}
     L = state.billiard.length
     k = state.k
@@ -55,6 +108,25 @@ function husimi_function(state::S;  b = 5.0, c = 10.0, w = 7.0) where {S<:AbsSta
     return husimi_function(k,u,s,L; c = c, w = w)
 end
 
+"""
+Compute the Husimi function for a bundle of quantum eigenstates.
+
+# Logic
+- The function first calculates the boundary function `u` for each quantum state in the bundle.
+- It then computes the Husimi function for each state using the corresponding wavenumber `k` and boundary function `u`.
+- The results for each eigenstate are stored in a vector of matrices, where each matrix represents the Husimi function for a particular eigenstate.
+
+# Arguments
+- `state_bundle::EigenstateBundle`: The bundle of quantum eigenstates for which the Husimi functions are computed.
+- `b::Float64`: Scaling factor for the number of sampling points on the boundary (default is `5.0`).
+- `c::Float64`: Density of points in the coherent state peak (default is `10.0`).
+- `w::Float64`: Width of the Gaussian in units of sigma (default is `7.0`).
+
+# Returns
+- `Hs::Vector{Matrix{T}}`: A vector of Husimi function matrices, one for each eigenstate in the bundle.
+- `qs::Vector{T}`: The `q`-coordinates (position).
+- `ps::Vector{T}`: The `p`-coordinates (momentum).
+"""
 function husimi_function(state_bundle::S;  b = 5.0, c = 10.0, w = 7.0) where {S<:EigenstateBundle}
     L = state_bundle.billiard.length
     ks = state_bundle.ks
