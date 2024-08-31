@@ -1,5 +1,7 @@
 using StaticArrays
 using Bessels
+using GLMakie
+using QuantumBilliards
 
 # new helpers for the bessels
 Jv(nu, r) = Bessels.besselj(nu, r)
@@ -22,8 +24,8 @@ Calculates all the radii for the given vector of points `pts`
 # Returns
 - `Vector{T}` The vector of all the radii of points
 """
-function rs(pts::Vector{SVector{T, 2}}) where {T<:Real}
-    return [sqrt(pt[i][1]^2 + pt[i][2]^2) for i in 1:length(pts)]
+function rs(pts::Vector{SVector{2, T}}) where {T<:Real}
+    return [sqrt(pt[1]^2 + pt[2]^2) for pt in pts]
 end
 
 # Helper function to compute Bessel function values for all points
@@ -39,7 +41,7 @@ Helper function that calculates all the Bessel functions for the given points. T
 # Returns
 - `Vector{T}` The vector of all the Bessel function values at the given points. This is a vector of radial components of the basis
 """
-function js(pts::Vector{SVector{T, 2}}, α::T, i::Int, k::T) where {T<:Real}
+function js(pts::Vector{SVector{2, T}}, α::T, i::Int, k::T) where {T<:Real}
     # Get all the radii for points
     rs_values = rs(pts)
     return [Jv(α * i, k * r) for r in rs_values]
@@ -58,7 +60,7 @@ Computes the derivatives of the Bessel functions for the given points. The deriv
 # Returns
 - `Vector{T}` The vector of all the derivative of Bessel function values at the given points. This is a vector of radial components of the derivative of the basis
 """
-function djs(pts::Vector{SVector{T, 2}}, α::T, i::Int, k::T) where {T<:Real}
+function djs(pts::Vector{SVector{2, T}}, α::T, i::Int, k::T) where {T<:Real}
     # Get all the radii for points
     rs_values = rs(pts)
     return [Jvp(α * i, k, r) for r in rs_values]
@@ -76,7 +78,7 @@ Computes the angular part of the Bessel function while circumventing the discont
 # Returns
 - `Vector{T}` The values of the angular part of the FB basis
 """
-function sin_phi(pt::SVector{T, 2}, i::Integer, α::T) where {T<:Real}
+function sin_phi(pt::SVector{2, T}, i::Integer, α::T) where {T<:Real}
     return imag((pt[1]/sqrt(pt[1]^2 + pt[2]^2) + im*pt[2]/sqrt(pt[1]^2 + pt[2]^2))^(α*i))
 end
 
@@ -91,7 +93,7 @@ Helper function for calculating the `cos(α*i*phi)` that are useful in gradient 
 # Returns
 - `Vector{T}` The values of the `cos(α*i*phi)` for the points
 """
-function cos_phi(pt::SVector{T, 2}, i::Integer, α::T) where {T<:Real}
+function cos_phi(pt::SVector{2, T}, i::Integer, α::T) where {T<:Real}
     return real((pt[1]/sqrt(pt[1]^2 + pt[2]^2) + im*pt[2]/sqrt(pt[1]^2 + pt[2]^2))^(α*i))
 end
 
@@ -107,10 +109,10 @@ Computes the `sin(α*i*phi)` part of the ca_fb basis while circumventing the dis
 # Returns
 - `Vector{T}` The values of the angular part of the ca_fb basis for all the points
 """
-function sin_phis(pts::Vector{SVector{T, 2}}, i::Integer, α::T) where {T<:Real}
-    sin_phis_values = Vector{T}(length(pts))
-    Threads.@threads for (j, pt) in enumerate(pts)
-        sin_phis_vales[j] =sin_phi(pt, i, α)
+function sin_phis(pts::Vector{SVector{2, T}}, i::Integer, α::T) where {T<:Real}
+    sin_phis_values = Vector{T}(undef, length(pts))  # Initialize with `undef`
+    Threads.@threads for j in 1:length(pts)
+        sin_phis_values[j] = sin_phi(pts[j], i, α)
     end
     return sin_phis_values
 end
@@ -126,10 +128,10 @@ Computes the `cos(α*i*phi)`'s for all the points given. It does this for all th
 # Returns
 - `Vector{T}` The values of the `cos(α*i*phi)` for all the points
 """
-function cos_phis(pts::Vector{SVector{T, 2}}, i::Integer, α::T) where {T<:Real}
-    cos_phis_values = Vector{T}(length(pts))
-    Threads.@threads for (j, pt) in enumerate(pts)
-        cos_phis_vales[j] =cos_phi(pt, i, α)
+function cos_phis(pts::Vector{SVector{2, T}}, i::Integer, α::T) where {T<:Real}
+    cos_phis_values = Vector{T}(undef, length(pts))  # Initialize with `undef`
+    Threads.@threads for j in 1:length(pts)
+        cos_phis_values[j] = cos_phi(pts[j], i, α)
     end
     return cos_phis_values
 end
@@ -148,8 +150,8 @@ Struct representing the CornerAdaptedFourierBessel basis.
 - `i::Integer`: The index of the basis
 - `symmetries::Union{Vector{Sy}, Nothing}`: The symmetries of the billiard geoemtry
 """
-struct CornerAdaptedFourierBessel{T,Sy} <: AbsBasis where  {T<:Real,Sy<:Union{AbsSymmetry,Nothing}}
-    cs::PolarCS{T}
+struct CornerAdaptedFourierBessel{T,Sy} <: QuantumBilliards.AbsBasis where  {T<:Real,Sy<:Union{QuantumBilliards.AbsSymmetry,Nothing}}
+    cs::QuantumBilliards.PolarCS{T}
     dim::Int64 #using concrete type
     α::T # corner angle
     i::Integer #order constant intege -> nu = α * i
@@ -170,7 +172,7 @@ Constructor for the CornerAdaptedFourierBessel struct.
 """
 function CornerAdaptedFourierBessel(dim, α, origin, rot_angle)
     cs = PolarCS(origin, rot_angle)
-    nu = pi/corner_angle
+    nu = pi/α
     return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing)
 end
 
@@ -185,7 +187,7 @@ Constructor for CornerAdaptedFourierBessel struct.
  # Returns
  - `CornerAdaptedFourierBessel{Float64, Nothing}`: A CornerAdaptedFourierBessel struct with the given parameters.
 """
-function CornerAdaptedFourierBessel(dim, α, cs::CoordinateSystem)
+function CornerAdaptedFourierBessel(dim, α, cs::QuantumBilliards.CoordinateSystem)
     nu = pi/corner_angle
     return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing)
 end
@@ -400,3 +402,54 @@ function basis_and_gradient(basis::CornerAdaptedFourierBessel, indices::Abstract
     end
     return B, dB_dx, dB_dy
 end
+
+
+###########################
+#### testing
+
+α = π / 4 
+k = 25.0
+i1 = 1 
+i2 = 2 
+i3 = 4 
+i4 = 8 
+n = 100  # Number of points for the grid
+
+# Create a grid of points in the domain you want to visualize
+x_range = LinRange(-1.0, 1.0, n)
+y_range = LinRange(-1.0, 1.0, n)
+grid_xy = [SVector(x, y) for y in y_range for x in x_range]
+
+# Calculate radii for each grid point using the `rs` function
+r_values = rs(grid_xy)
+
+# Compute the angular part using `sin_phis`
+sin_phi_values1 = sin_phis(grid_xy, i1, α)
+sin_phi_values2 = sin_phis(grid_xy, i2, α)
+sin_phi_values3 = sin_phis(grid_xy, i3, α)
+sin_phi_values4 = sin_phis(grid_xy, i4, α)
+
+# Compute the basis function values using `r_values` and `sin_phi_values`
+basis_values1 = [Jv(α * i1, k * r) * sin_phi for (r, sin_phi) in zip(r_values, sin_phi_values1)]
+basis_values2 = [Jv(α * i2, k * r) * sin_phi for (r, sin_phi) in zip(r_values, sin_phi_values2)]
+basis_values3 = [Jv(α * i3, k * r) * sin_phi for (r, sin_phi) in zip(r_values, sin_phi_values3)]
+basis_values4 = [Jv(α * i4, k * r) * sin_phi for (r, sin_phi) in zip(r_values, sin_phi_values4)]
+
+
+# Reshape the results into a 2D grid for plotting
+Z1= reshape(basis_values1, n, n)
+Z2= reshape(basis_values2, n, n)
+Z3= reshape(basis_values3, n, n)
+Z4= reshape(basis_values4, n, n)
+
+# Plot the heatmap using GLMakie
+fig = Figure(resolution = (1500, 1500), title="CA-FB Function Heatmap")
+ax1 = Axis(fig[1, 1])
+ax2 = Axis(fig[1, 2])
+ax3 = Axis(fig[2, 1])
+ax4 = Axis(fig[2, 2])
+heatmap!(ax1, x_range, y_range, Z1; colormap=Reverse(:balance))
+heatmap!(ax2, x_range, y_range, Z2; colormap=Reverse(:balance))
+heatmap!(ax3, x_range, y_range, Z3; colormap=Reverse(:balance))
+heatmap!(ax4, x_range, y_range, Z4; colormap=Reverse(:balance))
+save("plot_basis_test.png", fig)
