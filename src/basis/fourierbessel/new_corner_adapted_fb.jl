@@ -103,7 +103,7 @@ function CornerAdaptedFourierBessel(dim::Int64, corner_angle::T, origin::SVector
     return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing, rotation_angle_discontinuity)
 end
 
-function CornerAdaptedFourierBessel(dim::Int64, corner_angle::T, cs::CoordinateSystem; rotation_angle_discontinuity=zero(T))
+function CornerAdaptedFourierBessel(dim::Int64, corner_angle::T, cs::CoordinateSystem; rotation_angle_discontinuity=zero(T)) where {T<:Real}
     nu = pi/corner_angle
     return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing, rotation_angle_discontinuity)
 end
