@@ -93,18 +93,36 @@ function polar_to_cartesian(pt::SVector{2,T}) where T<:Number
 end
     
 """
+Convert a point in Cartesian coordinates to Polar coordinates with an optional rotation of the discontinuity.
 - Given a point in Cartesian coordinates `pt = (x, y)`, the Polar coordinates are computed as:
   - `r = hypot(x, y)`
-  - `θ = atan(y, x)`
+  - `θ = atan(y_rot, x_rot)` where `x_rot` and `y_rot` are the coordinates after optional rotation.
 
 # Arguments
 - `pt::SVector{2,T}`: A point in Cartesian coordinates.
+- `rotation_angle_discontinuity::T`: (Optional) The angle (in radians) by which to rotate the point before calculating the Polar coordinates. Default is zero, meaning no rotation.
 
 # Returns
-- An `SVector{2,T}` representing the corresponding point in Polar coordinates.
+- An `SVector{2,T}` representing the corresponding point in Polar coordinates (r, θ).
 """
-function cartesian_to_polar(pt::SVector{2,T}) where T<:Number
-    return SVector(hypot(pt[1], pt[2]), atan(pt[2], pt[1]))
+function cartesian_to_polar(pt::SVector{2,T}; rotation_angle_discontinuity::T = zero(T)) where T<:Number
+    if rotation_angle_discontinuity != zero(T)
+        # Rotate the point (x, y) by the given rotation_angle_discontinuity
+        x_rot = pt[1] * cos(rotation_angle_discontinuity) - pt[2] * sin(rotation_angle_discontinuity)
+        y_rot = pt[1] * sin(rotation_angle_discontinuity) + pt[2] * cos(rotation_angle_discontinuity)
+
+        # Convert the rotated point to polar coordinates
+        r = hypot(x_rot, y_rot)
+        θ = atan(y_rot, x_rot)
+
+        # Subtract the rotation angle from θ to adjust the angle back
+        return SVector(r, θ - rotation_angle_discontinuity)
+    else
+        # No rotation, directly convert to polar coordinates
+        r = hypot(pt[1], pt[2])
+        θ = atan(pt[2], pt[1])
+        return SVector(r, θ)
+    end
 end
 #=
 #Complex coordinates
