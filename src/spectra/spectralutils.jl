@@ -117,29 +117,34 @@ function SpectralData(k,ten,control)
     return SpectralData(k,ten,control,k_min,k_max)
 end
 
-function merge_spectra(s1, s2; tol=1e-4)
-    first = interval(s1.k_min-tol/2, s1.k_max+tol/2)
-    second = interval(s2.k_min-tol/2, s2.k_max+tol/2)
-    overlap = intersect_interval(first, second)  #this is the overlap interval
+function merge_spectra(s1::SpectralData, s2::SpectralData; tol=1e-4)
+    # Define the overlap interval manually
+    overlap_start = max(s1.k_min - tol / 2, s2.k_min - tol / 2)
+    overlap_end = min(s1.k_max + tol / 2, s2.k_max + tol / 2)
     
-    idx_1 = [in_interval(k, overlap) for k in s1.k]
-    idx_2 = [in_interval(k, overlap) for k in s2.k]
+    # Identify the indices of wavenumbers within the overlap interval
+    idx_1 = [(k >= overlap_start) && (k <= overlap_end) for k in s1.k]
+    idx_2 = [(k >= overlap_start) && (k <= overlap_end) for k in s2.k]
 
+    # Extract wavenumbers and tensions in the overlap interval
     ks1 = s1.k[idx_1]
     ts1 = s1.ten[idx_1]
     ks2 = s2.k[idx_2]
     ts2 = s2.ten[idx_2]
 
-    ks_ov, ts_ov, cont_ov = match_wavenumbers(ks1,ts1,ks2,ts2)
+    # Match wavenumbers and combine the results in the overlap region
+    ks_ov, ts_ov, cont_ov = match_wavenumbers(ks1, ts1, ks2, ts2)
     
-    ks = append!(s1.k[.~idx_1],ks_ov)
-    ts = append!(s1.ten[.~idx_1],ts_ov)
-    control = append!(s1.control[.~idx_1],cont_ov)
+    # Combine the non-overlapping regions and the matched overlap region
+    ks = append!(s1.k[.~idx_1], ks_ov)
+    ts = append!(s1.ten[.~idx_1], ts_ov)
+    control = append!(s1.control[.~idx_1], cont_ov)
 
     append!(ks, s2.k[.~idx_2])
     append!(ts, s2.ten[.~idx_2])
     append!(control, s2.control[.~idx_2])
 
+    # Sort the resulting wavenumbers
     p = sortperm(ks) 
     return SpectralData(ks[p], ts[p], control[p])
 end
