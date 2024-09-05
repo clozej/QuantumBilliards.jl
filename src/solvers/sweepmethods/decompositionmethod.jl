@@ -6,6 +6,20 @@
 #include("../../utils/benchmarkutils.jl")
 using LinearAlgebra, StaticArrays, TimerOutputs
 
+"""
+A struct for the decomposition method solver.
+
+# Description
+`DecompositionMethod` stores parameters for a solver that uses decomposition methods. It includes scaling factors, samplers, precision, and minimum dimensions.
+
+# Fields
+- `dim_scaling_factor::T`: Scaling factor for the problem's dimensionality.
+- `pts_scaling_factor::Vector{T}`: Scaling factors for the points.
+- `sampler::Vector`: A vector of samplers used for point generation.
+- `eps::T`: Precision used for numerical operations.
+- `min_dim::Int64`: Minimum allowed dimensionality.
+- `min_pts::Int64`: Minimum number of points.
+"""
 struct DecompositionMethod{T} <: SweepSolver where {T<:Real}
     dim_scaling_factor::T
     pts_scaling_factor::Vector{T}
@@ -15,7 +29,22 @@ struct DecompositionMethod{T} <: SweepSolver where {T<:Real}
     min_pts::Int64
 end
 
+"""
+Create a `DecompositionMethod` solver with default sampler.
 
+# Description
+Constructs a `DecompositionMethod` solver with specified dimensional and point scaling factors, along with default parameters for minimum dimension and minimum points.
+- The default sampler for points is the Gauss - Legendre for all -> that is why it is implemented as a vector object as per the struct's definition.
+
+# Arguments
+- `dim_scaling_factor::T`: Scaling factor for the problem's dimensionality.
+- `pts_scaling_factor::Union{T,Vector{T}}`: Scaling factor(s) for the points.
+- `min_dim::Int64`: Minimum allowed dimensionality (default `100`).
+- `min_pts::Int64`: Minimum number of points (default `500`).
+
+# Returns
+- A `DecompositionMethod` object.
+"""
 function DecompositionMethod(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
     d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
@@ -23,12 +52,40 @@ function DecompositionMethod(dim_scaling_factor::T, pts_scaling_factor::Union{T,
 return DecompositionMethod(d, bs, sampler, eps(T), min_dim, min_pts)
 end
 
+"""
+Create a `DecompositionMethod` solver with a vector of samplers.
+
+# Description
+Constructs a `DecompositionMethod` solver with specified dimensional and point scaling factors, along with default parameters for minimum dimension and minimum points.
+- The samplers are not the default Gauss-Legendre anymore.
+
+# Arguments
+- `dim_scaling_factor::T`: Scaling factor for the problem's dimensionality.
+- `pts_scaling_factor::Union{T,Vector{T}}`: Scaling factor(s) for the points.
+- `min_dim::Int64`: Minimum allowed dimensionality (default `100`).
+- `min_pts::Int64`: Minimum number of points (default `500`).
+
+# Returns
+- A `DecompositionMethod` object.
+"""
 function DecompositionMethod(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
     d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
     return DecompositionMethod(d, bs, samplers, eps(T), min_dim, min_pts)
 end
 
+"""
+Stores boundary points and weights for the decomposition method (DM).
+
+# Description
+`BoundaryPointsDM` holds coordinates, normal vectors, and weightings for points on the boundary of a billiard, used specifically for decomposition methods.
+
+# Fields
+- `xy::Vector{SVector{2,T}}`: Coordinates of boundary points.
+- `normal::Vector{SVector{2,T}}`: Normal vectors at the boundary points.
+- `w::Vector{T}`: Tension weights.
+- `w_n::Vector{T}`: Normalization weights.
+"""
 struct BoundaryPointsDM{T} <: AbsPoints where {T<:Real}
     xy::Vector{SVector{2,T}}
     normal::Vector{SVector{2,T}} #normal vectors in points
@@ -36,6 +93,20 @@ struct BoundaryPointsDM{T} <: AbsPoints where {T<:Real}
     w_n::Vector{T} #normalization weights
 end
 
+"""
+Evaluate boundary points for a given billiard using the decomposition method.
+
+# Description
+Generates boundary points, normal vectors, and corresponding weights for use with the `DecompositionMethod` solver.
+
+# Arguments
+- `solver::DecompositionMethod`: The decomposition method solver.
+- `billiard::Bi`: The billiard on which the points are evaluated.
+- `k`: Wavenumber used for evaluation.
+
+# Returns
+- A `BoundaryPointsDM` object containing evaluated points, normals and weights.
+"""
 function evaluate_points(solver::DecompositionMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
     bs, samplers = adjust_scaling_and_samplers(solver, billiard)
     curves = billiard.fundamental_boundary
@@ -67,6 +138,21 @@ function evaluate_points(solver::DecompositionMethod, billiard::Bi, k) where {Bi
     return BoundaryPointsDM{type}(xy_all,normal_all, w_all, w_n_all)
 end
 
+"""
+Construct matrices with benchmarking for the decomposition method.
+
+# Description
+Constructs and benchmarks the construction of matrices `F` and `G` used in the decomposition method. Times for each step are recorded and printed.
+
+# Arguments
+- `solver::DecompositionMethod`: The decomposition method solver.
+- `basis::Ba`: The basis functions used.
+- `pts::BoundaryPointsDM`: The boundary points and weights.
+- `k`: Wavenumber used for matrix construction.
+
+# Returns
+- The matrices `F` and `G`.
+"""
 function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
     to = TimerOutput()
     w = pts.w
@@ -106,6 +192,21 @@ function construct_matrices_benchmark(solver::DecompositionMethod, basis::Ba, pt
     return F, G    
 end
 
+"""
+Construct matrices `F` and `G` for the decomposition method.
+
+# Description
+Constructs the matrices `F` and `G` using the boundary points, basis functions, and wavenumber for the `DecompositionMethod` solver.
+
+# Arguments
+- `solver::DecompositionMethod`: The decomposition method solver.
+- `basis::Ba`: The basis functions used.
+- `pts::BoundaryPointsDM`: The boundary points and weights.
+- `k`: Wavenumber used for matrix construction.
+
+# Returns
+- The matrices `F` and `G`.
+"""
 function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
     #basis and gradient matrices
     w = pts.w
@@ -136,9 +237,23 @@ function construct_matrices(solver::DecompositionMethod, basis::Ba, pts::Boundar
     T = (w_n .* B) #apply integration weights
     mul!(G,B',T)#norm matrix
     return F, G    
-    
 end
 
+"""
+Solve for the leading eigenvalue using the decomposition method.
+
+# Description
+Solves the generalized eigenvalue problem for matrices `F` and `G` to obtain the largest eigenvalue (up to the `solver`'s tolerance).
+
+# Arguments
+- `solver::DecompositionMethod`: The decomposition method solver.
+- `basis::Ba`: The basis functions used.
+- `pts::BoundaryPointsDM`: The boundary points and weights.
+- `k`: Wavenumber used for solving.
+
+# Returns
+- The computed value `t` corresponding to the inverse of the largest eigenvalue.
+"""
 function solve(solver::DecompositionMethod,basis::Ba, pts::BoundaryPointsDM, k) where {Ba<:AbsBasis}
     F, G = construct_matrices(solver, basis, pts, k)
     mu = generalized_eigvals(Symmetric(F),Symmetric(G);eps=solver.eps)
@@ -147,6 +262,20 @@ function solve(solver::DecompositionMethod,basis::Ba, pts::BoundaryPointsDM, k) 
     return  t
 end
 
+"""
+Solve for the largest eigenvalue given matrices `F` and `G` (up to the `solver`'s tolerance).
+
+# Description
+Solves the generalized eigenvalue problem for precomputed matrices `F` and `G` to obtain the leading eigenvalue.
+
+# Arguments
+- `solver::DecompositionMethod`: The decomposition method solver.
+- `F`: The matrix `F`.
+- `G`: The matrix `G`.
+
+# Returns
+- The computed value `t` corresponding to the inverse of the largest eigenvalue.
+"""
 function solve(solver::DecompositionMethod,F,G)
     #F, G = construct_matrices(solver, basis, pts, k)
     mu = generalized_eigvals(Symmetric(F),Symmetric(G);eps=solver.eps)
@@ -155,6 +284,21 @@ function solve(solver::DecompositionMethod,F,G)
     return  t
 end
 
+"""
+Solve for the leading eigenvalue and corresponding eigenvector (up to the `solver`'s tolerance).
+
+# Description
+Solves the generalized eigenvalue problem for matrices `F` and `G` to obtain the leading eigenvalue and its corresponding eigenvector. The result is transformed back to the original (normalized) basis.
+
+# Arguments
+- `solver::DecompositionMethod`: The decomposition method solver.
+- `basis::AbsBasis`: The basis functions used.
+- `pts::BoundaryPointsDM`: The boundary points and weights.
+- `k`: Wavenumber used for solving.
+
+# Returns
+- The computed value `t` and the eigenvector `x`.
+"""
 function solve_vect(solver::DecompositionMethod,basis::AbsBasis, pts::BoundaryPointsDM, k)
     F, G = construct_matrices(solver, basis, pts, k)
     mu, Z, C = generalized_eigen(Symmetric(F),Symmetric(G);eps=solver.eps)

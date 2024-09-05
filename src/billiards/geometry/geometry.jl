@@ -7,17 +7,56 @@ using StaticArrays,LinearAlgebra, ForwardDiff
 
 
 #this part is general
+"""
+Compute the normalized tangent vectors for a curve at specified parameter values. The underlying `tangent` function is called based on the subtype of curve.
+
+# Logic
+- This function calculates the tangent vectors for a given curve at the parameter values specified in `ts` using the `tangent` function.
+- It then normalizes each tangent vector to unit length.
+
+# Arguments
+- `curve::L`: An object of type `AbsCurve` representing the curve.
+- `ts::AbstractArray{T,1}`: An array of parameter values where the tangent vectors are to be computed.
+
+# Returns
+- A vector of normalized tangent vectors corresponding to the parameter values in `ts`.
+"""
 function tangent_vec(curve::L, ts::AbstractArray{T,1}) where {T<:Real,L<:AbsCurve}
     ta = tangent(curve, ts)
     return collect(ti/norm(ti) for ti in ta)
 end
 
+"""
+Compute the normal vectors for a curve at specified parameter values.
+
+# Logic
+- This function calculates the normalized tangent vectors for the given curve using the `tangent_vec` function.
+- It then computes the normal vector at each point by rotating the tangent vector 90 degrees counterclockwise.
+
+# Arguments
+- `curve::L`: An object of type `AbsCurve` representing the curve.
+- `ts::AbstractArray{T,1}`: An array of parameter values where the normal vectors are to be computed.
+
+# Returns
+- A vector of normal vectors corresponding to the parameter values in `ts`.
+"""
 function normal_vec(curve::L, ts::AbstractArray{T,1}) where {T<:Real,L<:AbsCurve}
     ta = tangent_vec(curve, ts)
     return [SVector(ti[2], -ti[1]) for ti in ta]
 end
 
+"""
+Creates a polygon billiard from LineSegments or VirtualLineSegments. The later are included when the user wants to construct a desymmetrized a polygon
 
+# Arguments
+- `corners::Vector{SVector{2,T}}`: A vector of corner points representing the vertices of the polygon.
+- `curve_types::Vector{Symbol}`: A vector represeting the either :Real or :Imag line segments that construct the polygon billiard
+- `origin::Tuple{T,T}`: The origin of the coordinate system, defaults to the (0,0) of the type T
+- `rot_angle::T`: The rotation angle in radians, defaults to 0 of the type T
+
+# Returns
+- A vector of `LineSegment` or `VirtualLineSegment` representing the boundary of the polygon billiard.
+"""
 function make_polygon(corners, curve_types; origin=(zero(corners[1][1]),zero(corners[1][1])),rot_angle=zero(corners[1][1]))
     N = length(corners)
     boundary = []

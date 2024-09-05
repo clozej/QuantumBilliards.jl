@@ -29,7 +29,10 @@ This function calculates the cylindrical wave expansion term using the Bessel fu
 - `r`: The radial coordinate.
 - `phi`: The azimuthal angle.
 """
-ca_fb(nu,k,r,phi) = Jv(nu, k*r)*sin(nu*phi)
+function ca_fb(nu,k::T,r::T,phi::T) where {T<:Real}
+    return Jv(nu, k*r)*sin(nu*phi) 
+end
+
 function Jvp(nu, r::T) where {T<:Real}
     let
     j_minus = Jv(nu-one(T),r)
@@ -78,6 +81,7 @@ struct CornerAdaptedFourierBessel{T,Sy} <: AbsBasis where  {T<:Real,Sy<:Union{Ab
     corner_angle::T
     nu::T #order constant, order=nu*i
     symmetries::Union{Vector{Sy},Nothing}
+    rotation_angle_discontinuity::T
 end
 
 """
@@ -93,15 +97,15 @@ For further reading please check Betcke's paper: Reviving the Method of Particul
 # Returns
 - A `CornerAdaptedFourierBessel` object, configured with the specified dimension, corner angle, and coordinate system.
 """
-function CornerAdaptedFourierBessel(dim, corner_angle, origin, rot_angle)
+function CornerAdaptedFourierBessel(dim::Int64, corner_angle::T, origin::SVector{2,T}, rot_angle::T; rotation_angle_discontinuity=zero(T)) where {T<:Real}
     cs = PolarCS(origin, rot_angle)
     nu = pi/corner_angle
-    return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing)
+    return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing, rotation_angle_discontinuity)
 end
 
-function CornerAdaptedFourierBessel(dim, corner_angle, cs::CoordinateSystem)
+function CornerAdaptedFourierBessel(dim::Int64, corner_angle::T, cs::CoordinateSystem; rotation_angle_discontinuity=zero(T)) where {T<:Real}
     nu = pi/corner_angle
-    return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing)
+    return CornerAdaptedFourierBessel{Float64,Nothing}(cs, dim, corner_angle, nu, nothing, rotation_angle_discontinuity)
 end
 
 """
@@ -154,7 +158,7 @@ This function computes the basis function for a specified index `i` in the `Corn
 """
 @inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, i::Int, k::T, pts::AbstractArray) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
-        pt_pol = (cartesian_to_polar(pm(pt)) for pt in pts)
+        pt_pol = (cartesian_to_polar(pm(pt), rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pts)
         #norm::T = one(T)/sqrt(basis.dim)
         return collect(ca_fb(nu*i, k, pt[1], pt[2]) for pt in pt_pol)
     end
@@ -179,7 +183,7 @@ This function computes the basis functions for multiple specified indices in the
 """
 @inline function basis_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, pts::AbstractArray) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
-        pt_pol = (cartesian_to_polar(pm(pt)) for pt in pts)
+        pt_pol = (cartesian_to_polar(pm(pt), rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pts)
         #norm::T = one(T)/sqrt(basis.dim)
         M =  length(pts)
         N = length(indices)
@@ -212,7 +216,7 @@ This function computes the derivative of the basis function with respect to the 
 @inline function dk_fun(basis::CornerAdaptedFourierBessel{T}, i::Int, k::T, pts::AbstractArray) where {T<:Real}
     #translation of coordiante origin
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
-        pt_pol = [cartesian_to_polar(pm(pt)) for pt in pts]
+        pt_pol = [cartesian_to_polar(pm(pt), rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pts]
         #norm::T = one(T)/sqrt(basis.dim)
         r = getindex.(pt_pol,1)
         phi = getindex.(pt_pol,2) 
@@ -244,7 +248,7 @@ This function computes the derivatives of the basis functions with respect to th
 """
 @inline function dk_fun(basis::CornerAdaptedFourierBessel{T}, indices::AbstractArray, k::T, pts::AbstractArray) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
-        pt_pol = [cartesian_to_polar(pm(pt)) for pt in pts]
+        pt_pol = [cartesian_to_polar(pm(pt), rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pts]
         #norm::T = one(T)/sqrt(basis.dim)
         r = getindex.(pt_pol,1)
         phi = getindex.(pt_pol,2)
@@ -282,7 +286,7 @@ This function computes the gradient of the basis function with respect to the Ca
 function gradient(basis::CornerAdaptedFourierBessel, i::Int, k::T, pts::AbstractArray) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         pt_xy = collect(pm(pt) for pt in pts)
-        pt_pol = collect(cartesian_to_polar(pt) for pt in pt_xy) #local cartesian coords
+        pt_pol = collect(cartesian_to_polar(pt, rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pt_xy) #local cartesian coords
         #norm::T = one(T)/sqrt(basis.dim)
         r = getindex.(pt_pol,1)
         phi = getindex.(pt_pol,2)
@@ -324,7 +328,7 @@ function gradient(basis::CornerAdaptedFourierBessel, indices::AbstractArray, k::
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         #local cartesian coords
         pt_xy = collect(pm(pt) for pt in pts)
-        pt_pol = collect(cartesian_to_polar(pt) for pt in pt_xy)
+        pt_pol = collect(cartesian_to_polar(pt, rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pt_xy)
         #norm::T = one(T)/sqrt(basis.dim)
         r = getindex.(pt_pol,1)
         phi = getindex.(pt_pol,2)
@@ -375,7 +379,7 @@ This function computes both the basis function and its gradient with respect to 
 function basis_and_gradient(basis::CornerAdaptedFourierBessel, i::Int, k::T, pts::AbstractArray) where {T<:Real}
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         pt_xy = collect(pm(pt) for pt in pts)
-        pt_pol = collect(cartesian_to_polar(pt) for pt in pt_xy) #local cartesian coords
+        pt_pol = collect(cartesian_to_polar(pt, rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pt_xy) #local cartesian coords
         #norm::T = one(T)/sqrt(basis.dim)
         r = getindex.(pt_pol,1)
         phi = getindex.(pt_pol,2)
@@ -422,7 +426,7 @@ function basis_and_gradient(basis::CornerAdaptedFourierBessel, indices::Abstract
     let pm = basis.cs.local_map, nu=basis.nu, pts=pts
         #local cartesian coords
         pt_xy = collect(pm(pt) for pt in pts)
-        pt_pol = collect(cartesian_to_polar(pt) for pt in pt_xy)
+        pt_pol = collect(cartesian_to_polar(pt, rotation_angle_discontinuity=basis.rotation_angle_discontinuity) for pt in pt_xy)
          
         #norm::T = one(T)/sqrt(basis.dim)
         r = getindex.(pt_pol,1)
