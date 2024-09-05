@@ -15,7 +15,7 @@ Check if two numbers are equal within specified tolerances.
 # Logic
 The function checks if the intervals `[x - dx, x + dx]` and `[y - dy, y + dy]` overlap.
 """
-function is_equal(x::Real, dx::Real, y::Real, dy::Real) :: Bool
+function is_equal(x::T, dx::T, y::T, dy::T) :: Bool where {T<:Real}
     # Define the intervals
     x_lower = x - dx
     x_upper = x + dx
