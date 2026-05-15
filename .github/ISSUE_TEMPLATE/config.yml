@@ -1,0 +1,7 @@
+blank_issues_enabled: false
+
+contact_links:
+
+name: Documentation
+url: https://github.com/Quantum-Chaos-Julia/QuantumBilliards.jl/docs
+about: Check documentation before opening an issue

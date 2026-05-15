@@ -1,0 +1,49 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+title: "[FEATURE] "
+labels:
+
+* feature
+  body:
+
+* type: textarea
+  id: problem
+  attributes:
+  label: Problem Statement
+  description: What problem are we solving?
+  validations:
+  required: true
+
+* type: textarea
+  id: proposal
+  attributes:
+  label: Proposed Solution
+  description: Describe the proposed implementation
+  validations:
+  required: true
+
+* type: textarea
+  id: alternatives
+  attributes:
+  label: Alternatives Considered
+  description: Alternative solutions or approaches
+
+* type: textarea
+  id: acceptance
+  attributes:
+  label: Acceptance Criteria
+  placeholder: |
+  - [ ]
+  - [ ]
+  validations:
+  required: true
+
+* type: dropdown
+  id: priority
+  attributes:
+  label: Priority
+  options:
+  - P0 - Critical
+  - P1 - High
+  - P2 - Medium
+  - P3 - Low
