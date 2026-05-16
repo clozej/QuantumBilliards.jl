@@ -3,11 +3,11 @@ description: "Report a bug"
 title: "[BUG] "
 labels:
 
-* bug
+- bug
 
 body:
 
-* type: textarea
+- type: textarea
   id: summary
   attributes:
   label: Summary
