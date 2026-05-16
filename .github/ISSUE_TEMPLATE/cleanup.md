@@ -4,7 +4,7 @@ name: Code Cleanup / Refactor
 about: Improve maintainability, readability, structure, or technical debt
 title: "[REFACTOR] "
 labels: refactor
-----------------
+---
 
 ## Motivation
 

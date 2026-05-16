@@ -4,7 +4,7 @@ name: Bug Report
 about: Report incorrect behavior, crashes, numerical issues, or regressions
 title: "[BUG] "
 labels: bug
------------
+---
 
 ## Summary
 

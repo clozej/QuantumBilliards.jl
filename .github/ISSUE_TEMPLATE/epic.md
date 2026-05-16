@@ -4,7 +4,7 @@ name: Epic
 about: Track a large feature, roadmap item, or multi-stage initiative
 title: "[EPIC] "
 labels: epic
-------------
+---
 
 # Overview
 

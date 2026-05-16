@@ -4,7 +4,7 @@ name: Feature Request
 about: Propose a new feature, API enhancement, or capability
 title: "[FEATURE] "
 labels: enhancement
--------------------
+---
 
 ## Problem statement
 

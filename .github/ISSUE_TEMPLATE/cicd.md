@@ -4,7 +4,7 @@ name: CI/CD Improvement
 about: Improvements to testing, automation, deployment, documentation, or release workflows
 title: "[CI/CD] "
 labels: cicd
-------------
+---
 
 ## Objective
 
