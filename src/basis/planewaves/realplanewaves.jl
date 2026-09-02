@@ -1,41 +1,35 @@
 """
-RealPlaneWaves{T,Sa} <: AbsBasis
+    RealPlaneWaves{T,Sa}<:AbsBasis
 
-`RealPlaneWaves` is a concrete basis type representing real plane waves with
-optional reflection symmetries.
+Concrete real plane-wave basis with an optional reflection symmetries.
 
-## Description
 Each basis function has the separable form
 
 ```math
-f(x,y) = F_x(kx)\\,F_y(ky),
+f(x,y)=F_x(kv_xx)F_y(kv_yy),
 ```
 
-where \$F_x,F_y \\in \\{\\cos,\\sin\\}\$ are selected per basis function by the
-`parity_x` and `parity_y` fields (`+1` selects `cos`, `-1` selects `sin`), and
-the propagation direction is set by `angles` (quadrant ordering
-`(+x,+y), (+x,-y), (-x,+y), (-x,-y)`).
+where `F_x,F_y ∈ {cos,sin}` are selected by `parity_x` and `parity_y`
+(`+1` selects `cos`, `-1` selects `sin`), and `(v_x,v_y)` is determined by
+the corresponding entry of `angles`.
 
-Each entry of `symmetries` has a corresponding quantum number at the same
-index in `sym_qnumbers`. When both an x- and a y-axis reflection are present,
-the symmetry order is `[YAxisReflection, XYAxisReflection, XAxisReflection]`
-with quantum numbers `[sym_x, sym_x*sym_y, sym_y]`. The quantum numbers
-restrict which quadrants/parities are used:
-- No symmetries: all 4 quadrants, 4 patterns `(cos,cos), (cos,sin), (sin,cos), (sin,sin)`.
-- X-axis reflection (`sym_y`): 2 quadrants with fixed y-parity; `sym_y = +1` gives `(cos,cos), (sin,cos)` (upper half-plane, y>0), `sym_y = -1` gives `(cos,sin), (sin,sin)` (lower half-plane, y<0).
-- Y-axis reflection (`sym_x`): 2 quadrants with fixed x-parity; `sym_x = +1` gives `(cos,cos), (cos,sin)` (right half-plane, x>0), `sym_x = -1` gives `(sin,cos), (sin,sin)` (left half-plane, x<0).
-- XY-axis reflection (both `sym_x` and `sym_y`): 1 quadrant, selected by `(sym_y, sym_x)`: `(+1,+1) → (cos,cos)` (quadrant I), `(+1,-1) → (sin,cos)` (quadrant II), `(-1,+1) → (cos,sin)` (quadrant IV), `(-1,-1) → (sin,sin)` (quadrant III).
+At most one reflection symmetry is stored:
+- `nothing`: no symmetry; all four parity combinations are used.
+- `XAxisReflection`: reflection across the x axis (`y→-y`), fixing y parity.
+- `YAxisReflection`: reflection across the y axis (`x→-x`), fixing x parity.
+- `XYAxisReflection`: both reflections, fixing both parities.
+
+The symmetry object itself stores the relevant parity quantum number(s).
 
 ## Attributes
-* `dim`: Number of distinct sampled angles (the effective basis dimension is `dim` times the number of parity patterns).
-* `symmetries`: Reflection symmetries applied to the basis, or `nothing`.
-* `sym_qnumbers`: Quantum number for each entry of `symmetries`, or `nothing`.
-* `angle_arc`: Angular range over which directions are sampled.
-* `angle_shift`: Angular offset applied to the sampled directions.
-* `angles`: Propagation angles of the plane waves.
-* `parity_x`: Parity selector for the `x` factor of each basis function (`+1` = `cos`, `-1` = `sin`).
-* `parity_y`: Parity selector for the `y` factor of each basis function (`+1` = `cos`, `-1` = `sin`).
-* `sampler`: Sampling strategy used to sample the angles.
+* `dim::Int`: Effective number of basis functions.
+* `symmetries`: Reflection symmetry, or `nothing`.
+* `angle_arc::T`: Angular range over which directions are sampled.
+* `angle_shift::T`: Angular offset applied to the sampled directions.
+* `angles::Vector{T}`: Propagation angles.
+* `parity_x::Vector{Int}`: x-factor parity (`+1` = `cos`, `-1` = `sin`).
+* `parity_y::Vector{Int}`: y-factor parity (`+1` = `cos`, `-1` = `sin`).
+* `sampler::Sa`: Sampling strategy used to sample the angles.
 
 ## API
 The following functions can be evaluated for this type:
@@ -43,309 +37,202 @@ The following functions can be evaluated for this type:
 - [`basis_fun`](@ref)
 - [`gradient`](@ref)
 - [`basis_and_gradient`](@ref)
+- [`dk_fun`](@ref)
 """
-struct RealPlaneWaves{T,Sa} <: AbsBasis where {T<:Real, Sa<:AbsSampler}
-    dim::Int64
-    symmetries::Union{Vector{BilliardGeometry.AbsReflection}, Nothing}
-    sym_qnumbers::Union{Vector{T}, Nothing}
+struct RealPlaneWaves{T<:Real,Sa<:AbsSampler}<:AbsBasis
+    dim::Int
+    symmetries::Union{BilliardGeometry.AbsReflection,Nothing}
     angle_arc::T
     angle_shift::T
     angles::Vector{T}
-    parity_x::Vector{Int64}
-    parity_y::Vector{Int64}
+    parity_x::Vector{Int}
+    parity_y::Vector{Int}
     sampler::Sa
 end
 
 """
-    parity_pattern(symmetries, sym_qnumbers) → (parity_x, parity_y)::Tuple{Vector{Int},Vector{Int}}
+    parity_pattern(symmetry) → (parity_x,parity_y)
 
-Determine the cos/sin parity pattern for each quadrant selected by the given
-reflection `symmetries` and their quantum numbers `sym_qnumbers`.
+Return the cos/sin parity patterns selected by a single reflection symmetry.
 
-## Description
-Each symmetry has a corresponding quantum number at the same index. Depending
-on which combination of [`BilliardGeometry.XAxisReflection`](@ref),
-[`BilliardGeometry.YAxisReflection`](@ref) and
-[`BilliardGeometry.XYAxisReflection`](@ref) is present, the resulting pattern
-selects 1, 2 or 4 quadrants, as documented on [`RealPlaneWaves`](@ref).
-
-## Arguments
-* `symmetries`: Reflection symmetries, or `nothing` for no symmetry restriction.
-* `sym_qnumbers`: Quantum number for each entry of `symmetries` (same length as `symmetries`), or `nothing`.
-
-## Returns
-*  `(parity_x, parity_y)` : Parity patterns where `1` selects `cos` and `-1` selects `sin` for each direction.
+`+1` selects `cos` and `-1` selects `sin`.
 """
-@inline function parity_pattern(::Nothing, ::Nothing)
-    # No symmetries: use all four quadrants in order (+x,+y), (+x,-y), (-x,+y), (-x,-y)
-    return Int[1, 1, -1, -1], Int[1, -1, 1, -1]
+@inline parity_pattern(::Nothing)=Int[1,1,-1,-1],Int[1,-1,1,-1]
+
+@inline function parity_pattern(symmetry::BilliardGeometry.XAxisReflection)
+    p=Int(symmetry.parity_y)
+    return Int[1,-1],Int[p,p]
 end
 
-@inline function parity_pattern(symmetries::Vector{BG}, 
-                                sym_qnumbers::Vector{T}) where {T<:Real, BG<:BilliardGeometry.AbsReflection}
-    # Check which symmetries are present
-    has_x = any(s -> s isa BilliardGeometry.XAxisReflection, symmetries)
-    has_y = any(s -> s isa BilliardGeometry.YAxisReflection, symmetries)
-    has_xy = any(s -> s isa BilliardGeometry.XYAxisReflection, symmetries)
-    
-    if has_xy
-        # XY-axis reflection: single quadrant
-        # Find the XY quantum number (should be the product sym_x * sym_y)
-        xy_idx = findfirst(s -> s isa BilliardGeometry.XYAxisReflection, symmetries)
-        x_idx = findfirst(s -> s isa BilliardGeometry.YAxisReflection, symmetries)
-        y_idx = findfirst(s -> s isa BilliardGeometry.XAxisReflection, symmetries)
-        
-        x_par = Int(sym_qnumbers[x_idx])
-        y_par = Int(sym_qnumbers[y_idx])
-        
-        return Int[x_par], Int[y_par]
-    elseif has_x && !has_y
-        # Only X-axis reflection: 2 quadrants with fixed y-parity
-        x_idx = findfirst(s -> s isa BilliardGeometry.XAxisReflection, symmetries)
-        y_par = Int(sym_qnumbers[x_idx])
-        return Int[1, -1], Int[y_par, y_par]
-    elseif has_y && !has_x
-        # Only Y-axis reflection: 2 quadrants with fixed x-parity
-        y_idx = findfirst(s -> s isa BilliardGeometry.YAxisReflection, symmetries)
-        x_par = Int(sym_qnumbers[y_idx])
-        return Int[x_par, x_par], Int[1, -1]
-    else
-        # Fallback to no symmetries
-        return parity_pattern(nothing, nothing)
-    end
+@inline function parity_pattern(symmetry::BilliardGeometry.YAxisReflection)
+    p=Int(symmetry.parity_x)
+    return Int[p,p],Int[1,-1]
+end
+
+@inline function parity_pattern(symmetry::BilliardGeometry.XYAxisReflection)
+    return Int[Int(symmetry.parity_x)],Int[Int(symmetry.parity_y)]
 end
 
 """
-    infer_quantum_numbers(symmetries) → sym_qnumbers::Union{Vector{Float64},Nothing}
+    RealPlaneWaves(dim::Int,symmetry::Union{BilliardGeometry.AbsReflection,Nothing}=nothing;angle_arc::Union{Real,Nothing}=nothing,angle_shift::Union{Real,Nothing}=nothing,sampler=LinearNodes()) → RealPlaneWaves
 
-Infer default quantum numbers from a symmetry list, for backward compatibility.
-All quantum numbers default to `+1` (even parity).
+Construct a real plane-wave basis with at most one reflection symmetry.
 
-## Arguments
-* `symmetries`: Reflection symmetries, or `nothing`.
+`dim` is the number of sampled propagation angles before parity expansion.
+The effective basis dimension is `dim*length(first(parity_pattern(symmetry)))`.
 
-## Returns
-*  `sym_qnumbers` : `nothing` if `symmetries` is empty or `nothing`, otherwise a vector of `+1.0` with one entry per symmetry.
-"""
-function infer_quantum_numbers(symmetries::Vector{BG}) where {BG<:BilliardGeometry.AbsReflection}
-    isempty(symmetries) && return nothing
-    # Default all quantum numbers to +1 (even parity)
-    return ones(Float64, length(symmetries))
-end
-
-@inline infer_quantum_numbers(::Nothing) = nothing
-
-"""
-    RealPlaneWaves(dim::Int, symmetries::Union{Vector{BG},Nothing}, sym_qnumbers::Union{Vector{T},Nothing}; angle_arc = π, angle_shift = 0.0, sampler = LinearNodes()) where {T<:Real, BG<:BilliardGeometry.AbsReflection} → basis::RealPlaneWaves
-
-Construct a [`RealPlaneWaves`](@ref) basis of dimension `dim` for the given
-`symmetries` and their quantum numbers `sym_qnumbers`.
+When `angle_arc` or `angle_shift` is omitted, defaults are chosen from the
+symmetry:
+- no symmetry: `angle_arc=π`, `angle_shift=0`;
+- `XAxisReflection`: `angle_arc=π`, `angle_shift=0`;
+- `YAxisReflection`: `angle_arc=π`, `angle_shift=-π/2`;
+- `XYAxisReflection`: `angle_arc=π/2`, `angle_shift=0`.
 
 ## Arguments
-* `dim`: Number of distinct angles to sample.
-* `symmetries`: Reflection symmetries, or `nothing` for no symmetry restriction.
-* `sym_qnumbers`: Quantum number for each entry of `symmetries` (must have the same length), or `nothing`.
+* `dim::Int`: Number of propagation angles to sample.
+* `symmetry`: Reflection symmetry, or `nothing`.
 
-## Keyword arguments
-*  `angle_arc::Real = π` : Angular range over which directions are sampled.
-*  `angle_shift::Real = 0.0` : Angular offset applied to the sampled directions.
-*  `sampler::AbsSampler = LinearNodes()` : Sampling strategy used to sample the angles.
+## Keyword Arguments
+* `angle_arc::Union{Real,Nothing}=nothing`: Angular sampling range.
+* `angle_shift::Union{Real,Nothing}=nothing`: Angular sampling offset.
+* `sampler::AbsSampler=LinearNodes()`: Angular sampler.
 
 ## Returns
-*  `basis` : A [`RealPlaneWaves`](@ref) basis with the given symmetries and quantum numbers.
+* `basis::RealPlaneWaves`: Constructed basis.
 """
-function RealPlaneWaves(dim::Int, 
-                       symmetries::Union{Vector{BG}, Nothing}, 
-                       sym_qnumbers::Union{Vector{T}, Nothing}; 
-                       angle_arc=π, angle_shift=0.0, 
-                       sampler=LinearNodes()) where {T<:Real, BG<:BilliardGeometry.AbsReflection}
-    # Validate that symmetries and sym_qnumbers have matching lengths
-    if !isnothing(symmetries) && !isnothing(sym_qnumbers)
-        @assert length(symmetries) == length(sym_qnumbers) "symmetries and sym_qnumbers must have the same length"
-    end
-    
-    # Get parity pattern from symmetries and quantum numbers
-    par_x, par_y = parity_pattern(symmetries, sym_qnumbers)
-    pl = length(par_x)
-    eff_dim = dim * pl
-    
-    # Sample angles from the sampler
-    t, dt = sample_points(sampler, dim)
-    
-    # Preallocate and fill arrays more efficiently
-    angles = Vector{eltype(t)}(undef, eff_dim)
-    parity_x = Vector{Int}(undef, eff_dim)
-    parity_y = Vector{Int}(undef, eff_dim)
-    
-    # Fill arrays using vectorized operations
+function RealPlaneWaves(dim::Int,symmetry::Union{BilliardGeometry.AbsReflection,Nothing};angle_arc::Union{Real,Nothing}=nothing,angle_shift::Union{Real,Nothing}=nothing,sampler=BilliardGeometry.LinearNodes())
+    dim>0||throw(ArgumentError("dim must be positive"))
+    par_x,par_y=parity_pattern(symmetry)
+    pl=length(par_x)
+    eff_dim=dim*pl
+    default_arc=symmetry isa BilliardGeometry.XYAxisReflection ? π/2 : π
+    default_shift=symmetry isa BilliardGeometry.YAxisReflection ? -π/2 : 0.0
+    arc=isnothing(angle_arc) ? default_arc : angle_arc
+    shift=isnothing(angle_shift) ? default_shift : angle_shift
+    t,_=BilliardGeometry.sample_points(sampler,dim)
+    T=eltype(t)
+    arcT=T(arc);shiftT=T(shift)
+    angles=Vector{T}(undef,eff_dim)
+    parity_x=Vector{Int}(undef,eff_dim)
+    parity_y=Vector{Int}(undef,eff_dim)
     @inbounds for i in 1:dim
-        angle = t[i] * angle_arc + angle_shift
-        base_idx = (i-1) * pl
+        angle=t[i]*arcT+shiftT
+        base=(i-1)*pl
         for j in 1:pl
-            idx = base_idx + j
-            angles[idx] = angle
-            parity_x[idx] = par_x[j]
-            parity_y[idx] = par_y[j]
+            idx=base+j
+            angles[idx]=angle
+            parity_x[idx]=par_x[j]
+            parity_y[idx]=par_y[j]
         end
     end
-    
-    Sa = typeof(sampler)
-    
-    return RealPlaneWaves{eltype(angles), Sa}(eff_dim, symmetries, sym_qnumbers, 
-                                              angle_arc, angle_shift, angles, 
-                                              parity_x, parity_y, sampler)
+    return RealPlaneWaves{T,typeof(sampler)}(eff_dim,symmetry,arcT,shiftT,angles,parity_x,parity_y,sampler)
 end
 
 """
-    RealPlaneWaves(dim::Int; sym_x::Union{Int,Nothing} = nothing, sym_y::Union{Int,Nothing} = nothing, angle_arc::Union{Real,Nothing} = nothing, angle_shift::Union{Real,Nothing} = nothing, sampler = LinearNodes()) → basis::RealPlaneWaves
+    RealPlaneWaves(dim::Int;sym_x::Union{Int,Nothing}=nothing,sym_y::Union{Int,Nothing}=nothing,angle_arc::Union{Real,Nothing}=nothing,angle_shift::Union{Real,Nothing}=nothing,sampler=LinearNodes()) → RealPlaneWaves
 
-Main constructor for [`RealPlaneWaves`](@ref), specifying symmetries through the
-quantum numbers `sym_x` and `sym_y`.
+Construct a real plane-wave basis by specifying reflection parities.
 
-## Description
-The quantum numbers determine which quadrants and cos/sin patterns are used:
-- `sym_x = nothing, sym_y = nothing`: all 4 quadrants, 4 combinations (`angle_arc = π`, `angle_shift = 0`).
-- `sym_x = nothing, sym_y = ±1`: 2 quadrants (x-axis reflection) (`angle_arc = π`, `angle_shift = 0`).
-- `sym_x = ±1, sym_y = nothing`: 2 quadrants (y-axis reflection) (`angle_arc = π`, `angle_shift = -π/2`).
-- `sym_x = ±1, sym_y = ±1`: 1 quadrant (xy-axis reflection) (`angle_arc = π/2`, `angle_shift = 0`).
+`sym_x` is the parity under reflection across the y axis (`x→-x`), while
+`sym_y` is the parity under reflection across the x axis (`y→-y`).
 
-When both symmetries are present, the symmetry order is
-`[YAxisReflection, XYAxisReflection, XAxisReflection]` with quantum numbers
-`[sym_x, sym_x*sym_y, sym_y]`.
+The two parity values are represented by a single symmetry object:
+- neither specified → `nothing`;
+- only `sym_y` → `XAxisReflection(sym_y)`;
+- only `sym_x` → `YAxisReflection(sym_x)`;
+- both → `XYAxisReflection(sym_x,sym_y)`.
 
 ## Arguments
-* `dim`: Number of distinct angles to sample.
+* `dim::Int`: Number of propagation angles to sample before parity expansion.
 
-## Keyword arguments
-*  `sym_x::Union{Int,Nothing} = nothing` : Quantum number for the y-axis reflection (`±1` for even/odd parity, `nothing` for no symmetry).
-*  `sym_y::Union{Int,Nothing} = nothing` : Quantum number for the x-axis reflection (`±1` for even/odd parity, `nothing` for no symmetry).
-*  `angle_arc::Union{Real,Nothing} = nothing` : Angular range to sample; auto-adjusted based on the symmetries if not given.
-*  `angle_shift::Union{Real,Nothing} = nothing` : Angular offset; auto-adjusted based on the symmetries if not given.
-*  `sampler::AbsSampler = LinearNodes()` : Sampling strategy used to sample the angles.
+## Keyword Arguments
+* `sym_x::Union{Int,Nothing}=nothing`: x parity (`±1`).
+* `sym_y::Union{Int,Nothing}=nothing`: y parity (`±1`).
+* `angle_arc::Union{Real,Nothing}=nothing`: Angular sampling range.
+* `angle_shift::Union{Real,Nothing}=nothing`: Angular sampling offset.
+* `sampler::AbsSampler=LinearNodes()`: Angular sampler.
 
 ## Returns
-*  `basis` : A [`RealPlaneWaves`](@ref) basis with symmetries and quantum numbers derived from `sym_x` and `sym_y`.
+* `basis::RealPlaneWaves`: Constructed basis.
 """
-function RealPlaneWaves(dim::Int; sym_x::Union{Int,Nothing}=nothing, sym_y::Union{Int,Nothing}=nothing,
-                       angle_arc::Union{Real,Nothing}=nothing, angle_shift::Union{Real,Nothing}=nothing, 
-                       sampler=LinearNodes())
-    # Build symmetries vector and quantum numbers based on sym_x and sym_y
-    # Automatically adjust angle_arc and angle_shift based on symmetries if not provided
-    
-    if isnothing(sym_x) && isnothing(sym_y)
-        # No symmetries - fast path
-        symmetries = nothing
-        sym_qnumbers = nothing
-        arc = isnothing(angle_arc) ? π : angle_arc
-        shift = isnothing(angle_shift) ? 0.0 : angle_shift
-        
-    elseif !isnothing(sym_x) && !isnothing(sym_y)
-        # Both symmetries: YAxisReflection, XYAxisReflection, XAxisReflection (in that order)
-        # Single quadrant → arc = π/2
-        symmetries = BilliardGeometry.AbsReflection[
-            BilliardGeometry.YAxisReflection(),
-            BilliardGeometry.XYAxisReflection(),
-            BilliardGeometry.XAxisReflection()
-        ]
-        # Quantum numbers: [sym_x, sym_x*sym_y, sym_y]
-        sym_qnumbers = Float64[Float64(sym_x), Float64(sym_x * sym_y), Float64(sym_y)]
-        arc = isnothing(angle_arc) ? π/2 : angle_arc
-        shift = isnothing(angle_shift) ? 0.0 : angle_shift
-        
-    elseif !isnothing(sym_y)
-        # Only x-axis reflection (reflects about x-axis, constrains y-parity)
-        # 2 quadrants (upper or lower half-plane) → arc = π, shift = 0
-        symmetries = BilliardGeometry.AbsReflection[BilliardGeometry.XAxisReflection()]
-        sym_qnumbers = Float64[Float64(sym_y)]
-        arc = isnothing(angle_arc) ? π : angle_arc
-        shift = isnothing(angle_shift) ? 0.0 : angle_shift
-        
-    else  # !isnothing(sym_x)
-        # Only y-axis reflection (reflects about y-axis, constrains x-parity)
-        # 2 quadrants (right or left half-plane) → arc = π, shift = -π/2
-        symmetries = BilliardGeometry.AbsReflection[BilliardGeometry.YAxisReflection()]
-        sym_qnumbers = Float64[Float64(sym_x)]
-        arc = isnothing(angle_arc) ? π : angle_arc
-        shift = isnothing(angle_shift) ? -π/2 : angle_shift
+function RealPlaneWaves(dim::Int;sym_x::Union{Int,Nothing}=nothing,sym_y::Union{Int,Nothing}=nothing,angle_arc::Union{Real,Nothing}=nothing,angle_shift::Union{Real,Nothing}=nothing,sampler=BilliardGeometry.LinearNodes())
+    isnothing(sym_x)||(sym_x==1||sym_x==-1)||throw(ArgumentError("sym_x must be ±1 or nothing"))
+    isnothing(sym_y)||(sym_y==1||sym_y==-1)||throw(ArgumentError("sym_y must be ±1 or nothing"))
+    symmetry=if isnothing(sym_x)&&isnothing(sym_y)
+        nothing
+    elseif isnothing(sym_x)
+        BilliardGeometry.XAxisReflection(sym_y)
+    elseif isnothing(sym_y)
+        BilliardGeometry.YAxisReflection(sym_x)
+    else
+        BilliardGeometry.XYAxisReflection(sym_x,sym_y)
     end
-    
-    # Call the main constructor
-    return RealPlaneWaves(dim, symmetries, sym_qnumbers; 
-                         angle_arc=arc, angle_shift=shift, sampler=sampler)
+    return RealPlaneWaves(dim,symmetry;angle_arc=angle_arc,angle_shift=angle_shift,sampler=sampler)
 end
 
 """
-    RealPlaneWaves(dim::Int, symmetries::Union{Vector{BG},Nothing}; angle_arc = π, angle_shift = 0.0, sampler = LinearNodes()) where {BG<:BilliardGeometry.AbsReflection} → basis::RealPlaneWaves
+    resize_basis(basis::RealPlaneWaves,billiard::AbsBilliard,dim::Int,k) → RealPlaneWaves
 
-Construct a [`RealPlaneWaves`](@ref) basis of dimension `dim` for the given
-`symmetries`, inferring default quantum numbers (all `+1`, even parity) via
-[`infer_quantum_numbers`](@ref).
+Resize a [`RealPlaneWaves`](@ref) basis while preserving its symmetry and
+angular sampling parameters.
 
 ## Arguments
-* `dim`: Number of distinct angles to sample.
-* `symmetries`: Reflection symmetries, or `nothing` for no symmetry restriction.
-
-## Keyword arguments
-*  `angle_arc::Real = π` : Angular range over which directions are sampled.
-*  `angle_shift::Real = 0.0` : Angular offset applied to the sampled directions.
-*  `sampler::AbsSampler = LinearNodes()` : Sampling strategy used to sample the angles.
+* `basis::RealPlaneWaves`: Basis to resize.
+* `billiard::AbsBilliard`: Billiard associated with the basis.
+* `dim::Int`: Number of sampled propagation angles before parity expansion.
+* `k`: Wavenumber.
 
 ## Returns
-*  `basis` : A [`RealPlaneWaves`](@ref) basis with the given symmetries and default (`+1`) quantum numbers.
+* `basis_new::RealPlaneWaves`: Resized basis.
 """
-function RealPlaneWaves(dim::Int, 
-                       symmetries::Union{Vector{BG}, Nothing}; 
-                       angle_arc=π, angle_shift=0.0, 
-                       sampler=LinearNodes()) where {BG<:BilliardGeometry.AbsReflection}
-    sym_qnumbers = infer_quantum_numbers(symmetries)
-    return RealPlaneWaves(dim, symmetries, sym_qnumbers; 
-                         angle_arc=angle_arc, angle_shift=angle_shift, sampler=sampler)
+@inline function resize_basis(basis::RealPlaneWaves,billiard::AbsBilliard,dim::Int,k)
+    return RealPlaneWaves(dim,basis.symmetries;angle_arc=basis.angle_arc,angle_shift=basis.angle_shift,sampler=basis.sampler)
 end
 
 """
-    resize_basis(basis::RealPlaneWaves, billiard::AbsBilliard, dim::Int, k) → basis_new::RealPlaneWaves
+    rescale_dimension(basis::Ba,dim::Integer) where {Ba<:AbsBasis} → Int
 
-Return a [`RealPlaneWaves`](@ref) basis resized to dimension `dim`, preserving
-symmetries, quantum numbers, and sampling parameters.
+Convert an effective basis dimension to the number of sampled directions
+required by basis constructors that internally expand parity sectors.
+
+For [`RealPlaneWaves`](@ref), the multiplicity is four without symmetry, two
+for a single-axis reflection, and one for `XYAxisReflection`.
 
 ## Arguments
-* `basis`: The basis to resize.
-* `billiard`: Billiard the basis is defined on (unused, kept for interface consistency with other basis types).
-* `dim`: Target dimension.
-* `k`: Wavenumber (unused, kept for interface consistency with other basis types).
+* `basis::Ba`: Basis.
+* `dim::Integer`: Effective basis dimension.
 
 ## Returns
-*  `basis_new` : A new [`RealPlaneWaves`](@ref) basis of dimension `dim` with the same symmetries, quantum numbers, angular range/offset, and sampler as `basis`.
+* `dim::Int`: Dimension to pass to `resize_basis`.
 """
-@inline function resize_basis(basis::RealPlaneWaves, billiard::AbsBilliard, dim::Int, k)
-    return RealPlaneWaves(dim, basis.symmetries, basis.sym_qnumbers; 
-                         angle_arc=basis.angle_arc, 
-                         angle_shift=basis.angle_shift, 
-                         sampler=basis.sampler)
+@inline function rescale_dimension(basis::Ba,dim::Integer) where {Ba<:AbsBasis}
+    basis isa RealPlaneWaves||return Int(dim)
+    symmetries=basis.symmetries
+    multiplicity=isnothing(symmetries) ? 4 : symmetries isa BilliardGeometry.XYAxisReflection ? 1 : 2
+    return div(Int(dim),multiplicity)
 end
 
 # Helper functions for cos/sin pattern
 # parity = 1 → cos, parity = -1 → sin
-@inline _cos(arg) = cos(arg)
-@inline _sin(arg) = sin(arg)
-@inline _rpw_fun(par::Int) = par == 1 ? _cos : _sin
-@inline _drpw_fun(par::Int) = par == 1 ? (x -> -sin(x)) : _cos
-
+@inline _cos(arg)=cos(arg)
+@inline _sin(arg)=sin(arg)
+@inline _rpw_fun(par::Int)=par==1 ? _cos : _sin
+@inline _drpw_fun(par::Int)=par==1 ? (x->-sin(x)) : _cos
 
 """
-    basis_fun(basis::RealPlaneWaves, i::Int, k::T, pts::AbstractArray) where {T<:Real} → out::Vector{T}
+    basis_fun(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real} → out::Vector{T}
 
-Evaluate the `i`-th real plane wave basis function at wavenumber `k` on the
-points `pts`.
+Evaluate the `i`-th real plane-wave basis function at wavenumber `k` on
+`pts`.
 
 ## Arguments
-* `basis`: The [`RealPlaneWaves`](@ref) basis.
-* `i`: Index of the basis function.
-* `k`: Wavenumber.
-* `pts`: Points at which the basis function is evaluated.
+* `basis::RealPlaneWaves`: Basis.
+* `i::Int`: Basis-function index.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
 ## Returns
-*  `out` : Column `i` of the basis matrix, evaluated at the input points.
+* `out::Vector{T}`: Values of basis function `i`.
 """
 @inline function basis_fun(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real}
     parx=basis.parity_x[i]
@@ -365,22 +252,21 @@ points `pts`.
 end
 
 """
-    basis_fun(basis::RealPlaneWaves, indices::AbstractArray, k::T, pts::AbstractArray; multithreaded::Bool = true) where {T<:Real} → B::Matrix{T}
+    basis_fun(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real} → B::Matrix{T}
 
-Evaluate the real plane wave basis functions with the given `indices` at
-wavenumber `k` on the points `pts`.
+Evaluate selected real plane-wave basis functions at wavenumber `k`.
 
 ## Arguments
-* `basis`: The [`RealPlaneWaves`](@ref) basis.
-* `indices`: Indices of the basis functions to evaluate.
-* `k`: Wavenumber.
-* `pts`: Points at which the basis functions are evaluated.
+* `basis::RealPlaneWaves`: Basis.
+* `indices::AbstractArray`: Basis-function indices.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
-## Keyword arguments
-*  `multithreaded::Bool = true` : Whether the matrix construction is multithreaded across columns.
+## Keyword Arguments
+* `multithreaded::Bool=true`: Construct columns in parallel.
 
 ## Returns
-*  `B` : Basis matrix of size `(length(pts), length(indices))`.
+* `B::Matrix{T}`: Basis matrix.
 """
 @inline function basis_fun(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real}
     M=length(pts)
@@ -405,19 +291,18 @@ wavenumber `k` on the points `pts`.
 end
 
 """
-    gradient(basis::RealPlaneWaves, i::Int, k::T, pts::AbstractArray) where {T<:Real} → (dx, dy)::Tuple{Vector{T},Vector{T}}
+    gradient(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real} → (dx,dy)
 
-Evaluate the gradient with respect to `x` and `y` of the `i`-th real plane wave
-basis function on the points `pts`.
+Evaluate the spatial gradient of the `i`-th real plane-wave basis function.
 
 ## Arguments
-* `basis`: The [`RealPlaneWaves`](@ref) basis.
-* `i`: Index of the basis function.
-* `k`: Wavenumber.
-* `pts`: Points at which the gradient is evaluated.
+* `basis::RealPlaneWaves`: Basis.
+* `i::Int`: Basis-function index.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
 ## Returns
-*  `(dx, dy)` : Vectors with the `x` and `y` components of the gradient of basis function `i` at the input points.
+* `(dx,dy)`: x and y derivatives.
 """
 function gradient(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real}
     parx=basis.parity_x[i]
@@ -445,25 +330,25 @@ function gradient(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T
 end
 
 """
-    gradient(basis::RealPlaneWaves, indices::AbstractArray, k::T, pts::AbstractArray; multithreaded::Bool = true) where {T<:Real} → (dB_dx, dB_dy)::Tuple{Matrix{T},Matrix{T}}
+    gradient(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real} → (dB_dx,dB_dy)
 
-Evaluate the gradient with respect to `x` and `y` of the real plane wave basis
-functions with the given `indices` on the points `pts`.
+Evaluate spatial gradients of selected real plane-wave basis functions.
 
 ## Arguments
-* `basis`: The [`RealPlaneWaves`](@ref) basis.
-* `indices`: Indices of the basis functions to differentiate.
-* `k`: Wavenumber.
-* `pts`: Points at which the gradients are evaluated.
+* `basis::RealPlaneWaves`: Basis.
+* `indices::AbstractArray`: Basis-function indices.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
-## Keyword arguments
-*  `multithreaded::Bool = true` : Whether the matrix construction is multithreaded across columns.
+## Keyword Arguments
+* `multithreaded::Bool=true`: Construct columns in parallel.
 
 ## Returns
-*  `(dB_dx, dB_dy)` : Matrices with the `x` and `y` components of the gradients, each of size `(length(pts), length(indices))`.
+* `(dB_dx,dB_dy)`: x and y derivative matrices.
 """
 function gradient(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real}
-    M=length(pts); N=length(indices)
+    M=length(pts)
+    N=length(indices)
     dBdx=Matrix{T}(undef,M,N)
     dBdy=Matrix{T}(undef,M,N)
     @use_threads multithreading=multithreaded for c in 1:N
@@ -493,23 +378,18 @@ function gradient(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::Abstrac
 end
 
 """
-    basis_and_gradient(basis::RealPlaneWaves, i::Int, k::T, pts::AbstractArray) where {T<:Real} → (bf, dx, dy)::Tuple{Vector{T},Vector{T},Vector{T}}
+    basis_and_gradient(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real} → (bf,dx,dy)
 
-Evaluate both the `i`-th real plane wave basis function and its gradient with
-respect to `x` and `y` on the points `pts`.
-
-## Description
-Combines [`basis_fun`](@ref) and [`gradient`](@ref) in a single pass over the
-points, avoiding redundant evaluation of the cos/sin factors.
+Evaluate the `i`-th basis function and its spatial gradient in one pass.
 
 ## Arguments
-* `basis`: The [`RealPlaneWaves`](@ref) basis.
-* `i`: Index of the basis function.
-* `k`: Wavenumber.
-* `pts`: Points at which the basis function and its gradient are evaluated.
+* `basis::RealPlaneWaves`: Basis.
+* `i::Int`: Basis-function index.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
 ## Returns
-*  `(bf, dx, dy)` : Basis function values and the `x` and `y` components of its gradient at the input points.
+* `(bf,dx,dy)`: Basis values and x/y derivatives.
 """
 function basis_and_gradient(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real}
     parx=basis.parity_x[i]
@@ -539,29 +419,25 @@ function basis_and_gradient(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray
 end
 
 """
-    basis_and_gradient(basis::RealPlaneWaves, indices::AbstractArray, k::T, pts::AbstractArray; multithreaded::Bool = true) where {T<:Real} → (B, dB_dx, dB_dy)::Tuple{Matrix{T},Matrix{T},Matrix{T}}
+    basis_and_gradient(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real} → (B,dB_dx,dB_dy)
 
-Evaluate both the real plane wave basis functions with the given `indices` and
-their gradients with respect to `x` and `y` on the points `pts`.
-
-## Description
-Combines [`basis_fun`](@ref) and [`gradient`](@ref) column-by-column,
-optionally in parallel across threads.
+Evaluate selected basis functions and their spatial gradients in one pass.
 
 ## Arguments
-* `basis`: The [`RealPlaneWaves`](@ref) basis.
-* `indices`: Indices of the basis functions to evaluate.
-* `k`: Wavenumber.
-* `pts`: Points at which the basis functions and gradients are evaluated.
+* `basis::RealPlaneWaves`: Basis.
+* `indices::AbstractArray`: Basis-function indices.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
-## Keyword arguments
-*  `multithreaded::Bool = true` : Whether the matrix construction is multithreaded across columns.
+## Keyword Arguments
+* `multithreaded::Bool=true`: Construct columns in parallel.
 
 ## Returns
-*  `(B, dB_dx, dB_dy)` : Basis matrix and the `x` and `y` components of its gradients, each of size `(length(pts), length(indices))`.
+* `(B,dB_dx,dB_dy)`: Basis matrix and x/y derivative matrices.
 """
 function basis_and_gradient(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real}
-    M=length(pts); N=length(indices)
+    M=length(pts)
+    N=length(indices)
     B=Matrix{T}(undef,M,N)
     dBdx=Matrix{T}(undef,M,N)
     dBdy=Matrix{T}(undef,M,N)
@@ -594,19 +470,18 @@ function basis_and_gradient(basis::RealPlaneWaves,indices::AbstractArray,k::T,pt
 end
 
 """
-    dk_fun(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real}
+    dk_fun(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real} → dk::Vector{T}
 
-Constructs the k-gradient of the basis matrix wrt k for column i.
+Evaluate the derivative with respect to `k` of the `i`-th basis function.
 
-# Arguments
-- `basis::RealPlaneWaves`: Struct containing all the info to compute the matrix.
-- `i::Int`: The column index of the matrix.
-- `k::T`: Wavenumber to construct matrix at.
-- `pts::AbstractArray`: Vector of xy points on the boundary.
-- `multithreaded::Bool=true`: If the matrix construction per columns is multithreaded.
+## Arguments
+* `basis::RealPlaneWaves`: Basis.
+* `i::Int`: Basis-function index.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
-# Returns
-- `dk::Vector{T}`: Vector representing the column of dB/dk for the index i.
+## Returns
+* `dk::Vector{T}`: Derivative with respect to `k`.
 """
 @inline function dk_fun(basis::RealPlaneWaves,i::Int,k::T,pts::AbstractArray) where {T<:Real}
     parx=basis.parity_x[i]
@@ -626,25 +501,27 @@ Constructs the k-gradient of the basis matrix wrt k for column i.
         ay=k*vy*y
         bx=fx(ax)
         by=fy(ay)
-        dk[j]=vx*x*dfx(ax)*by + bx*vy*y*dfy(ay)
+        dk[j]=vx*x*dfx(ax)*by+bx*vy*y*dfy(ay)
     end
     return dk
 end
-    
+
 """
-    dk_fun(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real}
+    dk_fun(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real} → dB_dk::Matrix{T}
 
-Constructs the k-gradient of the basis matrix.
+Evaluate derivatives with respect to `k` of selected basis functions.
 
-# Arguments
-- `basis::RealPlaneWaves`: Struct containing all the info to compute the matrix.
-- `indices::AbstractArray`: The column indexes of the matrix.
-- `k::T`: Wavenumber to construct matrix at.
-- `pts::AbstractArray`: Vector of xy points on the boundary.
-- `multithreaded::Bool=true`: If the matrix construction per columns is multithreaded.
+## Arguments
+* `basis::RealPlaneWaves`: Basis.
+* `indices::AbstractArray`: Basis-function indices.
+* `k::T`: Wavenumber.
+* `pts::AbstractArray`: Evaluation points.
 
-# Returns
-- `dB_dk::Matrix{T}`: matrix representing dB/dk.
+## Keyword Arguments
+* `multithreaded::Bool=true`: Construct columns in parallel.
+
+## Returns
+* `dB_dk::Matrix{T}`: Derivative matrix with respect to `k`.
 """
 @inline function dk_fun(basis::RealPlaneWaves,indices::AbstractArray,k::T,pts::AbstractArray;multithreaded::Bool=true) where {T<:Real}
     M=length(pts)
@@ -668,7 +545,7 @@ Constructs the k-gradient of the basis matrix.
             ay=k*vy*y
             bx=fx(ax)
             by=fy(ay)
-            col[j]=vx*x*dfx(ax)*by + bx*vy*y*dfy(ay)
+            col[j]=vx*x*dfx(ax)*by+bx*vy*y*dfy(ay)
         end
     end
     return dBdk

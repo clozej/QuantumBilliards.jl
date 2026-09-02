@@ -1,4 +1,4 @@
-
+abstract type AbsPoints end
 """
 CoordinateSystem
 

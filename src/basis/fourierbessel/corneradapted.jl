@@ -131,7 +131,7 @@ struct CornerAdaptedFourierBessel{T,Sy} <: AbsBasis where  {T<:Real,Sy<:Union{Ab
     dim::Int64 #using concrete type
     corner_angle::T
     nu::T #order constant, order=nu*i
-    symmetries::Union{Vector{Any},Nothing}
+    symmetries::Sy
     rotation_angle_discontinuity::T
 end
 
@@ -162,12 +162,12 @@ of Particular Solutions", for background.
 """
 function CornerAdaptedFourierBessel(dim::Int64,corner_angle::T,origin::SVector{2,T},rot_angle::T;rotation_angle_discontinuity=zero(T)) where {T<:Real}
     cs=PolarCS(origin,rot_angle)
-    nu=pi/corner_angle
-    return CornerAdaptedFourierBessel{Float64,Nothing}(cs,dim,corner_angle,nu,nothing,rotation_angle_discontinuity)
+    nu=T(pi/corner_angle)
+    return CornerAdaptedFourierBessel{T,Nothing}(cs,dim,corner_angle,nu,nothing,rotation_angle_discontinuity)
 end
 
 """
-    CornerAdaptedFourierBessel(dim::Int64, corner_angle::T, cs::CoordinateSystem, symmetry::Union{Vector{Any},Nothing}; rotation_angle_discontinuity = zero(T)) where {T<:Real} → basis::CornerAdaptedFourierBessel
+    CornerAdaptedFourierBessel(dim::Int64,corner_angle::T,cs::CoordinateSystem,symmetry::Sy;rotation_angle_discontinuity=zero(T)) where {T<:Real,Sy<:Union{AbsSymmetry,Nothing}}
 
 Construct a [`CornerAdaptedFourierBessel`](@ref) basis of dimension `dim`
 adapted to a corner with opening angle `corner_angle`, using an existing
@@ -185,13 +185,13 @@ coordinate system `cs` and attaching the given `symmetry`.
 ## Returns
 *  `basis` : A [`CornerAdaptedFourierBessel`](@ref) basis using the given coordinate system and symmetries.
 """
-function CornerAdaptedFourierBessel(dim::Int64,corner_angle::T,cs::CoordinateSystem,symmetry::Union{Vector{Any},Nothing};rotation_angle_discontinuity=zero(T)) where {T<:Real}
+function CornerAdaptedFourierBessel(dim::Int64,corner_angle::T,cs::CoordinateSystem,symmetry::Sy;rotation_angle_discontinuity=zero(T)) where {T<:Real,Sy<:Union{AbsSymmetry,Nothing}}
     nu=pi/corner_angle
-    return CornerAdaptedFourierBessel{Float64,Nothing}(cs,dim,corner_angle,nu,symmetry,rotation_angle_discontinuity)
+    return CornerAdaptedFourierBessel{T,Sy}(cs,dim,corner_angle,nu,symmetry,rotation_angle_discontinuity)
 end
 
 """
-    CornerAdaptedFourierBessel(dim::Int64, corner_angle::T, origin::SVector{2,T}, rot_angle::T, symmetry::Union{Vector{Any},Nothing}; rotation_angle_discontinuity = zero(T)) where {T<:Real} → basis::CornerAdaptedFourierBessel
+    CornerAdaptedFourierBessel(dim::Int64,corner_angle::T,origin::SVector{2,T},rot_angle::T,symmetry::Sy;rotation_angle_discontinuity=zero(T)) where {T<:Real,Sy<:Union{AbsSymmetry,Nothing}}
 
 Construct a [`CornerAdaptedFourierBessel`](@ref) basis of dimension `dim`
 adapted to a corner with opening angle `corner_angle`, located at `origin` and
@@ -210,24 +210,11 @@ rotated by `rot_angle`, attaching the given `symmetry`.
 ## Returns
 *  `basis` : A [`CornerAdaptedFourierBessel`](@ref) basis with the given origin, rotation, and symmetries.
 """
-function CornerAdaptedFourierBessel(dim::Int64,corner_angle::T,origin::SVector{2,T},rot_angle::T,symmetry::Union{Vector{Any},Nothing};rotation_angle_discontinuity=zero(T)) where {T<:Real}
+function CornerAdaptedFourierBessel(dim::Int64,corner_angle::T,origin::SVector{2,T},rot_angle::T,symmetry::Sy;rotation_angle_discontinuity=zero(T)) where {T<:Real,Sy<:Union{AbsSymmetry,Nothing}}
     cs=PolarCS(origin,rot_angle)
     nu=pi/corner_angle
-    return CornerAdaptedFourierBessel{Float64,Nothing}(cs,dim,corner_angle,nu,symmetry,rotation_angle_discontinuity)
+    return CornerAdaptedFourierBessel{T,Sy}(cs,dim,corner_angle,nu,symmetry,rotation_angle_discontinuity)
 end
-
-"""
-    toFloat32(basis::CornerAdaptedFourierBessel) → basis32::CornerAdaptedFourierBessel
-
-Convert a [`CornerAdaptedFourierBessel`](@ref) basis to use `Float32` precision.
-
-## Arguments
-* `basis`: The basis to convert.
-
-## Returns
-*  `basis32` : A new basis with `dim`, `corner_angle`, and coordinate system fields converted to `Float32`.
-"""
-toFloat32(basis::CornerAdaptedFourierBessel) = CornerAdaptedFourierBessel(basis.dim,Float32(basis.corner_angle),Float32.(basis.cs.origin),Float32(basis.cs.rot_angle))
 
 """
     resize_basis(basis::CornerAdaptedFourierBessel, billiard::Bi, dim::Int, k) where {Bi<:AbsBilliard} → basis_new::CornerAdaptedFourierBessel
@@ -410,17 +397,23 @@ Evaluate the gradient with respect to the Cartesian coordinates `x` and `y` of
 the `i`-th corner-adapted Fourier-Bessel basis function on the points `pts`.
 
 ## Description
-The points are mapped to local Cartesian, then polar, coordinates `(r, phi)` of
-the basis's corner. Using the chain rule with the polar-to-Cartesian Jacobian,
-the gradient components are:
+The points are mapped to the local polar coordinates `(r, phi)` centered at the
+corner. The derivatives in the local Cartesian frame are obtained from
 
 ```math
-\\partial_x f = \\cos\\varphi\\,\\partial_r f - \\frac{\\sin\\varphi}{r}\\,\\partial_\\varphi f, \\qquad
-\\partial_y f = \\sin\\varphi\\,\\partial_r f + \\frac{\\cos\\varphi}{r}\\,\\partial_\\varphi f,
+\\partial_{x'} f = \\cos\\varphi\\,\\partial_r f
+-\\frac{\\sin\\varphi}{r}\\,\\partial_\\varphi f,
+\\qquad
+\\partial_{y'} f = \\sin\\varphi\\,\\partial_r f
++\\frac{\\cos\\varphi}{r}\\,\\partial_\\varphi f,
 ```
 
-with \$\\partial_r f = k J_{\\nu}'(kr)\\sin(\\nu\\varphi)\$ and
-\$\\partial_\\varphi f = \\nu J_{\\nu}(kr)\\cos(\\nu\\varphi)\$.
+with \$\\partial_r f=kJ_\\nu'(kr)\\sin(\\nu\\varphi)\$ and
+\$\\partial_\\varphi f=\\nu J_\\nu(kr)\\cos(\\nu\\varphi)\$.
+
+These local Cartesian derivatives are then rotated by `basis.cs.rot_angle`
+back to the global Cartesian frame. The returned `(dx,dy)` therefore represents
+the gradient with respect to the global coordinates of `pts`.
 
 ## Arguments
 * `basis`: The [`CornerAdaptedFourierBessel`](@ref) basis.
@@ -441,17 +434,20 @@ function gradient(basis::CornerAdaptedFourierBessel,i::Int,k::T,pts::AbstractArr
     _polar_coords!(r,φ,pm,pts,basis.rotation_angle_discontinuity)
     dx=Vector{T}(undef,M)
     dy=Vector{T}(undef,M)
-    @inbounds for j in 1:M
+    sθ,cθ=sincos(basis.cs.rot_angle)
+    @inbounds for j=1:M
         rj=r[j]
-        invr=(rj==0 ? zero(T) : inv(rj))
-        sφ=sin(φ[j])
-        cφ=cos(φ[j])
+        invr=rj==0 ? zero(T) : inv(rj)
+        sφ,cφ=sincos(φ[j])
+        s,c=sincos(m*φ[j])
         jv=Jv(m,k*rj)
         dj=Jvp(m,k*rj)
-        fr=k*dj*sin(m*φ[j])
-        fφ=m*jv*cos(m*φ[j])
-        dx[j]=cφ*fr-sφ*invr*fφ
-        dy[j]=sφ*fr+cφ*invr*fφ
+        fr=k*dj*s
+        fφ=m*jv*c
+        dx_local=cφ*fr-sφ*invr*fφ
+        dy_local=sφ*fr+cφ*invr*fφ
+        dx[j]=cθ*dx_local-sθ*dy_local
+        dy[j]=sθ*dx_local+cθ*dy_local
     end
     return dx,dy
 end
@@ -464,8 +460,11 @@ the corner-adapted Fourier-Bessel basis functions with the given `indices` on
 the points `pts`.
 
 ## Description
-As in [`gradient`](@ref) for a single index, but evaluated column-by-column for
-each index in `indices`, optionally in parallel across threads.
+As in [`gradient`](@ref) for a single index, the derivatives are first evaluated
+in the local Cartesian frame associated with the corner and are then rotated
+back to the global Cartesian frame. The calculation is performed
+column-by-column for the requested `indices`, optionally in parallel across
+threads.
 
 ## Arguments
 * `basis`: The [`CornerAdaptedFourierBessel`](@ref) basis.
@@ -487,22 +486,26 @@ function gradient(basis::CornerAdaptedFourierBessel,indices::AbstractArray,k::T,
     r=Vector{T}(undef,M)
     φ=Vector{T}(undef,M)
     _polar_coords!(r,φ,pm,pts,basis.rotation_angle_discontinuity)
-    dB_dx=Matrix{T}(undef,M,N); dB_dy=Matrix{T}(undef,M,N)
-    @use_threads multithreading=multithreaded for c in 1:N
-        m=ν*indices[c]
-        cx=@view dB_dx[:,c]
-        cy=@view dB_dy[:,c]
-        @inbounds for j in 1:M
+    dB_dx=Matrix{T}(undef,M,N)
+    dB_dy=Matrix{T}(undef,M,N)
+    sθ,cθ=sincos(basis.cs.rot_angle)
+    @use_threads multithreading=multithreaded for col=1:N
+        m=ν*indices[col]
+        cx=@view dB_dx[:,col]
+        cy=@view dB_dy[:,col]
+        @inbounds for j=1:M
             rj=r[j]
-            invr=(rj==0 ? zero(T) : inv(rj))
-            sφ=sin(φ[j])
-            cφ=cos(φ[j])
+            invr=rj==0 ? zero(T) : inv(rj)
+            sφ,cφ=sincos(φ[j])
+            s,c=sincos(m*φ[j])
             jv=Jv(m,k*rj)
             dj=Jvp(m,k*rj)
-            fr=k*dj*sin(m*φ[j])
-            fφ=m*jv*cos(m*φ[j])
-            cx[j]=cφ*fr-sφ*invr*fφ
-            cy[j]=sφ*fr+cφ*invr*fφ
+            fr=k*dj*s
+            fφ=m*jv*c
+            dx_local=cφ*fr-sφ*invr*fφ
+            dy_local=sφ*fr+cφ*invr*fφ
+            cx[j]=cθ*dx_local-sθ*dy_local
+            cy[j]=sθ*dx_local+cθ*dy_local
         end
     end
     return dB_dx,dB_dy
@@ -517,7 +520,7 @@ gradient with respect to `x` and `y` on the points `pts`.
 ## Description
 Combines [`basis_fun`](@ref) and [`gradient`](@ref) in a single pass over the
 points, avoiding redundant coordinate transformations and Bessel function
-evaluations.
+evaluations. The gradient is returned in the global Cartesian coordinate frame.
 
 ## Arguments
 * `basis`: The [`CornerAdaptedFourierBessel`](@ref) basis.
@@ -539,20 +542,21 @@ function basis_and_gradient(basis::CornerAdaptedFourierBessel,i::Int,k::T,pts::A
     bf=Vector{T}(undef,M)
     dx=Vector{T}(undef,M)
     dy=Vector{T}(undef,M)
-    @inbounds for j in 1:M
+    sθ,cθ=sincos(basis.cs.rot_angle)
+    @inbounds for j=1:M
         rj=r[j]
-        invr=(rj==0 ? zero(T) : inv(rj))
-        sφ=sin(φ[j])
-        cφ=cos(φ[j])
+        invr=rj==0 ? zero(T) : inv(rj)
+        sφ,cφ=sincos(φ[j])
+        s,c=sincos(m*φ[j])
         jv=Jv(m,k*rj)
         dj=Jvp(m,k*rj)
-        s=sin(m*φ[j])
-        c=cos(m*φ[j])
         bf[j]=jv*s
         fr=k*dj*s
         fφ=m*jv*c
-        dx[j]=cφ*fr-sφ*invr*fφ
-        dy[j]=sφ*fr+cφ*invr*fφ
+        dx_local=cφ*fr-sφ*invr*fφ
+        dy_local=sφ*fr+cφ*invr*fφ
+        dx[j]=cθ*dx_local-sθ*dy_local
+        dy[j]=sθ*dx_local+cθ*dy_local
     end
     return bf,dx,dy
 end
@@ -566,7 +570,8 @@ Evaluate both the corner-adapted Fourier-Bessel basis functions with the given
 ## Description
 Combines [`basis_fun`](@ref) and [`gradient`](@ref) column-by-column,
 optionally in parallel across threads, avoiding redundant coordinate
-transformations and Bessel function evaluations.
+transformations and Bessel function evaluations. The returned gradients are in
+the global Cartesian coordinate frame.
 
 ## Arguments
 * `basis`: The [`CornerAdaptedFourierBessel`](@ref) basis.
@@ -591,25 +596,26 @@ function basis_and_gradient(basis::CornerAdaptedFourierBessel,indices::AbstractA
     B=Matrix{T}(undef,M,N)
     dB_dx=Matrix{T}(undef,M,N)
     dB_dy=Matrix{T}(undef,M,N)
-    @use_threads multithreading=multithreaded for c in 1:N
-        m=ν*indices[c]
-        bc=@view B[:,c]
-        cx=@view dB_dx[:,c]
-        cy=@view dB_dy[:,c]
-        @inbounds for j in 1:M
+    sθ,cθ=sincos(basis.cs.rot_angle)
+    @use_threads multithreading=multithreaded for col=1:N
+        m=ν*indices[col]
+        bc=@view B[:,col]
+        cx=@view dB_dx[:,col]
+        cy=@view dB_dy[:,col]
+        @inbounds for j=1:M
             rj=r[j]
-            invr=(rj==0 ? zero(T) : inv(rj))
-            sφ=sin(φ[j])
-            cφ=cos(φ[j])
+            invr=rj==0 ? zero(T) : inv(rj)
+            sφ,cφ=sincos(φ[j])
+            s,c=sincos(m*φ[j])
             jv=Jv(m,k*rj)
             dj=Jvp(m,k*rj)
-            s=sin(m*φ[j])
-            c=cos(m*φ[j])
             bc[j]=jv*s
             fr=k*dj*s
             fφ=m*jv*c
-            cx[j]=cφ*fr-sφ*invr*fφ
-            cy[j]=sφ*fr+cφ*invr*fφ
+            dx_local=cφ*fr-sφ*invr*fφ
+            dy_local=sφ*fr+cφ*invr*fφ
+            cx[j]=cθ*dx_local-sθ*dy_local
+            cy[j]=sθ*dx_local+cθ*dy_local
         end
     end
     return B,dB_dx,dB_dy

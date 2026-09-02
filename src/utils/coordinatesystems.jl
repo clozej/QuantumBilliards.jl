@@ -1,8 +1,8 @@
 struct CartesianCS{T} <:CoordinateSystem where {T<:Number}
     origin::SVector{2,T}
     rot_angle::T
-    affine_map::AffineMap{Angle2d{T}, SVector{2, T}}
-    local_map::AffineMap{Angle2d{T}, SVector{2, T}}
+    affine_map::CoordinateTransformations.AffineMap{Rotations.Angle2d{T},SVector{2,T}}
+    local_map::CoordinateTransformations.AffineMap{Rotations.Angle2d{T},SVector{2,T}}
 end
 
 """
@@ -18,20 +18,20 @@ Create a `CartesianCS` struct that contains information about transformations po
 - `CartesianCS`: The struct containing the `AffineMap` for the rotations/translations and inverses for this coordiante system choice.
 """
 function CartesianCS(origin::SVector{2,T},rot_angle::T) where {T<:Number}
-    Rot=LinearMap(Angle2d(rot_angle))
-    Tran=Translation(origin[1],origin[2])
-    Tran_inv=Translation(-origin[1],-origin[2])
-    Rot_inv=LinearMap(Angle2d(-rot_angle))
-    affine_map=compose(Tran,Rot)
-    local_map=compose(Rot_inv,Tran_inv)
+    Rot=CoordinateTransformations.LinearMap(Rotations.Angle2d(rot_angle))
+    Tran=CoordinateTransformations.Translation(origin[1],origin[2])
+    Tran_inv=CoordinateTransformations.Translation(-origin[1],-origin[2])
+    Rot_inv=CoordinateTransformations.LinearMap(Rotations.Angle2d(-rot_angle))
+    affine_map=CoordinateTransformations.compose(Tran,Rot)
+    local_map=CoordinateTransformations.compose(Rot_inv,Tran_inv)
     return CartesianCS(origin,rot_angle,affine_map,local_map)
 end
 
 struct PolarCS{T} <:CoordinateSystem  where {T<:Number}
     origin::SVector{2,T}
     rot_angle::T
-    affine_map::AffineMap{Angle2d{T}, SVector{2, T}}  #maps carthesian coordinates
-    local_map::AffineMap{Angle2d{T}, SVector{2, T}} #transform carthesian into local polar coords
+    affine_map::CoordinateTransformations.AffineMap{Rotations.Angle2d{T},SVector{2, T}}  #maps carthesian coordinates
+    local_map::CoordinateTransformations.AffineMap{Rotations.Angle2d{T},SVector{2, T}} #transform carthesian into local polar coords
 end
 
 """
@@ -47,13 +47,61 @@ Create a `PolarCS` struct that contains information about transformations possib
 - `PolarCS`: The struct containing the `AffineMap` for the rotations/translations and inverses for this coordiante system choice.
 """
 function PolarCS(origin::SVector{2,T},rot_angle::T) where {T<:Number}
-    Rot=LinearMap(Angle2d(rot_angle))
-    Tran=Translation(origin[1],origin[2])
-    Tran_inv=Translation(-origin[1],-origin[2])
-    Rot_inv=LinearMap(Angle2d(-rot_angle))
-    affine_map=compose(Tran,Rot) #already in cartesian coordinates
-    local_map=compose(Rot_inv,Tran_inv) # rotate in local polar coordinates
+    Rot=CoordinateTransformations.LinearMap(Rotations.Angle2d(rot_angle))
+    Tran=CoordinateTransformations.Translation(origin[1],origin[2])
+    Tran_inv=CoordinateTransformations.Translation(-origin[1],-origin[2])
+    Rot_inv=CoordinateTransformations.LinearMap(Rotations.Angle2d(-rot_angle))
+    affine_map=CoordinateTransformations.compose(Tran,Rot) #already in cartesian coordinates
+    local_map=CoordinateTransformations.compose(Rot_inv,Tran_inv) # rotate in local polar coordinates
     return PolarCS(origin,rot_angle,affine_map,local_map)
+end
+
+"""
+    linear_map(cs, v) -> SVector{2,T}
+
+Apply only the linear (rotation) part of a coordinate-system transformation
+to a vector `v`, discarding any translational component.
+
+# Purpose
+In the geometry framework, `AffineMap`s stored in `CartesianCS` and `PolarCS`
+represent transformations of the form
+
+    x ↦ R*x + t
+
+where `R` is a rotation and `t` is a translation.
+
+While this is correct for points, it is incorrect for vectors such as:
+- tangents,
+- normals,
+- higher derivatives,
+
+because vectors must transform only under the linear part `R`.
+
+This helper extracts that linear action by removing the translation.
+
+# Definition
+The linear map is computed as
+
+    linear_map(cs, v) = cs.affine_map(v) - cs.affine_map(0)
+
+which is equivalent to applying the rotation `R` alone.
+
+# Arguments
+- `cs`: A coordinate system (`CartesianCS` or `PolarCS`)
+- `v`: A vector in ℝ² (e.g. tangent, normal, derivative)
+
+# Returns
+- `SVector{2,T}`: The rotated vector
+
+# Important
+- This function must be used for transforming derivatives.
+- Using `affine_map` directly on tangents introduces a translation offset,
+  which leads to incorrect geometry (e.g. twisted normals for off-center curves).
+"""
+@inline linear_map(cs,v)=cs.affine_map(v)-cs.affine_map(zero(v))
+@inline function linear_map(cs::Union{CartesianCS,PolarCS},v::SVector{2})
+    s,c=sincos(cs.rot_angle)
+    return SVector(c*v[1]-s*v[2],s*v[1]+c*v[2])
 end
 
 """
