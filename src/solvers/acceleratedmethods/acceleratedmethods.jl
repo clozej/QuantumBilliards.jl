@@ -5,7 +5,7 @@
 include("verginisaraceno.jl")
 
 """
-    solve_wavenumber(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (k0, t0)
+    solve_wavenumber(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (k0, t0)
 
 Finds the eigenvalue candidate `k0` closest to the target wavenumber `k`, together
 with its associated tension `t0`, among the eigenvalues found by an accelerated
@@ -20,7 +20,7 @@ solved with [`solve`](@ref) to obtain candidate wavenumbers `ks` and tensions `t
 within the window `dk` of `k`. The candidate closest to `k` is returned.
 
 ## Arguments
-* `solver`: The [`AcceleratedSolver`](@ref) used to solve the eigenvalue problem.
+* `solver`: The [`AcceleratedBasisSolver`](@ref) used to solve the eigenvalue problem.
 * `basis`: The basis used to approximate the eigenstates.
 * `billiard`: The billiard whose boundary is discretized.
 * `k`: The target wavenumber around which the search is performed.
@@ -33,7 +33,7 @@ within the window `dk` of `k`. The candidate closest to `k` is returned.
 * `k0`: The candidate wavenumber closest to `k`.
 * `t0`: The tension associated with `k0`.
 """
-function solve_wavenumber(solver::AcceleratedSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded = true)
+function solve_wavenumber(solver::AcceleratedBasisSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded = true)
     L = CompositeCurve(get_boundary_curves(billiard)).length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
     new_basis = resize_basis(basis,billiard,dim,k)
@@ -45,7 +45,7 @@ end
 
 
 """
-    solve_spectrum(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (ks::Vector, ts::Vector)
+    solve_spectrum(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (ks::Vector, ts::Vector)
 
 Computes all eigenvalue candidates and their tensions found by an accelerated
 `solver` in a single diagonalization within the wavenumber window `dk` of `k`.
@@ -58,7 +58,7 @@ generated with [`evaluate_points`](@ref), and the accelerated eigenvalue problem
 solved with [`solve`](@ref).
 
 ## Arguments
-* `solver`: The [`AcceleratedSolver`](@ref) used to solve the eigenvalue problem.
+* `solver`: The [`AcceleratedBasisSolver`](@ref) used to solve the eigenvalue problem.
 * `basis`: The basis used to approximate the eigenstates.
 * `billiard`: The billiard whose boundary is discretized.
 * `k`: The wavenumber around which the sweep is performed.
@@ -71,7 +71,7 @@ solved with [`solve`](@ref).
 * `ks`: Vector of candidate wavenumbers found within the window.
 * `ts`: Vector of tensions associated with `ks`.
 """
-function solve_spectrum(solver::AcceleratedSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded = true)
+function solve_spectrum(solver::AcceleratedBasisSolver,basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded = true)
     L = CompositeCurve(get_boundary_curves(billiard)).length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
     new_basis = resize_basis(basis,billiard,dim,k)

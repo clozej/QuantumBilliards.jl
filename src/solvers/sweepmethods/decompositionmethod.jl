@@ -1,8 +1,8 @@
 
 """
-    DecompositionMethodSolver{T} <: SweepSolver
+    DecompositionMethodSolver{T} <: SweepBasisSolver
 
-`DecompositionMethodSolver` is a concrete [`SweepSolver`](@ref) implementing the
+`DecompositionMethodSolver` is a concrete [`SweepBasisSolver`](@ref) implementing the
 boundary decomposition method for computing quantum billiard spectra by sweeping
 over individual wavenumbers.
 
@@ -32,7 +32,7 @@ The following functions can be evaluated for this type:
 - [`solve_wavenumber`](@ref)
 - [`k_sweep`](@ref)
 """
-struct DecompositionMethodSolver{T} <: SweepSolver where {T<:Real}
+struct DecompositionMethodSolver{T} <: SweepBasisSolver where {T<:Real}
     dim_scaling_factor::T
     pts_scaling_factor::Vector{T}
     sampler::Vector

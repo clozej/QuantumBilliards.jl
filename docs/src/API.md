@@ -14,8 +14,9 @@ CurrentModule = QuantumBilliards
 ```@docs
 AbsBasis
 AbsSolver
-SweepSolver
-AcceleratedSolver
+AbsBasisSolver
+SweepBasisSolver
+AcceleratedBasisSolver
 ```
 
 ## Utilities

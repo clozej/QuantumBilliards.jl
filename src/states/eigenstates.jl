@@ -23,7 +23,7 @@ smaller in magnitude than the numerical precision `eps` (given by
 * `ten`: Tension of the solution, measuring the residual boundary condition violation.
 * `dim`: Dimension of `vec` (and of `basis`).
 * `eps`: Numerical precision threshold below which coefficients of `vec` are treated as zero.
-* `solver`: The solver (`S<:AbsSolver`) used to compute the eigenstate.
+* `solver`: The solver (`S<:AbsBasisSolver`) used to compute the eigenstate.
 * `basis`: The basis (`Ba<:AbsBasis`), resized/evaluated at `k_basis`, in which `vec` is expressed.
 * `billiard`: The billiard (`Bi<:AbsBilliard`) the eigenstate is defined on.
 
@@ -117,7 +117,7 @@ function Eigenstate(k, k_basis, vec, ten, solver, basis, billiard)
 end
 
 """
-    compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard, k; multithreaded::Bool = true) → state::Eigenstate
+    compute_eigenstate(solver::SweepBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; multithreaded::Bool = true) → state::Eigenstate
 
 Computes the [`Eigenstate`](@ref) of `billiard` at wavenumber `k` using a
 sweep-method `solver` (e.g. `DecompositionMethodSolver`).
@@ -131,7 +131,7 @@ the generalized eigenvalue problem is solved at `k` with `solve_vect` to
 obtain the tension `ten` and coefficient vector `vec`.
 
 ## Arguments
-* `solver`: The `SweepSolver` used to solve the eigenvalue problem.
+* `solver`: The `SweepBasisSolver` used to solve the eigenvalue problem.
 * `basis`: The basis used to approximate the eigenstate.
 * `billiard`: The billiard the eigenstate is computed on.
 * `k`: The wavenumber at which the eigenstate is computed.
@@ -142,7 +142,7 @@ obtain the tension `ten` and coefficient vector `vec`.
 ## Returns
 *  `state` : The computed [`Eigenstate`](@ref) at wavenumber `k`.
 """
-function compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsBilliard,k; multithreaded = true)
+function compute_eigenstate(solver::SweepBasisSolver, basis::AbsBasis, billiard::AbsBilliard,k; multithreaded = true)
     L = CompositeCurve(get_boundary_curves(billiard)).length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
     basis_new = resize_basis(basis,billiard, dim, k)
@@ -152,7 +152,7 @@ function compute_eigenstate(solver::SweepSolver, basis::AbsBasis, billiard::AbsB
 end
 
 """
-    compute_eigenstate(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk::Real = 0.1, multithreaded::Bool = true) → state::Eigenstate
+    compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk::Real = 0.1, multithreaded::Bool = true) → state::Eigenstate
 
 Computes the [`Eigenstate`](@ref) of `billiard` closest to wavenumber `k`
 using an accelerated `solver` (e.g. `VerginiSaracenoSolver`).
@@ -169,7 +169,7 @@ whose `k_basis` is set to the requested `k` (the wavenumber at which `basis`
 was evaluated).
 
 ## Arguments
-* `solver`: The `AcceleratedSolver` used to solve the eigenvalue problem.
+* `solver`: The `AcceleratedBasisSolver` used to solve the eigenvalue problem.
 * `basis`: The basis used to approximate the eigenstate.
 * `billiard`: The billiard the eigenstate is computed on.
 * `k`: The target wavenumber around which the eigenstate is searched for.
@@ -181,7 +181,7 @@ was evaluated).
 ## Returns
 *  `state` : The computed [`Eigenstate`](@ref) closest to wavenumber `k`.
 """
-function compute_eigenstate(solver::AcceleratedSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1, multithreaded = true)
+function compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1, multithreaded = true)
     L = CompositeCurve(get_boundary_curves(billiard)).length
     dim = max(solver.min_dim,round(Int, L*k*solver.dim_scaling_factor/(2*pi)))
     basis_new = resize_basis(basis,billiard,dim,k)

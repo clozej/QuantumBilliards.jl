@@ -1,8 +1,8 @@
 
 """
-    VerginiSaracenoSolver{T} <: AcceleratedSolver
+    VerginiSaracenoSolver{T} <: AcceleratedBasisSolver
 
-`VerginiSaracenoSolver` is a concrete [`AcceleratedSolver`](@ref) implementing the
+`VerginiSaracenoSolver` is a concrete [`AcceleratedBasisSolver`](@ref) implementing the
 Vergini–Saraceno scaling method for computing quantum billiard spectra.
 
 ## Description
@@ -29,7 +29,7 @@ The following functions can be evaluated for this type:
 - [`solve_wavenumber`](@ref)
 - [`solve_spectrum`](@ref)
 """
-mutable struct VerginiSaracenoSolver{T} <: AcceleratedSolver where {T<:Real}
+mutable struct VerginiSaracenoSolver{T} <: AcceleratedBasisSolver where {T<:Real}
     dim_scaling_factor::T
     pts_scaling_factor::Vector{T}
     sampler::Vector

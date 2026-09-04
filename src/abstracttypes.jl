@@ -46,13 +46,10 @@ quantum billiard eigenvalues (wavenumbers) and eigenvectors from a boundary
 discretization.
 
 ## Description
-Concrete solvers hold the parameters controlling boundary sampling and basis
-dimension scaling (e.g. `dim_scaling_factor`, `pts_scaling_factor`, `sampler`,
-`min_dim`, `min_pts`) as well as the numerical tolerance `eps` used when
-filtering the generalized eigenvalue problem. `AbsSolver` has two direct
-concrete-algorithm branches, [`SweepSolver`](@ref) and
-[`AcceleratedSolver`](@ref), distinguished by whether the spectrum is scanned
-one wavenumber at a time or obtained in windows via a single diagonalization.
+`AbsSolver` is the top-level abstraction shared by every solver algorithm in
+the package, regardless of the representation used to determine the spectrum.
+Its concrete-algorithm branch is [`AbsBasisSolver`](@ref), the supertype of
+all solvers that determine the spectrum by expanding the solution in a basis.
 
 ## API
 The following functions can be evaluated for any `AbsSolver`:
@@ -63,22 +60,47 @@ The following functions can be evaluated for any `AbsSolver`:
 abstract type AbsSolver end
 
 """
-SweepSolver <: AbsSolver
+AbsBasisSolver <: AbsSolver
 
-`SweepSolver` is the abstract supertype for solvers that locate quantum
+`AbsBasisSolver` is the abstract supertype for all algorithms that determine
+quantum billiard eigenvalues (wavenumbers) and eigenvectors from a boundary
+discretization by expanding the solution in a basis.
+
+## Description
+Concrete solvers hold the parameters controlling boundary sampling and basis
+dimension scaling (e.g. `dim_scaling_factor`, `pts_scaling_factor`, `sampler`,
+`min_dim`, `min_pts`) as well as the numerical tolerance `eps` used when
+filtering the generalized eigenvalue problem. `AbsBasisSolver` has two direct
+concrete-algorithm branches, [`SweepBasisSolver`](@ref) and
+[`AcceleratedBasisSolver`](@ref), distinguished by whether the spectrum is
+scanned one wavenumber at a time or obtained in windows via a single
+diagonalization.
+
+## API
+The following functions can be evaluated for any `AbsBasisSolver`:
+- `evaluate_points`
+- [`adjust_scaling_and_samplers`](@ref)
+- `compute_spectrum`
+"""
+abstract type AbsBasisSolver <: AbsSolver end
+
+"""
+SweepBasisSolver <: AbsBasisSolver
+
+`SweepBasisSolver` is the abstract supertype for solvers that locate quantum
 billiard eigenvalues by sweeping over a range of individual wavenumbers and
 minimizing a tension function at each one.
 
 ## Description
-At each wavenumber `k`, a `SweepSolver` constructs matrices from a boundary
-quadrature and solves a generalized eigenvalue problem whose smallest
-eigenvalue defines a tension quantifying how well the boundary condition is
-satisfied; scanning this tension over a range of wavenumbers locates the
-billiard's eigenvalues. The concrete implementation is
+At each wavenumber `k`, a `SweepBasisSolver` constructs matrices from a
+boundary quadrature and solves a generalized eigenvalue problem whose
+smallest eigenvalue defines a tension quantifying how well the boundary
+condition is satisfied; scanning this tension over a range of wavenumbers
+locates the billiard's eigenvalues. The concrete implementation is
 [`DecompositionMethodSolver`](@ref).
 
 ## API
-The following functions can be evaluated for any `SweepSolver`:
+The following functions can be evaluated for any `SweepBasisSolver`:
 - `construct_matrices`
 - `solve`
 - `solve_vect`
@@ -86,24 +108,24 @@ The following functions can be evaluated for any `SweepSolver`:
 - [`k_sweep`](@ref)
 - [`compute_eigenstate`](@ref)
 """
-abstract type SweepSolver <: AbsSolver end
+abstract type SweepBasisSolver <: AbsBasisSolver end
 
 """
-AcceleratedSolver <: AbsSolver
+AcceleratedBasisSolver <: AbsBasisSolver
 
-`AcceleratedSolver` is the abstract supertype for solvers that recover every
-eigenvalue within a wavenumber window `dk` of a target wavenumber `k` from a
-single diagonalization.
+`AcceleratedBasisSolver` is the abstract supertype for solvers that recover
+every eigenvalue within a wavenumber window `dk` of a target wavenumber `k`
+from a single diagonalization.
 
 ## Description
-An `AcceleratedSolver` constructs a generalized eigenvalue problem whose
+An `AcceleratedBasisSolver` constructs a generalized eigenvalue problem whose
 spectrum, restricted to the window around `k`, approximates the tensions of
 all billiard eigenstates in that window, avoiding the need to scan
-wavenumber-by-wavenumber as [`SweepSolver`](@ref) does. The concrete
+wavenumber-by-wavenumber as [`SweepBasisSolver`](@ref) does. The concrete
 implementation is [`VerginiSaracenoSolver`](@ref).
 
 ## API
-The following functions can be evaluated for any `AcceleratedSolver`:
+The following functions can be evaluated for any `AcceleratedBasisSolver`:
 - `construct_matrices`
 - `solve`
 - `solve_vectors`
@@ -111,7 +133,7 @@ The following functions can be evaluated for any `AcceleratedSolver`:
 - `solve_spectrum`
 - [`compute_eigenstate`](@ref)
 """
-abstract type AcceleratedSolver <: AbsSolver end
+abstract type AcceleratedBasisSolver <: AbsBasisSolver end
 
 """
 AbsState

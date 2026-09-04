@@ -10,7 +10,7 @@ using BilliardGeometry
 
 #abstract types
 include("abstracttypes.jl")
-export AbsBasis, AbsSolver
+export AbsBasis, AbsSolver, AbsBasisSolver
 
 include("utils/coordinatesystems.jl")
 include("utils/geometryutils.jl")
@@ -33,7 +33,7 @@ export basis_matrix, basis_and_gradient_matrices, dk_matrix
 
 include("solvers/acceleratedmethods/acceleratedmethods.jl")
 include("solvers/sweepmethods/sweepmethods.jl")
-export SweepSolver, AcceleratedSolver
+export SweepBasisSolver, AcceleratedBasisSolver
 export VerginiSaracenoSolver, print_benchmark_info
 export DecompositionMethodSolver, ParticularSolutionsMethod
 export BoundaryPointsSM, BoundaryPointsDM
