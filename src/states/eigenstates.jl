@@ -3,9 +3,9 @@
 #include("../utils/typeutils.jl")
 
 """
-    Eigenstate{K,T,S,Bi,Ba} <: StationaryState
+    BasisEigenstate{K,T,S,Bi,Ba} <: AbsState
 
-`Eigenstate` is a concrete type representing a numerically computed eigenstate
+`BasisEigenstate` is a concrete type representing a numerically computed eigenstate
 of a quantum billiard at a given wavenumber.
 
 ## Description
@@ -35,7 +35,7 @@ The following functions can be evaluated for this type:
 - [`wavefunction`](@ref)
 - [`husimi_function`](@ref)
 """
-struct Eigenstate{K,T,S,Bi,Ba} <: StationaryState
+struct BasisEigenstate{K,T,S,Bi,Ba} <: AbsState
     k::K
     k_basis::K
     vec::Vector{K}
@@ -48,9 +48,9 @@ struct Eigenstate{K,T,S,Bi,Ba} <: StationaryState
 end
 
 """
-    Eigenstate(k, vec, ten, solver, basis, billiard) → state::Eigenstate
+    BasisEigenstate(k, vec, ten, solver, basis, billiard) → state::BasisEigenstate
 
-Construct an [`Eigenstate`](@ref) with `k_basis` set equal to `k`, filtering
+Construct an [`BasisEigenstate`](@ref) with `k_basis` set equal to `k`, filtering
 out negligible coefficients of `vec`.
 
 ## Description
@@ -68,27 +68,27 @@ unfiltered.
 * `billiard`: The billiard the eigenstate is defined on.
 
 ## Returns
-*  `state` : A new [`Eigenstate`](@ref) with `k_basis = k` and filtered coefficients.
+*  `state` : A new [`BasisEigenstate`](@ref) with `k_basis = k` and filtered coefficients.
 """
-function Eigenstate(k, vec, ten, solver, basis, billiard)  
+function BasisEigenstate(k, vec, ten, solver, basis, billiard)  
     eps = set_precision(vec[1])
     if eltype(vec) <: Real
         filtered_vec = eltype(vec).([abs(v)>eps ? v : zero(vec[1]) for v in vec])
     else 
         filtered_vec = vec
     end
-    return Eigenstate(k, k, filtered_vec,ten, length(vec), eps, solver, basis, billiard)
+    return BasisEigenstate(k, k, filtered_vec,ten, length(vec), eps, solver, basis, billiard)
 end
 
 """
-    Eigenstate(k, k_basis, vec, ten, solver, basis, billiard) → state::Eigenstate
+    BasisEigenstate(k, k_basis, vec, ten, solver, basis, billiard) → state::BasisEigenstate
 
-Construct an [`Eigenstate`](@ref) allowing the refined wavenumber `k` and the
+Construct an [`BasisEigenstate`](@ref) allowing the refined wavenumber `k` and the
 basis-evaluation wavenumber `k_basis` to differ, filtering out negligible
 coefficients of `vec`.
 
 ## Description
-Behaves as [`Eigenstate(k, vec, ten, solver, basis, billiard)`](@ref Eigenstate),
+Behaves as [`BasisEigenstate(k, vec, ten, solver, basis, billiard)`](@ref BasisEigenstate),
 except that `k_basis` is taken as given instead of being set equal to `k`.
 This is used by accelerated solvers, where `basis` is evaluated at a fixed
 scaling wavenumber `k_basis` while the eigenstate itself is refined to a
@@ -104,22 +104,22 @@ nearby wavenumber `k`.
 * `billiard`: The billiard the eigenstate is defined on.
 
 ## Returns
-*  `state` : A new [`Eigenstate`](@ref) with filtered coefficients.
+*  `state` : A new [`BasisEigenstate`](@ref) with filtered coefficients.
 """
-function Eigenstate(k, k_basis, vec, ten, solver, basis, billiard)  
+function BasisEigenstate(k, k_basis, vec, ten, solver, basis, billiard)  
     eps = set_precision(vec[1])
     if eltype(vec) <: Real
         filtered_vec = eltype(vec).([abs(v)>eps ? v : zero(vec[1]) for v in vec])
     else 
         filtered_vec = vec
     end
-    return Eigenstate(k, k_basis, filtered_vec, ten, length(vec), eps, solver, basis, billiard)
+    return BasisEigenstate(k, k_basis, filtered_vec, ten, length(vec), eps, solver, basis, billiard)
 end
 
 """
-    compute_eigenstate(solver::SweepBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; multithreaded::Bool = true) → state::Eigenstate
+    compute_eigenstate(solver::SweepBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; multithreaded::Bool = true) → state::BasisEigenstate
 
-Computes the [`Eigenstate`](@ref) of `billiard` at wavenumber `k` using a
+Computes the [`BasisEigenstate`](@ref) of `billiard` at wavenumber `k` using a
 sweep-method `solver` (e.g. `DecompositionMethodSolver`).
 
 ## Description
@@ -140,7 +140,7 @@ obtain the tension `ten` and coefficient vector `vec`.
 *  `multithreaded::Bool = true` : Whether the matrix construction is multithreaded.
 
 ## Returns
-*  `state` : The computed [`Eigenstate`](@ref) at wavenumber `k`.
+*  `state` : The computed [`BasisEigenstate`](@ref) at wavenumber `k`.
 """
 function compute_eigenstate(solver::SweepBasisSolver, basis::AbsBasis, billiard::AbsBilliard,k; multithreaded = true)
     L = CompositeCurve(get_boundary_curves(billiard)).length
@@ -148,13 +148,13 @@ function compute_eigenstate(solver::SweepBasisSolver, basis::AbsBasis, billiard:
     basis_new = resize_basis(basis,billiard, dim, k)
     pts = evaluate_points(solver, billiard, k)
     ten, vec = solve_vect(solver, basis_new, pts, k; multithreaded)
-    return Eigenstate(k, vec, ten, solver, basis_new, billiard)
+    return BasisEigenstate(k, vec, ten, solver, basis_new, billiard)
 end
 
 """
-    compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk::Real = 0.1, multithreaded::Bool = true) → state::Eigenstate
+    compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk::Real = 0.1, multithreaded::Bool = true) → state::BasisEigenstate
 
-Computes the [`Eigenstate`](@ref) of `billiard` closest to wavenumber `k`
+Computes the [`BasisEigenstate`](@ref) of `billiard` closest to wavenumber `k`
 using an accelerated `solver` (e.g. `VerginiSaracenoSolver`).
 
 ## Description
@@ -164,7 +164,7 @@ with `L` the total boundary length, and `basis` is resized to this dimension
 with `resize_basis`. Boundary points are sampled with `evaluate_points`, and
 `solve_vectors` is used to find all candidate wavenumbers `ks`, tensions
 `tens` and eigenvectors `X` within `dk` of `k`. The candidate `k_state`
-closest to `k` is selected and used to build the resulting [`Eigenstate`](@ref),
+closest to `k` is selected and used to build the resulting [`BasisEigenstate`](@ref),
 whose `k_basis` is set to the requested `k` (the wavenumber at which `basis`
 was evaluated).
 
@@ -179,7 +179,7 @@ was evaluated).
 *  `multithreaded::Bool = true` : Whether the matrix construction is multithreaded.
 
 ## Returns
-*  `state` : The computed [`Eigenstate`](@ref) closest to wavenumber `k`.
+*  `state` : The computed [`BasisEigenstate`](@ref) closest to wavenumber `k`.
 """
 function compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k; dk = 0.1, multithreaded = true)
     L = CompositeCurve(get_boundary_curves(billiard)).length
@@ -191,5 +191,5 @@ function compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, bil
     k_state = ks[idx]
     ten = tens[idx]
     vec = X[:,idx]
-    return Eigenstate(k_state, k, vec, ten, solver, basis_new, billiard)
+    return BasisEigenstate(k_state, k, vec, ten, solver, basis_new, billiard)
 end

@@ -78,7 +78,7 @@ and `src/spectra/unfolding.jl`, none currently have docstrings.
 
 ## States
 ```@docs
-Eigenstate
+BasisEigenstate
 BasisState
 GaussianRandomState
 compute_eigenstate

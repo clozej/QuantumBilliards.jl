@@ -3,11 +3,11 @@
 #include("../utils/typeutils.jl")
 
 """
-    BasisState{K,T,Ba} <: StationaryState
+    BasisState{K,T,Ba} <: AbsState
 
 `BasisState` is a concrete type representing a single, unmixed basis function
 of `basis` as a stationary state, useful for inspecting or plotting individual
-basis functions with the same `AbsState` interface as [`Eigenstate`](@ref).
+basis functions with the same `AbsState` interface as [`BasisEigenstate`](@ref).
 
 ## Description
 The expansion coefficient vector `vec` is a unit vector with a `1` in
@@ -27,7 +27,7 @@ the `idx`-th basis function of `basis` evaluated at wavenumber `k`.
 The following functions can be evaluated for this type:
 - [`wavefunction`](@ref)
 """
-struct BasisState{K,T,Ba} <: StationaryState 
+struct BasisState{K,T,Ba} <: AbsState 
     k::K
     k_basis::K
     vec::Vector{T}

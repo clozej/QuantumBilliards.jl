@@ -59,6 +59,16 @@ The following functions can be evaluated for any `AbsSolver`:
 """
 abstract type AbsSolver end
 
+abstract type AbsBIMSolver <: AbsSolver end
+
+abstract type SweepBIMSolver <: AbsBIMSolver end
+
+abstract type AcceleratedBIMSolver <: AbsBIMSolver end
+
+abstract type AbsBasisEigenstate <: AbsState end
+
+abstract type AbsBIMEigenstate <: AbsState end
+
 """
 AbsBasisSolver <: AbsSolver
 
@@ -147,7 +157,7 @@ Every concrete subtype of `AbsState` stores at least a wavenumber `k`, the
 wavenumber `k_basis` at which the associated basis coefficients `vec` were
 evaluated, the dimension `dim` of `vec`, and a numerical precision threshold
 `eps` (see `set_precision`) below which coefficients are treated as zero.
-[`StationaryState`](@ref) is the branch of `AbsState` for states expressed in
+[`AbsState`](@ref) is the branch of `AbsState` for states expressed in
 a genuine [`AbsBasis`](@ref); [`GaussianRandomState`](@ref) is a direct
 `AbsState` subtype not tied to any specific basis, used as a random-wave
 reference ensemble.
@@ -160,19 +170,3 @@ The following functions can be evaluated for any `AbsState`:
 - `husimi_function`
 """
 abstract type AbsState end
-
-"""
-StationaryState <: AbsState
-
-`StationaryState` is the abstract supertype for states expressed as expansion
-coefficients in a concrete [`AbsBasis`](@ref).
-
-## Description
-In addition to the fields required by [`AbsState`](@ref), a `StationaryState`
-stores the `basis` (resized/evaluated at `k_basis`) in which its coefficient
-vector `vec` is expressed, so that the state can be evaluated pointwise via
-the basis' evaluation functions. Concrete subtypes are [`Eigenstate`](@ref),
-a numerically computed billiard eigenstate, and [`BasisState`](@ref), a
-single unmixed basis function viewed as a stationary state.
-"""
-abstract type StationaryState <: AbsState end
