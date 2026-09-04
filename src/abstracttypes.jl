@@ -65,6 +65,8 @@ abstract type SweepBIMSolver <: AbsBIMSolver end
 
 abstract type AcceleratedBIMSolver <: AbsBIMSolver end
 
+abstract type AbsState end
+
 abstract type AbsBasisEigenstate <: AbsState end
 
 abstract type AbsBIMEigenstate <: AbsState end
@@ -169,4 +171,4 @@ The following functions can be evaluated for any `AbsState`:
 - `wavefunction`
 - `husimi_function`
 """
-abstract type AbsState end
+
