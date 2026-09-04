@@ -49,9 +49,8 @@ export weyl_law
 
 include("states/eigenstates.jl")
 include("states/basisstates.jl")
-include("states/randomstates.jl")
 
-export BasisEigenstate, BasisState, GaussianRandomState
+export BasisEigenstate, BasisState
 export compute_eigenstate
 include("states/symmetry/reflections.jl")
 include("states/wavefunctions.jl")
