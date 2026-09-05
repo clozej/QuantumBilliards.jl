@@ -67,9 +67,9 @@ abstract type AcceleratedBIMSolver <: AbsBIMSolver end
 
 abstract type AbsState end
 
-abstract type AbsBasisEigenstate <: AbsState end
+#abstract type AbsBasisEigenstate <: AbsState end
 
-abstract type AbsBIMEigenstate <: AbsState end
+#abstract type AbsBIMEigenstate <: AbsState end
 
 """
 AbsBasisSolver <: AbsSolver

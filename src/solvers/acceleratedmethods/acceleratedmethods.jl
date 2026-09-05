@@ -1,8 +1,6 @@
-#include("../../abstracttypes.jl")
-#include("../../utils/billiardutils.jl")
-#include("decompositions.jl")
-#include("../samplers.jl")
 include("verginisaraceno.jl")
+include("ebim.jl")
+include("beyn.jl")
 
 """
     solve_wavenumber(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (k0, t0)

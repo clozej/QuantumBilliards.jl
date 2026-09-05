@@ -193,3 +193,14 @@ function compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, bil
     vec = X[:,idx]
     return BasisEigenstate(k_state, k, vec, ten, solver, basis_new, billiard)
 end
+
+struct BIMEigenstate{K,T,S,Bi} <: AbsState
+    k::K
+    k_basis::K
+    vec::Vector{K}
+    ten::T
+    dim::Int64
+    eps::T
+    solver::S
+    billiard::Bi
+end

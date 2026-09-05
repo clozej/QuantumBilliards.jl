@@ -1,0 +1,1 @@
+struct DoubleLayerPotentialSolver{T} <: SweepBIMSolver where {T<:Real} end

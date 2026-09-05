@@ -1,0 +1,1 @@
+struct CombinedFieldIntegralEquationSolver{T} <: SweepBIMSolver where {T<:Real} end
