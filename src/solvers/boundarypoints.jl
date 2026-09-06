@@ -26,9 +26,20 @@ all non-empty vector fields have the same length as `xy`.
 * `w_dm`: Quadrature weights for the decomposition method, see [`DecompositionMethodSolver`](@ref).
 * `xy_int`: Interior points (reserved, currently unused).
 
+Fields added for boundary-integral/Kress-type discretizations (populated only
+by [`SweepBIMSolver`](@ref)/[`AcceleratedBIMSolver`](@ref) `evaluate_points`
+methods): `w`, `w_n`, `curvature`, `shift_x`, `shift_y`, `tangent`,
+`tangent_2`, `ts`, `tphys`, `ws`, `ws_der`, `compid`, `is_periodic`, `xL`,
+`xR`, `tL`, `tR`. These default to empty vectors/neutral scalars and are
+otherwise unused by the basis solvers (`kappa`/`rdotn`/`w_vs`/`w_dm` are
+unaffected).
+
 ## API
 The following functions can be evaluated for this type:
 - [`boundary_coords`](@ref)
+- [`boundary_matrix_size`](@ref)
+- [`boundary_s`](@ref)
+- [`component_offsets`](@ref)
 - `Base.length`
 - `Base.isempty`
 """
@@ -42,41 +53,77 @@ struct BoundaryPoints{T<:Real}
     w_vs::Vector{T}
     w_dm::Vector{T}
     xy_int::Vector{SVector{2,T}}
-    
+    w::Vector{T}
+    w_n::Vector{T}
+    curvature::Vector{T}
+    shift_x::T
+    shift_y::T
+    tangent::Vector{SVector{2,T}}
+    tangent_2::Vector{SVector{2,T}}
+    ts::Vector{T}
+    tphys::Vector{T}
+    ws::Vector{T}
+    ws_der::Vector{T}
+    compid::Int
+    is_periodic::Bool
+    xL::SVector{2,T}
+    xR::SVector{2,T}
+    tL::SVector{2,T}
+    tR::SVector{2,T}
+
     # Inner constructor with validation
-    function BoundaryPoints{T}(xy, normal, kappa, s, ds, rdotn, w_vs, w_dm, xy_int) where T<:Real
+    function BoundaryPoints{T}(xy, normal, kappa, s, ds, rdotn, w_vs, w_dm, xy_int,
+                                w, w_n, curvature, shift_x, shift_y, tangent, tangent_2,
+                                ts, tphys, ws, ws_der, compid, is_periodic, xL, xR, tL, tR) where T<:Real
         n = length(xy)
         # Validate that non-empty vectors have consistent lengths
-        for (name, vec) in [(:normal, normal), (:ds, ds), (:rdotn, rdotn), 
-                             (:w_vs, w_vs), (:w_dm, w_dm)]
+        for (name, vec) in [(:normal, normal), (:s, s), (:ds, ds), (:rdotn, rdotn),
+                             (:w_vs, w_vs), (:w_dm, w_dm), (:w, w), (:w_n, w_n),
+                             (:curvature, curvature), (:tangent, tangent), (:tangent_2, tangent_2),
+                             (:ts, ts), (:tphys, tphys), (:ws, ws), (:ws_der, ws_der)]
             if !isempty(vec) && length(vec) != n
                 error("Length of $name ($(length(vec))) must match xy ($n)")
             end
         end
-        new{T}(xy, normal, kappa, s, ds, rdotn, w_vs, w_dm, xy_int)
+        new{T}(xy, normal, kappa, s, ds, rdotn, w_vs, w_dm, xy_int,
+               w, w_n, curvature, shift_x, shift_y, tangent, tangent_2,
+               ts, tphys, ws, ws_der, compid, is_periodic, xL, xR, tL, tR)
     end
 end
 
 # 2. Convenience constructor to infer T from xy
 """
-    BoundaryPoints(xy::Vector{SVector{2,T}}; normal = SVector{2,T}[], kappa = T[], s = T[], ds = T[], rdotn = T[], w_vs = T[], w_dm = T[], xy_int = SVector{2,T}[]) where T<:Real → bp::BoundaryPoints{T}
+    BoundaryPoints(xy::Vector{SVector{2,T}}; kwargs...) where T<:Real → bp::BoundaryPoints{T}
 
 Constructs a [`BoundaryPoints`](@ref) instance from the boundary points `xy`,
 inferring the element type `T` from `xy` and defaulting all other fields to empty
-vectors when not supplied as keyword arguments.
+vectors/neutral scalars when not supplied as keyword arguments.
 
 ## Arguments
 * `xy`: Vector of boundary points in Cartesian coordinates.
 
 ## Keyword arguments
 * `normal::Vector{SVector{2,T}} = SVector{2,T}[]`: Outward unit normal vectors at each boundary point.
-* `kappa::Vector{T} = T[]`: Curvature of the boundary at each point.
+* `kappa::Vector{T} = T[]`: Curvature of the boundary at each point (reserved, currently unused).
 * `s::Vector{T} = T[]`: Arc-length coordinate of each boundary point.
 * `ds::Vector{T} = T[]`: Arc-length quadrature element at each boundary point.
 * `rdotn::Vector{T} = T[]`: Dot product of the position vector with the normal, `r ⋅ n`.
 * `w_vs::Vector{T} = T[]`: Quadrature weights for the Vergini–Saraceno method.
 * `w_dm::Vector{T} = T[]`: Quadrature weights for the decomposition method.
 * `xy_int::Vector{SVector{2,T}} = SVector{2,T}[]`: Interior points.
+* `w::Vector{T} = T[]`: Solver-specific boundary weights (BIM solvers).
+* `w_n::Vector{T} = T[]`: Additional solver-specific normal weights (BIM solvers).
+* `curvature::Vector{T} = T[]`: Curvature values at the boundary points (BIM solvers).
+* `shift_x::T = zero(T)`, `shift_y::T = zero(T)`: Symmetry-transformation shifts.
+* `tangent::Vector{SVector{2,T}} = SVector{2,T}[]`: First derivative of the boundary parametrization at the nodes.
+* `tangent_2::Vector{SVector{2,T}} = SVector{2,T}[]`: Second derivative of the boundary parametrization at the nodes.
+* `ts::Vector{T} = T[]`: Computational (uniform/graded) parameter values.
+* `tphys::Vector{T} = T[]`: Physical/global boundary parameter values.
+* `ws::Vector{T} = T[]`: Quadrature weights in the computational parameter.
+* `ws_der::Vector{T} = T[]`: Derivatives of the computational quadrature weights (grading Jacobian).
+* `compid::Int = 1`: Boundary-component index for multiply connected geometries.
+* `is_periodic::Bool = true`: Whether the discretized boundary component is periodic.
+* `xL,xR::SVector{2,T}`, `tL,tR::SVector{2,T}`: Endpoints/tangents of a non-periodic boundary component.
 
 ## Returns
 * `bp`: A [`BoundaryPoints{T}`](@ref) instance holding the supplied boundary data.
@@ -89,8 +136,55 @@ function BoundaryPoints(xy::Vector{SVector{2,T}};
                         rdotn=T[], 
                         w_vs=T[], 
                         w_dm=T[], 
-                        xy_int=SVector{2,T}[]) where T<:Real
-    return BoundaryPoints{T}(xy, normal, kappa, s, ds, rdotn, w_vs, w_dm, xy_int)
+                        xy_int=SVector{2,T}[],
+                        w=T[],
+                        w_n=T[],
+                        curvature=T[],
+                        shift_x=zero(T),
+                        shift_y=zero(T),
+                        tangent=SVector{2,T}[],
+                        tangent_2=SVector{2,T}[],
+                        ts=T[],
+                        tphys=T[],
+                        ws=T[],
+                        ws_der=T[],
+                        compid=1,
+                        is_periodic=true,
+                        xL=SVector{2,T}(zero(T),zero(T)),
+                        xR=SVector{2,T}(zero(T),zero(T)),
+                        tL=SVector{2,T}(zero(T),zero(T)),
+                        tR=SVector{2,T}(zero(T),zero(T))) where T<:Real
+    return BoundaryPoints{T}(xy, normal, kappa, s, ds, rdotn, w_vs, w_dm, xy_int,
+                              w, w_n, curvature, shift_x, shift_y, tangent, tangent_2,
+                              ts, tphys, ws, ws_der, compid, is_periodic, xL, xR, tL, tR)
+end
+
+"""
+    BoundaryPoints(xy::Vector{SVector{2,T}}, tangent::Vector{SVector{2,T}}, tangent_2::Vector{SVector{2,T}}, ts::Vector{T}, tphys::Vector{T}, ws::Vector{T}, ws_der::Vector{T}, s::Vector{T}, ds::Vector{T}, compid::Int, is_periodic::Bool, xL::SVector{2,T}, xR::SVector{2,T}, tL::SVector{2,T}, tR::SVector{2,T}) where T<:Real → bp::BoundaryPoints{T}
+
+Constructs a parametrized boundary discretization from sampled points, first
+and second parametrization derivatives, computational nodes and quadrature
+weights, as used by boundary-integral (Kress-type) `evaluate_points` methods.
+
+The outward unit normals are computed directly from `tangent` via
+`n = (t_y, -t_x)/|t|`.
+
+## Returns
+* `bp`: A [`BoundaryPoints{T}`](@ref) instance with both physical and parametric boundary data populated.
+"""
+function BoundaryPoints(xy::Vector{SVector{2,T}}, tangent::Vector{SVector{2,T}}, tangent_2::Vector{SVector{2,T}},
+                        ts::Vector{T}, tphys::Vector{T}, ws::Vector{T}, ws_der::Vector{T}, s::Vector{T}, ds::Vector{T},
+                        compid::Int, is_periodic::Bool, xL::SVector{2,T}, xR::SVector{2,T}, tL::SVector{2,T}, tR::SVector{2,T}) where T<:Real
+    n = length(xy)
+    normal = Vector{SVector{2,T}}(undef, n)
+    @inbounds for i in eachindex(tangent)
+        tx, ty = tangent[i]
+        sp = hypot(tx, ty)
+        normal[i] = SVector{2,T}(ty/sp, -tx/sp)
+    end
+    return BoundaryPoints(xy; normal=normal, s=s, ds=ds, tangent=tangent, tangent_2=tangent_2,
+                          ts=ts, tphys=tphys, ws=ws, ws_der=ws_der, compid=compid, is_periodic=is_periodic,
+                          xL=xL, xR=xR, tL=tL, tR=tR)
 end
 
 # 3. Add useful methods
@@ -107,6 +201,83 @@ Base.length(bp::BoundaryPoints) = length(bp.xy)
 Returns `true` if `bp` contains no boundary points, i.e. `isempty(bp.xy)`.
 """
 Base.isempty(bp::BoundaryPoints) = isempty(bp.xy)
+
+"""
+    boundary_matrix_size(pts::BoundaryPoints) → N::Int
+
+Returns the number of boundary degrees of freedom represented by `pts`.
+"""
+@inline boundary_matrix_size(pts::BoundaryPoints) = length(pts.xy)
+
+"""
+    boundary_matrix_size(pts::Vector{BoundaryPoints{T}}) where T<:Real → N::Int
+
+Returns the total number of boundary degrees of freedom over all boundary
+components in `pts` (used by [`CompositeBIMSolver`](@ref) and composite
+`GlobalCornerGrading` boundaries).
+"""
+function boundary_matrix_size(pts::Vector{BoundaryPoints{T}}) where T<:Real
+    return sum(length, pts)
+end
+
+"""
+    boundary_s(pts::BoundaryPoints) → s::Vector
+
+Returns the stored arc-length coordinates of the boundary discretization.
+"""
+@inline boundary_s(pts::BoundaryPoints) = pts.s
+
+"""
+    boundary_s(pts::Vector{BoundaryPoints{T}}) where T<:Real → s::Vector{T}
+
+Returns continuous arc-length coordinates for a vector of boundary components,
+shifting each component's local arc-length by the accumulated length of the
+preceding components so that the result is continuous over the concatenated
+boundary.
+"""
+function boundary_s(pts::Vector{BoundaryPoints{T}}) where T<:Real
+    isempty(pts) && return T[]
+    s = T[]
+    sizehint!(s, sum(length(p.s) for p in pts))
+    soff = zero(T)
+    for p in pts
+        append!(s, p.s .+ soff)
+        soff += sum(p.ds)
+    end
+    return s
+end
+
+"""
+    component_offsets(pts::Vector{BoundaryPoints{T}}) where T<:Real → offs::Vector{Int}
+
+Returns the starting indices of the boundary components in the flattened
+boundary discretization: for components with `N₁,N₂,...` points, the offsets
+are `[1, 1+N₁, 1+N₁+N₂, ...]`, so the points of component `a` occupy
+`offs[a]:offs[a+1]-1`.
+"""
+function component_offsets(pts::Vector{BoundaryPoints{T}}) where T<:Real
+    offs = Vector{Int}(undef, length(pts)+1)
+    offs[1] = 1
+    @inbounds for i in eachindex(pts)
+        offs[i+1] = offs[i] + length(pts[i])
+    end
+    return offs
+end
+
+"""
+    component_offsets(pts::BoundaryPoints) → offs::Vector{Int}
+
+Returns the component offsets for a single boundary component, `[1, length(pts)+1]`.
+"""
+@inline component_offsets(pts::BoundaryPoints) = [1, length(pts)+1]
+
+"""
+    points_in_billiard(pts, billiard) → mask
+
+Returns the interior-membership mask of `pts` with respect to `billiard`,
+delegating directly to [`is_inside`](@ref).
+"""
+@inline points_in_billiard(pts, billiard) = is_inside(billiard, pts)
 
 function _determine_bp_sizes(curves, bs, k)
     Ns = Vector{Int64}(undef,length(curves)) # store the data to indexwise access. This needs to be this way b/c we dont know beforehand which curves are real and which are abstract. Use sizehint! to give an idea as to not need to resize b/c it could the that real and abstract curves and intermingled
