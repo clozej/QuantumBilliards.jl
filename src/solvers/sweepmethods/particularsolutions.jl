@@ -36,14 +36,8 @@ The following functions can be evaluated for this type:
 - [`solve_wavenumber`](@ref)
 - [`k_sweep`](@ref)
 
-!!! note "Migration status"
-    API scaffold only (struct, constructor and method signatures) ported from
-    `QuantumBilliards-develop`'s `ParticularSolutionsMethod`. The
-    matrix-assembly bodies are not yet implemented; every method below raises
-    an `error` until Step 2 of the migration plan lands. `solve_wavenumber` and
-    `k_sweep` are already usable once `evaluate_points`/`solve` are
-    implemented, since they are inherited for free from the shared
-    [`SweepBasisSolver`](@ref) generics.
+`solve_wavenumber` and `k_sweep` are inherited for free from the shared
+[`SweepBasisSolver`](@ref) generics.
 """
 struct ParticularSolutionsMethod{T} <: SweepBasisSolver where {T<:Real}
     dim_scaling_factor::T
@@ -112,19 +106,58 @@ function ParticularSolutionsMethod(dim_scaling_factor::T, pts_scaling_factor::Un
     return ParticularSolutionsMethod(d, bs, int_pts_scaling_factor, samplers, eps(T), min_dim, min_pts, min_int_pts)
 end
 
-const _PSM_NOT_IMPLEMENTED = "ParticularSolutionsMethod matrix assembly is not yet implemented (API scaffold only, see the QuantumBilliardsTests migration plan)."
-
 """
     evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, k) where {Bi<:AbsBilliard} → pts::BoundaryPoints
 
 Samples the boundary of `billiard`, together with a set of random interior
 points, needed to construct the matrices in [`construct_matrices`](@ref).
 
-!!! note "Migration status"
-    Not yet implemented; raises an `error`.
+## Description
+Each fundamental boundary curve is sampled with its own sampler (see
+[`adjust_scaling_and_samplers`](@ref)), giving `xy`, the outward unit `normal`,
+the running arc-length coordinate `s` and the quadrature element `ds`. The
+number of interior points is
+`M_int = max(solver.min_int_pts, round(Int, k*L0*solver.int_pts_scaling_factor/(2π)))`,
+where `L0` is the total boundary length, and `M_int` points are sampled from
+the billiard's interior with [`random_interior_points`](@ref).
+
+## Arguments
+* `solver`: The [`ParticularSolutionsMethod`](@ref) used to determine the sampling parameters.
+* `billiard`: The billiard whose boundary and interior are sampled.
+* `k`: The wavenumber used to determine the number of boundary and interior sampling points.
+
+## Returns
+* `pts`: A [`BoundaryPoints`](@ref) instance with the `xy`, `normal`, `s`, `ds` and `xy_int` fields populated.
 """
 function evaluate_points(solver::ParticularSolutionsMethod, billiard::Bi, k) where {Bi<:AbsBilliard}
-    error(_PSM_NOT_IMPLEMENTED)
+    bs, samplers = adjust_scaling_and_samplers(solver, billiard)
+    curves = get_boundary_curves(billiard)
+    T = eltype(solver.pts_scaling_factor)
+    Ns = _determine_bp_sizes(curves, bs, k)
+    M = length(Ns)
+    xy_all = Vector{Vector{SVector{2,T}}}(undef, M)
+    normal_all = Vector{Vector{SVector{2,T}}}(undef, M)
+    s_all = Vector{Vector{T}}(undef, M)
+    ds_all = Vector{Vector{T}}(undef, M)
+    L0 = zero(T)
+    for i in eachindex(curves)
+        crv = curves[i]
+        L = crv.length
+        sampler = samplers[i]
+        t, dt = sample_points(sampler, Ns[i])
+        ds = L*dt
+        xy = curve(crv, t)
+        normal = domain_gradient_vector(crv, xy)
+        normal .= normal./norm(normal)
+        xy_all[i] = xy
+        normal_all[i] = normal
+        s_all[i] = arc_length(crv, t) .+ L0
+        ds_all[i] = ds
+        L0 += L
+    end
+    M_int = max(solver.min_int_pts, round(Int, k*L0*solver.int_pts_scaling_factor/(2*pi)))
+    xy_int = random_interior_points(billiard, M_int)
+    return BoundaryPoints(vcat(xy_all...); normal=vcat(normal_all...), s=vcat(s_all...), ds=vcat(ds_all...), xy_int=xy_int)
 end
 
 """
@@ -133,11 +166,27 @@ end
 Constructs the boundary basis matrix `B` and the interior basis matrix
 `B_int` at wavenumber `k`.
 
-!!! note "Migration status"
-    Not yet implemented; raises an `error`.
+## Arguments
+* `solver`: The [`ParticularSolutionsMethod`](@ref) whose matrices are constructed.
+* `basis`: The basis used to evaluate `B` and `B_int`.
+* `pts`: The [`BoundaryPoints`](@ref) with sampled boundary points `xy` and interior points `xy_int`.
+* `k`: The wavenumber at which the basis is evaluated.
+
+## Keyword arguments
+* `multithreaded::Bool = true`: Whether the matrix construction is multithreaded.
+
+## Returns
+* `B`: Basis matrix evaluated at the boundary points `pts.xy`.
+* `B_int`: Basis matrix evaluated at the interior points `pts.xy_int`.
 """
 function construct_matrices(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true) where {Ba<:AbsBasis}
-    error(_PSM_NOT_IMPLEMENTED)
+    pts_bd = pts.xy
+    pts_int = pts.xy_int
+    @blas_1 begin
+        B = basis_matrix(basis, k, pts_bd; multithreaded=multithreaded)
+        B_int = basis_matrix(basis, k, pts_int; multithreaded=multithreaded)
+    end
+    return B, B_int
 end
 
 """
@@ -146,49 +195,169 @@ end
 Computes the particular solutions method tension at wavenumber `k` from the
 full (non rank-reduced) singular value decomposition of `B`/`B_int`.
 
-!!! note "Migration status"
-    Not yet implemented; raises an `error`.
+## Description
+The tension is the smallest generalized singular value of the pencil
+`(B, B_int)`, computed directly with `svdvals(B, B_int)`. This is more
+expensive but more numerically robust than [`solve_with_rank_reduction`](@ref)
+for small-to-moderate basis dimensions.
+
+## Arguments
+* `solver`: The [`ParticularSolutionsMethod`](@ref) used to solve the eigenvalue problem.
+* `basis`: The basis used to approximate the eigenstate.
+* `pts`: The [`BoundaryPoints`](@ref) with sampled boundary/interior points.
+* `k`: The wavenumber at which the tension is evaluated.
+
+## Keyword arguments
+* `multithreaded::Bool = true`: Whether the matrix construction is multithreaded.
+
+## Returns
+* `t`: The tension at wavenumber `k`, the smallest generalized singular value of `(B, B_int)`.
 """
 function solve_full(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true) where {Ba<:AbsBasis}
-    error(_PSM_NOT_IMPLEMENTED)
+    B, B_int = construct_matrices(solver, basis, pts, k; multithreaded=multithreaded)
+    @blas_multi_then_1 MAX_BLAS_THREADS solution=svdvals(B,B_int)
+    return minimum(solution)
+end
+
+@inline function _numerical_rank_from_F(F, tol::Real)
+    A = F.factors
+    n = min(size(A,1), size(A,2))
+    n == 0 && return 0
+    t = tol*abs(@inbounds A[1,1])
+    @inbounds for i in n:-1:1
+        if abs(A[i,i]) > t
+            return i
+        end
+    end
+    return 0
 end
 
 """
-    solve_with_rank_reduction(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool = true) where {Ba<:AbsBasis} → t::Real
+    solve_with_rank_reduction(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool = true, tol::Real = 1e-10) where {Ba<:AbsBasis} → t::Real
 
 Computes the particular solutions method tension at wavenumber `k` using a
 rank-reduced singular value decomposition of `B`/`B_int` for improved
 performance at large basis dimension.
 
-!!! note "Migration status"
-    Not yet implemented; raises an `error`.
+## Description
+`B_int` is factorized with a rank-revealing pivoted QR, `B_int * P = Q * R`.
+Only the numerically well-determined leading `r × r` block of `R` (with `r`
+determined by [`_numerical_rank_from_F`](@ref) and `tol`) is used to reduce `B`
+via a stable triangular solve, after which the tension is the square root of
+the smallest eigenvalue of the small `r × r` matrix `B_reduced' * B_reduced`.
+This avoids ever forming the full generalized SVD of `(B, B_int)`.
+
+## Arguments
+* `solver`: The [`ParticularSolutionsMethod`](@ref) used to solve the eigenvalue problem.
+* `basis`: The basis used to approximate the eigenstate.
+* `pts`: The [`BoundaryPoints`](@ref) with sampled boundary/interior points.
+* `k`: The wavenumber at which the tension is evaluated.
+
+## Keyword arguments
+* `multithreaded::Bool = true`: Whether the matrix construction is multithreaded.
+* `tol::Real = 1e-10`: Relative tolerance used to determine the numerical rank of `B_int`'s QR factorization. Should increase with `k` since `R[1,1]` decreases with `k`.
+
+## Returns
+* `t`: The tension at wavenumber `k`.
 """
-function solve_with_rank_reduction(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true) where {Ba<:AbsBasis}
-    error(_PSM_NOT_IMPLEMENTED)
+function solve_with_rank_reduction(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true, tol=1e-10) where {Ba<:AbsBasis}
+    B, C = construct_matrices(solver, basis, pts, k; multithreaded=multithreaded)
+    T = eltype(B)
+    @blas_multi_then_1 MAX_BLAS_THREADS begin
+        F = qr!(C, ColumnNorm()) # rank-revealing QR with column pivoting: C*P = Q*R, overwrite C since it is no longer needed
+        r = _numerical_rank_from_F(F, tol) # numerical rank r from the packed factors (no copy)
+        r == 0 && return Inf # degenerate fallback
+        Rview = @views UpperTriangular(view(F.factors, 1:r, 1:r)) # well-determined r x r block of R (no copy)
+        piv = F.p # permutation vector piv such that C[:,piv] = Q*R
+        B = @views B[:,piv[1:r]]/Rview # Br = B[:,piv[1:r]] * R^{-1} via stable triangular solve, overwrite B
+        r = size(B, 2)
+        B_sq = Matrix{T}(undef, r, r)
+        BLAS.syrk!('U','T',one(T),B,zero(T),B_sq) # B_sq[u ∈ upper] = B'*B
+        _symmetrize_from_upper!(B_sq)
+        return sqrt(abs(eigmin(Symmetric(B_sq)))) # smallest singular value of B via eigmin(B'B)
+    end
 end
 
 """
-    solve(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool = true) where {Ba<:AbsBasis} → t::Real
+    solve(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool = true, use_rank_reduction::Bool = true, tol::Real = 1e-10) where {Ba<:AbsBasis} → t::Real
 
 Computes the particular solutions method tension at wavenumber `k` for `basis`
 on the boundary/interior points `pts`.
 
-!!! note "Migration status"
-    Not yet implemented; raises an `error`.
+## Description
+Dispatches to [`solve_with_rank_reduction`](@ref) by default, which is
+substantially faster at large basis dimension; set `use_rank_reduction = false`
+to instead use the more robust, full-SVD [`solve_full`](@ref).
+
+## Arguments
+* `solver`: The [`ParticularSolutionsMethod`](@ref) used to solve the eigenvalue problem.
+* `basis`: The basis used to approximate the eigenstate.
+* `pts`: The [`BoundaryPoints`](@ref) with sampled boundary/interior points.
+* `k`: The wavenumber at which the tension is evaluated.
+
+## Keyword arguments
+* `multithreaded::Bool = true`: Whether the matrix construction is multithreaded.
+* `use_rank_reduction::Bool = true`: If true, uses [`solve_with_rank_reduction`](@ref); otherwise uses [`solve_full`](@ref).
+* `tol::Real = 1e-10`: Rank tolerance passed to [`solve_with_rank_reduction`](@ref).
+
+## Returns
+* `t`: The tension at wavenumber `k`.
 """
-function solve(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true) where {Ba<:AbsBasis}
-    error(_PSM_NOT_IMPLEMENTED)
+function solve(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true, use_rank_reduction::Bool=true, tol=1e-10) where {Ba<:AbsBasis}
+    if use_rank_reduction
+        return solve_with_rank_reduction(solver, basis, pts, k; multithreaded=multithreaded, tol=tol)
+    else
+        return solve_full(solver, basis, pts, k; multithreaded=multithreaded)
+    end
 end
 
 """
-    solve_vect(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool = true) where {Ba<:AbsBasis} → (t::Real, x::Vector)
+    solve_vect(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool = true, tol::Real = 1e-10) where {Ba<:AbsBasis} → (t::Real, x::Vector)
 
 Computes the particular solutions method tension and the corresponding
 eigenvector (expressed in the original basis) at wavenumber `k`.
 
-!!! note "Migration status"
-    Not yet implemented; raises an `error`.
+## Description
+Same rank-revealing QR reduction of `B_int` as
+[`solve_with_rank_reduction`](@ref), but additionally recovers the minimizing
+coefficient vector: the reduced matrix `B_reduced` is factorized with a full
+SVD, and its right singular vector for the smallest singular value is
+back-substituted through the QR triangular factor and un-pivoted to give the
+coefficient vector `x` in the original basis ordering expected by
+[`BasisEigenstate`](@ref).
+
+## Arguments
+* `solver`: The [`ParticularSolutionsMethod`](@ref) used to solve the eigenvalue problem.
+* `basis`: The basis used to approximate the eigenstate.
+* `pts`: The [`BoundaryPoints`](@ref) with sampled boundary/interior points.
+* `k`: The wavenumber at which the eigenstate is evaluated.
+
+## Keyword arguments
+* `multithreaded::Bool = true`: Whether the matrix construction is multithreaded.
+* `tol::Real = 1e-10`: Relative tolerance used to determine the numerical rank of `B_int`'s QR factorization.
+
+## Returns
+* `t`: The tension at wavenumber `k`.
+* `x`: The eigenvector expressed in the original basis coefficient ordering.
 """
-function solve_vect(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true) where {Ba<:AbsBasis}
-    error(_PSM_NOT_IMPLEMENTED)
+function solve_vect(solver::ParticularSolutionsMethod, basis::Ba, pts::BoundaryPoints, k; multithreaded::Bool=true, tol=1e-10) where {Ba<:AbsBasis}
+    B, C = construct_matrices(solver, basis, pts, k; multithreaded=multithreaded)
+    @blas_multi_then_1 MAX_BLAS_THREADS begin
+        T = eltype(B)
+        F = qr(C, ColumnNorm()) # rank-revealing QR with column pivoting: C*P = Q*R
+        R = UpperTriangular(F.R)
+        piv = F.p # permutation vector piv such that C[:,piv] = Q*R
+        r = findlast(i -> abs(R[i,i]) > tol*abs(R[1,1]), 1:min(size(R)...)) # numerical rank
+        isnothing(r) && return (Inf, zeros(T, size(B,2))) # degenerate fallback
+        Rr = R[1:r,1:r] # well-determined r x r block
+        Br = B[:,piv[1:r]]/Rr # Br = B[:,piv[1:r]] * Rr^{-1} via stable triangular solve
+        _,S,Vt = LAPACK.gesvd!('A','A',Br) # SVD(Br) = U*Diag(S)*Vt
+        idx = findmin(S)[2]
+        mu = S[idx]
+        u_mu = Vt[idx,:]
+        y = real.(u_mu)
+        chat = zeros(T, size(B,2))
+        chat[piv[1:r]] = Rr\y # back-substitute: c[piv[1:r]] = Rr^{-1} y, rest are zero
+        return mu, chat
+    end
 end

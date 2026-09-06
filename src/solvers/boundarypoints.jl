@@ -284,3 +284,45 @@ including both `SpecularReflection` and `QuantumSolverIgnore` curves. See
 function get_boundary_curves_with_ignored(billiard::B) where B<:AbsBilliard
     return get_boundary_curves_with_ignored(billiard.fundamental_domain)
 end
+
+"""
+    random_interior_points(billiard::Bi, N::Int; grd::Int = 1000) where {Bi<:AbsBilliard} → pts::Vector{SVector{2,T}}
+
+Generates `N` points sampled uniformly (by rejection) from the interior of
+`billiard`, for use e.g. by [`ParticularSolutionsMethod`](@ref)'s
+[`evaluate_points`](@ref).
+
+## Description
+Candidate points are drawn uniformly from the padded bounding box of
+`billiard`'s boundary curves (see [`boundary_limits`](@ref)) and accepted only
+if [`is_inside`](@ref) confirms they lie within the billiard, until `N`
+interior points have been collected.
+
+## Arguments
+* `billiard`: The billiard whose interior is sampled.
+* `N`: The number of interior points to generate.
+
+## Keyword arguments
+* `grd::Int = 1000`: Target sampling density used to determine the bounding box, see [`boundary_limits`](@ref).
+
+## Returns
+* `pts`: A `Vector{SVector{2,T}}` of `N` interior points.
+"""
+function random_interior_points(billiard::Bi, N::Int; grd::Int=1000) where {Bi<:AbsBilliard}
+    xlim, ylim = boundary_limits(get_boundary_curves(billiard); grd=grd)
+    dx = xlim[2] - xlim[1]
+    dy = ylim[2] - ylim[1]
+    T = typeof(dx)
+    pts = Vector{SVector{2,T}}(undef, N)
+    n = 0
+    while n < N
+        x = dx*rand() + xlim[1]
+        y = dy*rand() + ylim[1]
+        pt = SVector(x, y)
+        if is_inside(billiard, pt)
+            n += 1
+            pts[n] = pt
+        end
+    end
+    return pts
+end
