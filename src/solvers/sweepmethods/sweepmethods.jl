@@ -1,6 +1,9 @@
 include("decompositionmethod.jl")
+include("particularsolutions.jl")
+include("boundarygrading.jl")
 include("dlp.jl")
 include("cfie.jl")
+include("compositebim.jl")
 
 """
     solve_wavenumber(solver::SweepBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (k0::Real, t0::Real)
@@ -77,6 +80,77 @@ function k_sweep(solver::SweepBasisSolver, basis::AbsBasis, billiard::AbsBilliar
     res = similar(ks)
     for (i,k) in enumerate(ks)
         res[i] = solve(solver,new_basis,pts,k; multithreaded)
+    end
+    return res
+end
+
+"""
+    solve_wavenumber(solver::SweepBIMSolver, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (k0::Real, t0::Real)
+
+Finds the wavenumber `k0` within `[k - dk/2, k + dk/2]` that minimizes the tension
+computed by the boundary-integral sweep `solver`, together with the minimal
+tension `t0`.
+
+## Description
+Boundary points are generated once with [`evaluate_points`](@ref), and the
+tension `solve(solver, pts, k; multithreaded)` is minimized over `k` in the
+search window with `Optim.optimize`, exactly as
+[`solve_wavenumber(::SweepBasisSolver, ...)`](@ref) does for basis-expansion
+solvers, but without a basis to resize.
+
+## Arguments
+* `solver`: The [`SweepBIMSolver`](@ref) used to solve for the tension at each wavenumber.
+* `billiard`: The billiard whose boundary is discretized.
+* `k`: The center of the wavenumber search window.
+* `dk`: Width of the wavenumber search window, `[k - dk/2, k + dk/2]`.
+
+## Keyword arguments
+* `multithreaded::Bool = true`: Whether the matrix construction is multithreaded.
+
+## Returns
+* `k0`: The wavenumber minimizing the tension within the search window.
+* `t0`: The minimal tension found at `k0`.
+"""
+function solve_wavenumber(solver::SweepBIMSolver, billiard::Bi, k, dk; multithreaded::Bool=true) where {Bi<:AbsBilliard}
+    pts = evaluate_points(solver, billiard, k)
+    function f(k)
+        return solve(solver, pts, k; multithreaded)
+    end
+    res = optimize(f, k-0.5*dk, k+0.5*dk)
+    k0, t0 = res.minimizer, res.minimum
+    return k0, t0
+end
+
+"""
+    k_sweep(solver::SweepBIMSolver, billiard::AbsBilliard, ks; multithreaded::Bool = true) → res::Vector
+
+Computes the tension of the boundary-integral sweep `solver` at every
+wavenumber in `ks`, using a single boundary discretization sized for the
+largest wavenumber in `ks`.
+
+## Description
+Boundary points are generated once with [`evaluate_points`](@ref), sized for
+`maximum(ks)`, and [`solve`](@ref) is called for every wavenumber in `ks`,
+exactly as [`k_sweep(::SweepBasisSolver, ...)`](@ref) does for basis-expansion
+solvers, but without a basis to resize.
+
+## Arguments
+* `solver`: The [`SweepBIMSolver`](@ref) used to solve for the tension at each wavenumber.
+* `billiard`: The billiard whose boundary is discretized.
+* `ks`: Vector (or range) of wavenumbers at which the tension is evaluated.
+
+## Keyword arguments
+* `multithreaded::Bool = true`: Whether the matrix construction is multithreaded.
+
+## Returns
+* `res`: Vector of tensions, one for each wavenumber in `ks`.
+"""
+function k_sweep(solver::SweepBIMSolver, billiard::Bi, ks; multithreaded::Bool=true) where {Bi<:AbsBilliard}
+    k = maximum(ks)
+    pts = evaluate_points(solver, billiard, k)
+    res = similar(ks)
+    for (i,k) in enumerate(ks)
+        res[i] = solve(solver, pts, k; multithreaded)
     end
     return res
 end

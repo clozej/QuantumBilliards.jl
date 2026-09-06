@@ -59,10 +59,81 @@ The following functions can be evaluated for any `AbsSolver`:
 """
 abstract type AbsSolver end
 
+"""
+AbsBIMSolver <: AbsSolver
+
+`AbsBIMSolver` is the abstract supertype for all algorithms that determine
+quantum billiard eigenvalues (wavenumbers) from a Nyström/boundary-integral
+discretization of a Fredholm operator acting directly on unknown boundary
+densities.
+
+## Description
+Unlike [`AbsBasisSolver`](@ref), no [`AbsBasis`](@ref) expansion is involved:
+the unknowns are the boundary density values themselves, sampled at the
+boundary discretization points. `AbsBIMSolver` mirrors the
+sweep/accelerated split of `AbsBasisSolver` through its two direct
+concrete-algorithm branches, [`SweepBIMSolver`](@ref) and
+[`AcceleratedBIMSolver`](@ref).
+
+## API
+The following functions can be evaluated for any `AbsBIMSolver`:
+- `evaluate_points`
+- `construct_matrices`
+- `solve`
+"""
 abstract type AbsBIMSolver <: AbsSolver end
 
+"""
+SweepBIMSolver <: AbsBIMSolver
+
+`SweepBIMSolver` is the abstract supertype for boundary-integral solvers that
+locate quantum billiard eigenvalues by sweeping over a range of individual
+wavenumbers and minimizing a tension function at each one.
+
+## Description
+At each wavenumber `k`, a `SweepBIMSolver` assembles the Fredholm matrix
+`A(k)` (see `construct_matrices`) from a boundary discretization and defines
+the tension as a function of the smallest singular value / nullspace residual
+of `A(k)` (see `solve`); scanning this tension over a range of wavenumbers
+locates the billiard's eigenvalues, exactly as [`SweepBasisSolver`](@ref) does
+for basis-expansion solvers. Concrete implementations are
+[`DoubleLayerPotentialSolver`](@ref), [`CombinedFieldIntegralEquationSolver`](@ref)
+and [`CompositeBIMSolver`](@ref).
+
+## API
+The following functions can be evaluated for any `SweepBIMSolver`:
+- `evaluate_points`
+- `construct_matrices`
+- `solve`
+- `solve_vect`
+- [`solve_wavenumber`](@ref)
+- [`k_sweep`](@ref)
+"""
 abstract type SweepBIMSolver <: AbsBIMSolver end
 
+"""
+AcceleratedBIMSolver <: AbsBIMSolver
+
+`AcceleratedBIMSolver` is the abstract supertype for boundary-integral solvers
+that recover eigenvalues near a target wavenumber `k` from the nonlinear
+eigenproblem `A(k)v = 0` without a wavenumber-by-wavenumber sweep.
+
+## Description
+Every concrete `AcceleratedBIMSolver` wraps an inner `kernel::SweepBIMSolver`
+(a [`DoubleLayerPotentialSolver`](@ref), [`CombinedFieldIntegralEquationSolver`](@ref)
+or [`CompositeBIMSolver`](@ref)) supplying the Fredholm operator, and adds its
+own root-finding strategy on top of it: [`BeynSolver`](@ref) recovers every
+root within a contour via Beyn's contour-integral method, while
+[`ExpandedBIMSolver`](@ref) recovers a single locally-corrected root via a
+second-order local Taylor expansion of `A(k)`.
+
+## API
+The following functions can be evaluated for any `AcceleratedBIMSolver`:
+- `evaluate_points`
+- `construct_matrices`
+- `solve`
+- [`solve_wavenumber`](@ref)
+"""
 abstract type AcceleratedBIMSolver <: AbsBIMSolver end
 
 abstract type AbsState end

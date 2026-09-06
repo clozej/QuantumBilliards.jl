@@ -3,6 +3,31 @@ include("ebim.jl")
 include("beyn.jl")
 
 """
+    evaluate_points(solver::AcceleratedBIMSolver, billiard::Bi, k) where {Bi<:AbsBilliard} → pts::BoundaryPoints
+
+Samples the boundary of `billiard` by delegating to `solver.kernel`'s own
+`evaluate_points` method.
+
+## Description
+Every concrete [`AcceleratedBIMSolver`](@ref) ([`BeynSolver`](@ref),
+[`ExpandedBIMSolver`](@ref)) wraps an inner `kernel::SweepBIMSolver` supplying
+the Fredholm operator; the boundary discretization itself is entirely
+determined by that kernel; the accelerated solver only adds a root-finding
+strategy on top of `construct_matrices`/`solve`.
+
+## Arguments
+* `solver`: The [`AcceleratedBIMSolver`](@ref) whose wrapped kernel determines the boundary discretization.
+* `billiard`: The billiard whose boundary is discretized.
+* `k`: The wavenumber used to determine the number of boundary sampling points.
+
+## Returns
+* `pts`: A [`BoundaryPoints`](@ref) instance, as produced by `evaluate_points(solver.kernel, billiard, k)`.
+"""
+function evaluate_points(solver::AcceleratedBIMSolver, billiard::Bi, k) where {Bi<:AbsBilliard}
+    return evaluate_points(solver.kernel, billiard, k)
+end
+
+"""
     solve_wavenumber(solver::AcceleratedBasisSolver, basis::AbsBasis, billiard::AbsBilliard, k, dk; multithreaded::Bool = true) → (k0, t0)
 
 Finds the eigenvalue candidate `k0` closest to the target wavenumber `k`, together

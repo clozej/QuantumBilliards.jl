@@ -10,7 +10,7 @@ using BilliardGeometry
 
 #abstract types
 include("abstracttypes.jl")
-export AbsBasis, AbsSolver, AbsBasisSolver
+export AbsBasis, AbsSolver, AbsBasisSolver, AbsBIMSolver
 
 include("utils/coordinatesystems.jl")
 include("utils/geometryutils.jl")
@@ -34,15 +34,19 @@ export basis_matrix, basis_and_gradient_matrices, dk_matrix
 include("solvers/acceleratedmethods/acceleratedmethods.jl")
 include("solvers/sweepmethods/sweepmethods.jl")
 export SweepBasisSolver, AcceleratedBasisSolver
+export SweepBIMSolver, AcceleratedBIMSolver
 export VerginiSaracenoSolver, print_benchmark_info
 export DecompositionMethodSolver
-export DoubleLayerPotentialSolver, CombinedFieldIntegralEquationSolver
-export EBIMSolver, BeynSolver
+export ParticularSolutionsMethod
+export BoundaryGrading, SmoothPeriodicGrading, CornerGrading, GlobalCornerGrading
+export DoubleLayerPotentialSolver, CombinedFieldIntegralEquationSolver, CompositeBIMSolver
+export ExpandedBIMSolver, BeynSolver
 export BoundaryPointsSM, BoundaryPointsDM
 export evaluate_points, construct_matrices, construct_matrices_benchmark
-export solve, solve_vect
+export solve, solve_vect, solve_vectors
 export solve_wavenumber, solve_spectrum
 export k_sweep
+export boundary_matrix_size
 
 include("spectra/spectralutils.jl")
 export SpectralData, compute_spectrum, merge_spectra, overlap_and_merge!

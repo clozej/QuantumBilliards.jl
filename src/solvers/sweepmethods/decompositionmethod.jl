@@ -22,6 +22,7 @@ billiard.
 * `eps`: Relative tolerance used to filter small eigenvalues in the generalized eigenvalue decomposition.
 * `min_dim`: Minimum basis dimension.
 * `min_pts`: Minimum number of boundary sampling points.
+* `rellich_origin`: Origin `c₀` used in the Rellich boundary weight `w_dm = ds*((x-c₀)⋅n)/(2k²)`.
 
 ## API
 The following functions can be evaluated for this type:
@@ -39,6 +40,7 @@ struct DecompositionMethodSolver{T} <: SweepBasisSolver where {T<:Real}
     eps::T
     min_dim::Int64
     min_pts::Int64
+    rellich_origin::SVector{2,T}
 end
 
 
@@ -55,15 +57,16 @@ sampler shared by every fundamental boundary curve.
 ## Keyword arguments
 * `min_dim::Int = 100`: Minimum basis dimension.
 * `min_pts::Int = 500`: Minimum number of boundary sampling points.
+* `rellich_origin::SVector{2,T} = SVector{2,T}(zero(T), zero(T))`: Origin `c₀` used in the Rellich boundary weight.
 
 ## Returns
 * `solver`: A [`DecompositionMethodSolver{T}`](@ref) instance.
 """
-function DecompositionMethodSolver(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500) where T<:Real 
+function DecompositionMethodSolver(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}; min_dim = 100, min_pts = 500, rellich_origin::SVector{2,T}=SVector{2,T}(zero(T),zero(T))) where T<:Real 
     d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
     sampler = [GaussLegendreNodes()]
-return DecompositionMethodSolver(d, bs, sampler, eps(T), min_dim, min_pts)
+return DecompositionMethodSolver(d, bs, sampler, eps(T), min_dim, min_pts, rellich_origin)
 end
 
 """
@@ -80,14 +83,15 @@ each fundamental boundary curve.
 ## Keyword arguments
 * `min_dim::Int = 100`: Minimum basis dimension.
 * `min_pts::Int = 500`: Minimum number of boundary sampling points.
+* `rellich_origin::SVector{2,T} = SVector{2,T}(zero(T), zero(T))`: Origin `c₀` used in the Rellich boundary weight.
 
 ## Returns
 * `solver`: A [`DecompositionMethodSolver{T}`](@ref) instance.
 """
-function DecompositionMethodSolver(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500) where {T<:Real} 
+function DecompositionMethodSolver(dim_scaling_factor::T, pts_scaling_factor::Union{T,Vector{T}}, samplers::Vector{AbsSampler}; min_dim = 100, min_pts = 500, rellich_origin::SVector{2,T}=SVector{2,T}(zero(T),zero(T))) where {T<:Real} 
     d = dim_scaling_factor
     bs = typeof(pts_scaling_factor) == T ? [pts_scaling_factor] : pts_scaling_factor
-    return DecompositionMethodSolver(d, bs, samplers, eps(T), min_dim, min_pts)
+    return DecompositionMethodSolver(d, bs, samplers, eps(T), min_dim, min_pts, rellich_origin)
 end
 
 
@@ -132,7 +136,7 @@ function evaluate_points(solver::DecompositionMethodSolver, billiard::Bi, k) whe
         xy = curve(crv,t)
         normal = domain_gradient_vector(crv, xy)
         normal .= normal./norm(normal)
-        rn = dot.(xy, normal)
+        rn = dot.(xy .- Ref(solver.rellich_origin), normal)
         xy_all[i] = xy
         normal_all[i] = normal
         ds_all[i] = ds  
