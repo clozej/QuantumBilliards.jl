@@ -37,7 +37,7 @@ end
     @test isapprox(t1, t1_test; atol=atol)
     @test all(isapprox.(Psi[:], psi_test; atol=atol))
 end
-#=
+
 @testset "Particular Solutions Method - Veech Triangle - Ground State" begin
     billiard, basis = make_veech_right_triangle_and_basis(5)
     dim_scaling_factor = 2.0
@@ -53,14 +53,14 @@ end
     Psi = compute_psi(state, x_grid, y_grid; inside_only=true, memory_limit = 2.0e9, multithreaded = true)
 
     k_test = 6.065082959967892
-    t1_test = 0.0024524576991433386
-    psi_test = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1912543992438375, 0.38049577139821616, 0.5657412040516646, 0.7450674834409242, 0.0, 0.38013047151484103, 0.7562509934152326, 1.1244116847521282, 1.4807817426748695, 0.0, 0.5642883950409858, 1.1226019179633464, 1.6690553994260682, 2.1979414922427374, 0.0, 0.741464683440748, 1.475037052816142, 2.1929436548777916, 2.887646656952914]
+    t1_test = 3.117209745112226e-5
+    psi_test = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0011315632476348654, 0.0022512163155965046, 0.0033472271992600958, 0.004408217104218537, 0.0, 0.0022490550090337384, 0.004474384942960184, 0.006652620125943378, 0.008761095413847607, 0.0, 0.003338631615866006, 0.006641912592537861, 0.009875023021577849, 0.013004195088027443, 0.0, 0.004386901041795259, 0.00872710680400177, 0.01297462525230263, 0.01708485841221074]
     atol = 1e-3 
     @test isapprox(k, k_test; atol=atol)
     @test isapprox(t1, t1_test; atol=atol)
     @test all(isapprox.(Psi[:], psi_test; atol=atol))
 end
-=#
+
  
 # solver: Vergini-Saraceno
 # basis: corner adapted Fourier-Bessel
