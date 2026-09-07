@@ -194,6 +194,39 @@ function compute_eigenstate(solver::AcceleratedBasisSolver, basis::AbsBasis, bil
     return BasisEigenstate(k_state, k, vec, ten, solver, basis_new, billiard)
 end
 
+"""
+    BIMEigenstate{K,T,S,Bi} <: AbsState
+
+`BIMEigenstate` is a concrete type representing a numerically computed eigenstate
+of a quantum billiard, obtained from a boundary-integral-method (BIM) solver.
+
+## Description
+Eigenstates are produced by [`compute_eigenstate`](@ref), which combines a
+[`SweepBIMSolver`](@ref) and a billiard geometry to obtain the boundary
+density `vec` at the located wavenumber and an estimate of the tension `ten`.
+Unlike [`BasisEigenstate`](@ref), there is no basis expansion: `vec` is the
+boundary density itself, sampled at the boundary discretization points (the
+fundamental-domain points only, if `solver.symmetry !== nothing`).
+
+!!! note "Limitation"
+    `wavefunction`/`husimi_function` support for `BIMEigenstate` is not yet
+    implemented; only the state representation (boundary density, tension,
+    wavenumber) is available at this stage.
+
+## Attributes
+* `k`: The wavenumber of the eigenstate, as refined by the solver. Stored with the same (generally complex) element type `K` as `vec`, since the boundary density is complex-valued; the imaginary part is always zero.
+* `k_basis`: Set equal to `k` (no separate basis-evaluation wavenumber for BIM solvers).
+* `vec`: Boundary density values at the boundary discretization points.
+* `ten`: Tension of the solution, measuring the residual boundary condition violation.
+* `dim`: Dimension of `vec`.
+* `eps`: Numerical precision threshold below which coefficients of `vec` are treated as zero.
+* `solver`: The solver (`S<:SweepBIMSolver`) used to compute the eigenstate.
+* `billiard`: The billiard (`Bi<:AbsBilliard`) the eigenstate is defined on.
+
+## API
+The following functions can be evaluated for this type:
+- [`compute_eigenstate`](@ref)
+"""
 struct BIMEigenstate{K,T,S,Bi} <: AbsState
     k::K
     k_basis::K
@@ -203,4 +236,62 @@ struct BIMEigenstate{K,T,S,Bi} <: AbsState
     eps::T
     solver::S
     billiard::Bi
+end
+
+"""
+    BIMEigenstate(k, vec, ten, solver, billiard) → state::BIMEigenstate
+
+Construct a [`BIMEigenstate`](@ref) with `k_basis` set equal to `k`, filtering
+out negligible coefficients of `vec` (see [`BasisEigenstate`](@ref)).
+
+## Arguments
+* `k`: The wavenumber of the eigenstate.
+* `vec`: Boundary density values at the boundary discretization points.
+* `ten`: Tension of the solution.
+* `solver`: The [`SweepBIMSolver`](@ref) used to compute the eigenstate.
+* `billiard`: The billiard the eigenstate is defined on.
+
+## Returns
+*  `state` : A new [`BIMEigenstate`](@ref) with `k_basis = k` and filtered coefficients.
+"""
+function BIMEigenstate(k, vec, ten, solver, billiard)
+    K = eltype(vec)
+    kK = K(k)
+    eps = set_precision(real(vec[1]))
+    if eltype(vec) <: Real
+        filtered_vec = eltype(vec).([abs(v)>eps ? v : zero(vec[1]) for v in vec])
+    else
+        filtered_vec = vec
+    end
+    return BIMEigenstate(kK, kK, filtered_vec, ten, length(vec), eps, solver, billiard)
+end
+
+"""
+    compute_eigenstate(solver::SweepBIMSolver, billiard::AbsBilliard, k; multithreaded::Bool = true) → state::BIMEigenstate
+
+Computes the [`BIMEigenstate`](@ref) of `billiard` at wavenumber `k` using a
+boundary-integral sweep `solver` (e.g. [`DoubleLayerPotentialSolver`](@ref)).
+
+## Description
+Boundary points are sampled with `evaluate_points`, and the boundary-integral
+Fredholm problem is solved at `k` with `solve_vect` to obtain the tension
+`ten` and boundary density `vec`, exactly as
+[`compute_eigenstate(::SweepBasisSolver, ...)`](@ref) does for basis-expansion
+solvers, but without a basis to resize.
+
+## Arguments
+* `solver`: The [`SweepBIMSolver`](@ref) used to solve the boundary-integral eigenvalue problem.
+* `billiard`: The billiard the eigenstate is computed on.
+* `k`: The wavenumber at which the eigenstate is computed.
+
+## Keyword arguments
+*  `multithreaded::Bool = true` : Whether the matrix construction is multithreaded.
+
+## Returns
+*  `state` : The computed [`BIMEigenstate`](@ref) at wavenumber `k`.
+"""
+function compute_eigenstate(solver::SweepBIMSolver, billiard::AbsBilliard, k; multithreaded=true)
+    pts = evaluate_points(solver, billiard, k)
+    ten, vec = solve_vect(solver, pts, k; multithreaded)
+    return BIMEigenstate(k, vec, ten, solver, billiard)
 end

@@ -7,6 +7,7 @@ using FFTW
 using Logging, TimerOutputs
 using Random, Distributions
 using BilliardGeometry
+using KrylovKit
 
 #abstract types
 include("abstracttypes.jl")
@@ -62,6 +63,7 @@ include("states/basisstates.jl")
 
 export BasisEigenstate, BasisState
 export compute_eigenstate
+export BIMEigenstate
 include("states/symmetry/reflections.jl")
 include("states/wavefunctions.jl")
 include("states/boundaryfunctions.jl")

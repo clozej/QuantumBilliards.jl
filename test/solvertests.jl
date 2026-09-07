@@ -192,3 +192,62 @@ end
     @test all(isapprox.(Psi[:], psi_test; atol=atol))
 end
 
+# solver: Double Layer Potential (Kress-corrected boundary integral method)
+# basis: None (boundary-integral density, no basis expansion)
+# billiard: Triangle (full, un-reduced boundary, all edges SpecularReflection)
+# symmetry: None
+# functions to test: solve_wavenumber, compute_eigenstate
+@testset "Double Layer Potential - Full Triangle - Ground State" begin
+    billiard = BilliardGeometry.TriangleBilliard(pi/2, 1.5)
+    pts_scaling_factor = 5.0
+    solver = DoubleLayerPotentialSolver(pts_scaling_factor; grading=GlobalCornerGrading())
+    k0 = 6.1
+    dk = 0.1
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 6.065090955664264
+    t1_test = 1.9925023646322987e-8
+    ten_test = 1.992502365850128e-8
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Double Layer Potential (ungraded periodic boundary integral method)
+# basis: None (boundary-integral density, no basis expansion)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, k_sweep, compute_eigenstate
+@testset "Double Layer Potential - Circle - Ground State" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    pts_scaling_factor = 5.0
+    solver = DoubleLayerPotentialSolver(pts_scaling_factor; grading=SmoothPeriodicGrading())
+    k0 = 2.4
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks = collect(range(2.35, 2.45, length=11))
+    tens = k_sweep(solver, billiard, ks)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 2.4048255557243405 # matches the first zero of J0, ≈ 2.404825557695772
+    t1_test = 4.092042747328376e-9
+    ks_test = [2.35, 2.36, 2.37, 2.38, 2.39, 2.4, 2.41, 2.42, 2.43, 2.44, 2.45]
+    tens_test = [0.11387428129769038, 0.09309964793161138, 0.07232460472834643, 0.05155117343523519, 0.030781376045685045, 0.010017234588134472, 0.010739229084787815, 0.031485993506856644, 0.05222103780861643, 0.07294234192746765, 0.09364788681749107]
+    ten_test = 4.0920427729930095e-9
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test argmin(tens) == 6 # k=2.40 is the tension minimum in the swept window
+end
+
