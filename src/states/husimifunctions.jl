@@ -127,9 +127,49 @@ by combining [`boundary_function`](@ref) and
 *  `ps` : Momenta at which `H` is sampled.
 """
 function husimi_function(state::S;  b = 5.0, c = 10.0, w = 7.0) where {S<:AbsState}
-    L = state.billiard.length
+    L = sum(crv.length for crv in full_boundary(state.billiard))
     k = state.k
     u, s, norm = boundary_function(state; b=b)
     return husimi_function(k,u,s,L; c = c, w = w)
+end
+
+# Checks (to within `rtol`) whether `s` is uniformly spaced and `ds` is
+# uniform, i.e. whether the fast sliding-window `husimi_function(k,u,s,L)`
+# kernel's assumption of a uniform arc-length grid actually holds. A BIM
+# solver using `GlobalCornerGrading` intentionally clusters nodes near
+# corners, so `s` is not uniformly spaced there.
+@inline function _bim_boundary_uniformly_spaced(s::AbstractVector{T}, ds::AbstractVector{T}; rtol::Real=1e-6) where {T<:Real}
+    N = length(s)
+    N < 3 && return true
+    Δs = s[2]-s[1]
+    return all(isapprox(s[i+1]-s[i], Δs; rtol=rtol) for i in 2:N-1) && all(isapprox(ds[i], ds[1]; rtol=rtol) for i in 2:N)
+end
+
+"""
+    husimi_function(state::BIMEigenstate{K,T,S,Bi}; b::Real = 5.0, c::Real = 10.0, w::Real = 7.0, multithreaded::Bool = true) where {K,T,S<:DoubleLayerPotentialSolver,Bi} → (H::Matrix, qs::Vector, ps::Vector)
+
+Computes the boundary Husimi function of a [`BIMEigenstate`](@ref) computed
+with a [`DoubleLayerPotentialSolver`](@ref), by combining
+[`_dlp_boundary_function`](@ref) and
+[`husimi_function(k, u, s, L)`](@ref husimi_function).
+
+!!! warning "Non-uniform boundary sampling"
+    [`husimi_function(k, u, s, L)`](@ref husimi_function) assumes `s` is
+    uniformly spaced in arc-length. A [`DoubleLayerPotentialSolver`](@ref)
+    using [`GlobalCornerGrading`](@ref) intentionally clusters nodes near
+    corners, so `s` is *not* uniformly spaced there, and a warning is emitted
+    in that case since the resulting Husimi function may be inaccurate.
+
+## Keyword arguments
+*  `b::Real = 5.0` : Unused, accepted for interface compatibility (see [`boundary_function(state::BIMEigenstate)`](@ref)).
+*  `c::Real = 10.0`, `w::Real = 7.0` : Passed to [`husimi_function(k, u, s, L)`](@ref husimi_function).
+*  `multithreaded::Bool = true` : Whether the adjoint Fredholm matrix assembly is multithreaded.
+"""
+function husimi_function(state::BIMEigenstate{K,T,S,Bi}; b=5.0, c=10.0, w=7.0, multithreaded=true) where {K,T,S<:DoubleLayerPotentialSolver,Bi}
+    u, pts, norm = _dlp_boundary_function(state.solver, state.billiard, state.k; multithreaded)
+    comp = state.solver.symmetry === nothing ? get_boundary_curves(state.billiard) : full_boundary(state.billiard)
+    L = sum(crv.length for crv in comp)
+    _bim_boundary_uniformly_spaced(pts.s, pts.ds) || @warn "BIMEigenstate boundary discretization is not uniformly spaced in arclength (e.g. GlobalCornerGrading clusters nodes near corners); husimi_function assumes uniform spacing and may be inaccurate."
+    return husimi_function(real(state.k), u, pts.s, L; c=c, w=w)
 end
 

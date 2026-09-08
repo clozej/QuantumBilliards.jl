@@ -208,10 +208,15 @@ Unlike [`BasisEigenstate`](@ref), there is no basis expansion: `vec` is the
 boundary density itself, sampled at the boundary discretization points (the
 fundamental-domain points only, if `solver.symmetry !== nothing`).
 
-!!! note "Limitation"
-    `wavefunction`/`husimi_function` support for `BIMEigenstate` is not yet
-    implemented; only the state representation (boundary density, tension,
-    wavenumber) is available at this stage.
+!!! note "Primal density vs. `∂ₙψ`"
+    `vec` is the *primal* boundary density obtained by [`solve_vect`](@ref)
+    and is **not** the physical boundary normal derivative `∂ₙψ`. For a
+    [`DoubleLayerPotentialSolver`](@ref), [`boundary_function`](@ref) instead
+    recovers `∂ₙψ` from the nullspace of the *adjoint* (weighted-transpose)
+    Fredholm operator; see its docstring for details. [`wavefunction`](@ref)
+    and [`husimi_function`](@ref) support for `BIMEigenstate` is currently
+    only implemented for [`DoubleLayerPotentialSolver`](@ref); other BIM
+    solvers will gain this support as they are implemented.
 
 ## Attributes
 * `k`: The wavenumber of the eigenstate, as refined by the solver. Stored with the same (generally complex) element type `K` as `vec`, since the boundary density is complex-valued; the imaginary part is always zero.
@@ -226,6 +231,10 @@ fundamental-domain points only, if `solver.symmetry !== nothing`).
 ## API
 The following functions can be evaluated for this type:
 - [`compute_eigenstate`](@ref)
+- [`boundary_function`](@ref) (`DoubleLayerPotentialSolver` only)
+- [`momentum_function`](@ref) (`DoubleLayerPotentialSolver` only)
+- [`wavefunction`](@ref) (`DoubleLayerPotentialSolver` only)
+- [`husimi_function`](@ref) (`DoubleLayerPotentialSolver` only)
 """
 struct BIMEigenstate{K,T,S,Bi} <: AbsState
     k::K

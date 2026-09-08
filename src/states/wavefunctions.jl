@@ -93,6 +93,58 @@ end
 
 
 """
+    ϕ_slp(x::T, y::T, k::T, pts::BoundaryPoints{T}, u::AbstractVector; float32_bessel::Bool = true, use_chebyshev::Bool = false) where {T<:Real} → ψ::Number
+
+Evaluates the single-layer-potential (SLP) Green's-function reconstruction of
+a Dirichlet eigenfunction at `(x,y)`,
+
+```math
+\\psi(x,y) = \\frac{1}{4}\\int_{\\partial\\Omega} Y_0(k|x-q|)\\,u(q)\\,ds_q,
+```
+
+where `u = ∂ₙψ` is the boundary normal derivative (e.g. from
+[`boundary_function`](@ref)). The overall sign is irrelevant for an
+eigenfunction. This is the reconstruction kernel behind
+[`wavefunction(state::BIMEigenstate)`](@ref).
+
+!!! note "Chebyshev acceleration not yet implemented"
+    `use_chebyshev = true` is reserved for a future Chebyshev-interpolated
+    `Y₀` evaluation (see the BIM-solver migration plan's Chebyshev
+    acceleration step); passing it currently raises an error.
+
+## Arguments
+* `x`,`y`: Evaluation coordinates.
+* `k`: Wavenumber.
+* `pts`: Boundary discretization providing `pts.xy` and `pts.ds`.
+* `u`: Boundary normal derivative values at `pts`.
+
+## Keyword arguments
+*  `float32_bessel::Bool = true` : Evaluate `Y₀` in `Float32` arithmetic for speed, converting back to `T`.
+*  `use_chebyshev::Bool = false` : Reserved for future Chebyshev-interpolated `Y₀` evaluation; must currently be `false`.
+
+## Returns
+*  `ψ` : The reconstructed wavefunction value at `(x,y)`.
+"""
+@inline function ϕ_slp(x::T, y::T, k::T, pts::BoundaryPoints{T}, u::AbstractVector; float32_bessel::Bool=true, use_chebyshev::Bool=false) where {T<:Real}
+    use_chebyshev && error("Chebyshev SLP wavefunction reconstruction not yet implemented; see migration plan step 10")
+    xy = pts.xy
+    ds = pts.ds
+    S = eltype(u)
+    acc = zero(S)
+    @inbounds @fastmath for j in eachindex(u)
+        p = xy[j]
+        dx = x - p[1]
+        dy = y - p[2]
+        r2 = muladd(dx, dx, dy*dy)
+        r2 == zero(T) && continue # only guard exact coincidence with a source node
+        r = sqrt(r2)
+        y0 = float32_bessel ? T(Bessels.bessely0(Float32(k*r))) : Bessels.bessely0(k*r)
+        acc += (y0*ds[j])*u[j]
+    end
+    return acc*T(0.25)
+end
+
+"""
     compute_psi(state::S, x_grid::AbstractVector, y_grid::AbstractVector; inside_only::Bool = true, memory_limit::Real = 10.0e9, multithreaded::Bool = true) where {S<:AbsState} → Psi::Vector
 
 Evaluates the wavefunction of `state` on the Cartesian grid formed by
@@ -242,6 +294,64 @@ function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = tr
         end
         return Psi2d, x_grid, y_grid
     end
+end
+
+"""
+    wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol} = :auto, inside_only::Bool = true, use_float32_bessel::Bool = true, multithreaded::Bool = true) where {K,T,S<:DoubleLayerPotentialSolver,Bi} → (Psi2d::Matrix, x_grid::Vector, y_grid::Vector)
+
+Reconstructs the wavefunction of a [`BIMEigenstate`](@ref) computed with a
+[`DoubleLayerPotentialSolver`](@ref) on a Cartesian grid, via the
+single-layer-potential Green's-function integral [`ϕ_slp`](@ref) applied to
+the boundary normal derivative `u = ∂ₙψ` from [`_dlp_boundary_function`](@ref).
+
+## Description
+The Cartesian grid covers the *complete* physical boundary
+(`full_boundary(billiard)` when `solver.symmetry !== nothing`, else
+`get_boundary_curves(billiard)`), so a symmetry-reduced solver still
+reconstructs the wavefunction on the whole billiard, never only its
+fundamental domain. Grid points inside the billiard (when `inside_only =
+true`) are evaluated with [`ϕ_slp`](@ref); the outer loop over masked grid
+points is parallelized (`multithreaded`), with each thread writing to a
+disjoint output index.
+
+## Keyword arguments
+*  `b::Union{Real,Symbol} = :auto` : Grid sampling density in points per de Broglie wavelength; `:auto` uses `solver.pts_scaling_factor[1]`.
+*  `inside_only::Bool = true` : Whether to evaluate only at points inside `state.billiard`.
+*  `use_float32_bessel::Bool = true` : Passed to [`ϕ_slp`](@ref).
+*  `multithreaded::Bool = true` : Whether the boundary-function/grid evaluation is threaded.
+
+## Returns
+*  `Psi2d` : The reconstructed wavefunction values on the grid.
+*  `x_grid`,`y_grid` : The Cartesian grid coordinates.
+"""
+function wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol}=:auto, inside_only::Bool=true, use_float32_bessel::Bool=true, multithreaded::Bool=true) where {K,T,S<:DoubleLayerPotentialSolver,Bi}
+    solver = state.solver
+    billiard = state.billiard
+    kT = real(state.k)
+    u, pts, _ = _dlp_boundary_function(solver, billiard, kT; multithreaded)
+    comp = solver.symmetry === nothing ? get_boundary_curves(billiard) : full_boundary(billiard)
+    bval = b === :auto ? solver.pts_scaling_factor[1] : T(b)
+    Ltot = sum(crv.length for crv in comp)
+    xlim, ylim = boundary_limits(comp; grd=max(1000, round(Int, kT*Ltot*bval/(2*pi))))
+    dx = xlim[2]-xlim[1]
+    dy = ylim[2]-ylim[1]
+    nx = max(round(Int, kT*dx*bval/(2*pi)), 512)
+    ny = max(round(Int, kT*dy*bval/(2*pi)), 512)
+    x_grid::Vector{T} = collect(T, range(xlim..., nx))
+    y_grid::Vector{T} = collect(T, range(ylim..., ny))
+    pts_grid = collect(SVector(x,y) for y in y_grid for x in x_grid)
+    pts_mask = inside_only ? is_inside(billiard, pts_grid) : trues(length(pts_grid))
+    Stype = eltype(u) <: Real ? T : Complex{T}
+    Psi = zeros(Stype, nx*ny)
+    idxs = findall(pts_mask)
+    @use_threads multithreading=multithreaded for jj in eachindex(idxs)
+        idx = idxs[jj]
+        p = pts_grid[idx]
+        Psi[idx] = ϕ_slp(p[1], p[2], kT, pts, u; float32_bessel=use_float32_bessel)
+    end
+    inside_only && (Psi[.!pts_mask] .= convert(Stype, NaN))
+    Psi2d::Matrix{Stype} = reshape(Psi, (nx, ny))
+    return Psi2d, x_grid, y_grid
 end
 
 """
