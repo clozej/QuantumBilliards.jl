@@ -263,10 +263,19 @@ end
 Samples the boundary of `billiard` according to `solver.grading`, producing the
 boundary discretization needed to assemble the double-layer Fredholm matrix in
 [`construct_matrices`](@ref).
+
+## Description
+When `solver.symmetry === nothing`, only the fundamental domain's own
+physical boundary ([`get_boundary_curves`](@ref)) is discretized — this
+already is the complete physical boundary in that case. When a `symmetry` is
+set, the *complete* physical boundary ([`full_boundary`](@ref)) is
+discretized instead, since [`symmetry_index_orbits`](@ref) folds a full
+periodic boundary sampling onto the fundamental domain by exact index
+permutation and therefore needs every symmetry image present in `pts`.
 """
 function evaluate_points(solver::DoubleLayerPotentialSolver, billiard::Bi, k) where {Bi<:AbsBilliard}
     T = _bim_numeric_type(solver)
-    comp = get_boundary_curves(billiard)
+    comp = solver.symmetry === nothing ? get_boundary_curves(billiard) : full_boundary(billiard)
     isempty(comp) && error("Boundary cannot be empty.")
     return _dlp_evaluate_points(solver, solver.grading, comp, T(k))
 end

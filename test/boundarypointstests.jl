@@ -150,3 +150,23 @@ end
     far_pt = SVector(1e3,1e3)
     @test points_in_billiard([far_pt], billiard) == [false]
 end
+
+@testset "estimate_rmin_rmax" begin
+    xy = SVector{2,Float64}[(0,0),(1,0),(1,1),(0,1)]
+    pts = BoundaryPoints(xy)
+    rmin, rmax = estimate_rmin_rmax(pts, nothing)
+    @test isapprox(rmin, 1.0; atol=1e-10)
+    @test isapprox(rmax, sqrt(2); atol=1e-10)
+
+    # symmetry-reduced variant, evaluated on the complete physical boundary
+    # discretization (BilliardGeometry.full_boundary): sanity-checked against
+    # the direct pairwise version on the same points.
+    billiard = StadiumBilliard(0.3)
+    solver = DoubleLayerPotentialSolver(10.0; symmetry=BilliardGeometry.YAxisReflection())
+    bpts = evaluate_points(solver, billiard, 5.5)
+    rmin_full, rmax_full = estimate_rmin_rmax(bpts, nothing)
+    rmin_sym, rmax_sym = estimate_rmin_rmax(bpts, solver.symmetry)
+    @test rmin_sym > 0 && isfinite(rmin_sym)
+    @test rmax_sym > 0 && isfinite(rmax_sym)
+    @test rmax_sym <= rmax_full + 1e-8
+end

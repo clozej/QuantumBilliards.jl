@@ -251,3 +251,55 @@ end
     @test argmin(tens) == 6 # k=2.40 is the tension minimum in the swept window
 end
 
+# solver: Double Layer Potential (Kress-corrected boundary integral method)
+# basis: None (boundary-integral density, no basis expansion)
+# billiard: Stadium (D2-symmetric quarter fundamental domain)
+# symmetry: YAxisReflection (folds the complete physical boundary from
+#           BilliardGeometry.full_boundary onto the fundamental domain)
+# functions to test: evaluate_points, boundary_matrix_size, construct_matrices
+#
+# Regression test for the Step-4 migration-plan fix: evaluate_points used to
+# discretize only the fundamental domain's own quarter boundary
+# (get_boundary_curves) even when a symmetry was set, which is far too short
+# a boundary for symmetry_index_orbits' exact index-permutation folding to be
+# meaningful. It now discretizes the complete physical boundary
+# (BilliardGeometry.full_boundary) whenever solver.symmetry !== nothing. This
+# is verified by an exact algebraic identity rather than by locating a
+# spectral resonance (which is sensitive to point-count/tolerance choices):
+# the symmetry-reduced Fredholm matrix must equal the orbit-summed columns of
+# the true (unreduced) Fredholm matrix assembled on the same full-boundary
+# discretization.
+@testset "Double Layer Potential - Stadium (YAxisReflection) - symmetry-reduced matrix consistency" begin
+    billiard = StadiumBilliard(0.3)
+    k = 5.5
+    solver = DoubleLayerPotentialSolver(10.0; symmetry=BilliardGeometry.YAxisReflection())
+    pts = evaluate_points(solver, billiard, k)
+
+    # evaluate_points now samples the complete physical boundary, not just
+    # the quarter fundamental domain.
+    @test length(pts) > 4*length(BilliardGeometry.get_boundary_curves(billiard))
+
+    A_reduced = construct_matrices(solver, pts, k)
+    m = size(A_reduced, 1)
+    @test m == boundary_matrix_size(solver, pts)
+
+    graded = QuantumBilliards._is_nontrivial_dlp_grading(pts)
+    G = QuantumBilliards.boundary_geom_cache(pts, graded)
+    N = length(pts)
+    Rmat = zeros(Float64, N, N)
+    QuantumBilliards.kress_R!(Rmat)
+    A_full = Matrix{ComplexF64}(undef, N, N)
+    QuantumBilliards._dlp_fredholm_full!(A_full, pts, Rmat, G, k)
+
+    orbits = BilliardGeometry.symmetry_index_orbits(Float64, pts.xy, solver.symmetry)
+    fund = orbits.fundamental_indices
+    expected = zeros(ComplexF64, m, m)
+    for b in 1:m
+        cols = findall(==(b), orbits.orbit_of)
+        for a in 1:m
+            expected[a,b] = sum(A_full[fund[a], j] for j in cols)
+        end
+    end
+    @test maximum(abs.(expected .- A_reduced)) < 1e-10
+end
+
