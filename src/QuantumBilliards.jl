@@ -1,5 +1,7 @@
 module QuantumBilliards
 using Bessels
+using SpecialFunctions
+using QuadGK
 using CoordinateTransformations, Rotations
 using LinearAlgebra, StaticArrays, CircularArrays
 using Optim
@@ -53,11 +55,12 @@ export solve, solve_vect, solve_vectors, solve_state
 export solve_wavenumber, solve_spectrum
 export k_sweep
 export boundary_matrix_size
+export weyl_window_width, plan_weyl_windows, beyn_disks_from_windows, beyn_buffer_matrices
 
 include("spectra/spectralutils.jl")
 export SpectralData, compute_spectrum, merge_spectra, overlap_and_merge!
 include("spectra/unfolding.jl")
-export weyl_law
+export weyl_law, area, fundamental_area
 
 include("states/eigenstates.jl")
 include("states/basisstates.jl")

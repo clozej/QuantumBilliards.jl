@@ -169,3 +169,31 @@ function boundary_geom_cache(pts::BoundaryPoints{T}, corner_kress::Bool=false) w
     kappa = (inv(2*T(pi))).*(κnum./κden)
     return BoundaryGeomCache(R, invR, inner, logterm, speed, kappa, original_ts)
 end
+
+################################################################################
+############### COMPLEX-SAFE HANKEL/BESSEL-J KERNEL EVALUATION ###############
+################################################################################
+
+# Dispatch helpers shared by every BIM kernel assembly (DLP/CFIE/Composite,
+# see dlp.jl/cfie.jl/compositebim.jl) and by BeynSolver's complex-contour
+# evaluation (see acceleratedmethods/beyn.jl). Bessels.jl is faster but only
+# supports real arguments; SpecialFunctions.jl (AMOS) is used for the
+# complex-k contour nodes Beyn needs. Dispatch is resolved at compile time on
+# the concrete (real-vs-complex) type of `z`, so real-k sweep solves keep
+# using the fast Bessels.jl path unchanged.
+@inline _bim_hankelh1(ν::Int, z::Real) = Bessels.hankelh1(ν, z)
+@inline _bim_hankelh1(ν::Int, z::Complex) = SpecialFunctions.besselh(ν, 1, z)
+
+# Returns besselj(ν,z) given the already-computed hankelh1(ν,z)=h. For real
+# z, H=J+iY so J=real(H) (saves a second special-function call on the DLP/CFIE
+# hot path); for complex z that identity does not hold, so besselj is
+# evaluated directly.
+@inline _bim_besselj(::Int, ::Real, h::Complex) = real(h)
+@inline _bim_besselj(ν::Int, z::Complex, ::Complex) = SpecialFunctions.besselj(ν, z)
+
+# Widens a wavenumber `k` to the numeric type `T` used by a SweepBIMSolver,
+# preserving whether it is real (ordinary sweep solve) or complex (Beyn
+# contour node) instead of forcing `T(k)`, which would throw for a genuinely
+# complex `k`.
+@inline _bim_widen_k(::Type{T}, k::Real) where {T<:Real} = T(k)
+@inline _bim_widen_k(::Type{T}, k::Complex) where {T<:Real} = Complex{T}(k)

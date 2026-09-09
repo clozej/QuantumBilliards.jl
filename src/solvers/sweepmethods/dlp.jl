@@ -182,10 +182,10 @@ end
 # Full (unfolded) Kress-corrected Nyström Fredholm matrix F(k) = I - D(k).
 # Off-diagonal entries: D[i,j] = Rmat[i,j]*l1 + ws[j]*l2, with
 # l1 = -(k/2π)*inner[i,j]*J1(k r)/r, l2 = (ik/2)*inner[i,j]*H1(k r)/r - l1*logterm[i,j].
-function _dlp_fredholm_full!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::T; multithreaded::Bool=true) where {T<:Real}
+function _dlp_fredholm_full!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::Union{T,Complex{T}}; multithreaded::Bool=true) where {T<:Real}
     invtwopi = inv(2*T(pi))
     αL1 = -k*invtwopi
-    αL2 = Complex{T}(0, k/2)
+    αL2 = im*k/2
     N = length(pts)
     fill!(F, zero(Complex{T}))
     @inbounds for i in 1:N
@@ -198,8 +198,8 @@ function _dlp_fredholm_full!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{
             lt = G.logterm[i,j]
             inn_ij = G.inner[i,j]
             inn_ji = G.inner[j,i]
-            h1 = Bessels.hankelh1(1, k*r)
-            j1 = real(h1)
+            h1 = _bim_hankelh1(1, k*r)
+            j1 = _bim_besselj(1, k*r, h1)
             l1_ij = αL1*inn_ij*j1*invr
             l2_ij = αL2*inn_ij*h1*invr - l1_ij*lt
             F[i,j] = -(Rmat[i,j]*l1_ij + pts.ws[j]*l2_ij)
@@ -215,24 +215,24 @@ end
 # (i,j), used by the symmetry-reduced assembly below (no i/j-pair sharing of
 # the Hankel evaluation is possible there, exactly as in the reference
 # reduced assembly).
-@inline function _dlp_kernel_entry(pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::T, i::Int, j::Int) where {T<:Real}
+@inline function _dlp_kernel_entry(pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::Union{T,Complex{T}}, i::Int, j::Int) where {T<:Real}
     i == j && return Complex{T}(pts.ws[i]*G.kappa[i], zero(T))
     invtwopi = inv(2*T(pi))
     r = G.R[i,j]
     invr = G.invR[i,j]
     lt = G.logterm[i,j]
     inn = G.inner[i,j]
-    h1 = Bessels.hankelh1(1, k*r)
-    j1 = real(h1)
+    h1 = _bim_hankelh1(1, k*r)
+    j1 = _bim_besselj(1, k*r, h1)
     l1 = -k*invtwopi*inn*j1*invr
-    l2 = Complex{T}(0, k/2)*inn*h1*invr - l1*lt
+    l2 = im*k/2*inn*h1*invr - l1*lt
     return Rmat[i,j]*l1 + pts.ws[j]*l2
 end
 
 # Symmetry-reduced Kress-corrected Fredholm matrix, folding the complete
 # discrete full-boundary Kress operator over each source symmetry orbit:
 # Fred[a,b] = δ_{ab} - Σ_{j: orbit_of[j]=b} phase[j]*D[fund[a],j].
-function _dlp_fredholm_reduced!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, orbits::SymmetryOrbitMap{T}, k::T; multithreaded::Bool=true) where {T<:Real}
+function _dlp_fredholm_reduced!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, orbits::SymmetryOrbitMap{T}, k::Union{T,Complex{T}}; multithreaded::Bool=true) where {T<:Real}
     m = fundamental_size(orbits)
     N = length(orbits)
     fund = orbits.fundamental_indices
@@ -300,7 +300,7 @@ Assembles the double-layer Fredholm matrix `A(k) = I - D(k)`.
 function construct_matrices(solver::DoubleLayerPotentialSolver, pts::BoundaryPoints, k; multithreaded::Bool=true)
     @timeit_debug "construct_matrices" begin
         T = _bim_numeric_type(solver)
-        kT = T(k)
+        kT = _bim_widen_k(T, k)
         N = length(pts)
         @debug "DLP matrix construction started" N kT symmetry=solver.symmetry
         graded = _is_nontrivial_dlp_grading(pts)

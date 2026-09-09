@@ -212,8 +212,8 @@ end
 # or D(k)+ikS(k) value, not yet subtracted from the identity) to the
 # assigned component solver's own kernel-entry helper (Steps 3/6, reused
 # unchanged).
-@inline _composite_component_kernel_entry(::DoubleLayerPotentialSolver, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::T, i::Int, j::Int) where {T<:Real} = _dlp_kernel_entry(pts, Rmat, G, k, i, j)
-@inline _composite_component_kernel_entry(::CombinedFieldIntegralEquationSolver, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::T, i::Int, j::Int) where {T<:Real} = _cfie_kernel_entry(pts, Rmat, G, k, i, j)
+@inline _composite_component_kernel_entry(::DoubleLayerPotentialSolver, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::Union{T,Complex{T}}, i::Int, j::Int) where {T<:Real} = _dlp_kernel_entry(pts, Rmat, G, k, i, j)
+@inline _composite_component_kernel_entry(::CombinedFieldIntegralEquationSolver, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::Union{T,Complex{T}}, i::Int, j::Int) where {T<:Real} = _cfie_kernel_entry(pts, Rmat, G, k, i, j)
 
 # Smooth (no Kress log-splitting needed: source and target never coincide
 # across different connected components) cross-component double-layer
@@ -222,7 +222,7 @@ end
 # kernel type. Matches the "cross-block" term of `-develop`'s
 # `CFIE_kress_composite_solver` reference assembly, specialized to a pure
 # double layer for a `DoubleLayerPotentialSolver` source component.
-@inline function _composite_cross_kernel_entry(::DoubleLayerPotentialSolver, pb::BoundaryPoints{T}, xi::T, yi::T, k::T, j::Int) where {T<:Real}
+@inline function _composite_cross_kernel_entry(::DoubleLayerPotentialSolver, pb::BoundaryPoints{T}, xi::T, yi::T, k::Union{T,Complex{T}}, j::Int) where {T<:Real}
     xj, yj = pb.xy[j]
     dx = xi-xj
     dy = yi-yj
@@ -230,13 +230,13 @@ end
     invr = inv(r)
     tx, ty = pb.tangent[j]
     inn = ty*dx - tx*dy
-    h1 = Bessels.hankelh1(1, k*r)
-    return pb.ws[j]*Complex{T}(0, k/2)*inn*h1*invr
+    h1 = _bim_hankelh1(1, k*r)
+    return pb.ws[j]*im*k/2*inn*h1*invr
 end
 
 # Same as above, combined-field (D(k)+ikS(k)) cross-component kernel entry
 # for a `CombinedFieldIntegralEquationSolver` source component.
-@inline function _composite_cross_kernel_entry(::CombinedFieldIntegralEquationSolver, pb::BoundaryPoints{T}, xi::T, yi::T, k::T, j::Int) where {T<:Real}
+@inline function _composite_cross_kernel_entry(::CombinedFieldIntegralEquationSolver, pb::BoundaryPoints{T}, xi::T, yi::T, k::Union{T,Complex{T}}, j::Int) where {T<:Real}
     xj, yj = pb.xy[j]
     dx = xi-xj
     dy = yi-yj
@@ -245,10 +245,10 @@ end
     tx, ty = pb.tangent[j]
     inn = ty*dx - tx*dy
     sj = hypot(tx, ty)
-    ik = Complex{T}(0, k)
-    h0 = Bessels.hankelh1(0, k*r)
-    h1 = Bessels.hankelh1(1, k*r)
-    dval = pb.ws[j]*Complex{T}(0, k/2)*inn*h1*invr
+    ik = im*k
+    h0 = _bim_hankelh1(0, k*r)
+    h1 = _bim_hankelh1(1, k*r)
+    dval = pb.ws[j]*im*k/2*inn*h1*invr
     sval = pb.ws[j]*Complex{T}(0, one(T)/2)*h0*sj
     return dval + ik*sval
 end
@@ -256,7 +256,7 @@ end
 # Full (unfolded) composite Fredholm matrix: same-component diagonal blocks
 # reuse the Kress-corrected DLP/CFIE kernels unchanged; cross-component
 # blocks use the smooth kernel above (no singular splitting needed).
-function _composite_fredholm_full!(A::AbstractMatrix{Complex{T}}, solver::CompositeBIMSolver, comp_pts::Vector{BoundaryPoints{T}}, Gs::Vector{BoundaryGeomCache{T}}, Rmats::Vector{Matrix{T}}, offs::Vector{Int}, k::T; multithreaded::Bool=true) where {T<:Real}
+function _composite_fredholm_full!(A::AbstractMatrix{Complex{T}}, solver::CompositeBIMSolver, comp_pts::Vector{BoundaryPoints{T}}, Gs::Vector{BoundaryGeomCache{T}}, Rmats::Vector{Matrix{T}}, offs::Vector{Int}, k::Union{T,Complex{T}}; multithreaded::Bool=true) where {T<:Real}
     fill!(A, zero(Complex{T}))
     nc = length(comp_pts)
     @inbounds for a in 1:nc
@@ -306,7 +306,7 @@ end
 # discrete full-boundary composite kernel over each source symmetry orbit
 # (mirrors `_dlp_fredholm_reduced!`/`_cfie_fredholm_reduced!`'s image-list
 # folding, generalized to same-/cross-component kernel dispatch).
-function _composite_fredholm_reduced!(A::AbstractMatrix{Complex{T}}, solver::CompositeBIMSolver, comp_pts::Vector{BoundaryPoints{T}}, Gs::Vector{BoundaryGeomCache{T}}, Rmats::Vector{Matrix{T}}, offs::Vector{Int}, g2c::Vector{Int}, g2l::Vector{Int}, orbits::SymmetryOrbitMap{T}, k::T; multithreaded::Bool=true) where {T<:Real}
+function _composite_fredholm_reduced!(A::AbstractMatrix{Complex{T}}, solver::CompositeBIMSolver, comp_pts::Vector{BoundaryPoints{T}}, Gs::Vector{BoundaryGeomCache{T}}, Rmats::Vector{Matrix{T}}, offs::Vector{Int}, g2c::Vector{Int}, g2l::Vector{Int}, orbits::SymmetryOrbitMap{T}, k::Union{T,Complex{T}}; multithreaded::Bool=true) where {T<:Real}
     m = fundamental_size(orbits)
     N = length(orbits)
     fund = orbits.fundamental_indices
@@ -408,7 +408,7 @@ different components' nodes.
 """
 function construct_matrices(solver::CompositeBIMSolver{T}, pts::BoundaryPoints{T}, k; multithreaded::Bool=true) where {T<:Real}
     @timeit_debug "construct_matrices" begin
-        kT = T(k)
+        kT = _bim_widen_k(T, k)
         nc = length(solver.component_solvers)
         N = length(pts)
         @debug "Composite BIM matrix construction started" N kT nc symmetry=solver.symmetry

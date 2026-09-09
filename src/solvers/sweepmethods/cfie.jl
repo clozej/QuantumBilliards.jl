@@ -202,13 +202,13 @@ end
 # (see `_dlp_fredholm_full!` in dlp.jl); the additional S(k) single-layer
 # term uses the H(0,·)/H(1,·) Hankel pair with its own Kress logarithmic
 # splitting (diagonal self-term includes the Euler-gamma correction).
-function _cfie_fredholm_full!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::T; multithreaded::Bool=true) where {T<:Real}
+function _cfie_fredholm_full!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::Union{T,Complex{T}}; multithreaded::Bool=true) where {T<:Real}
     invtwopi = inv(2*T(pi))
     αL1 = -k*invtwopi
-    αL2 = Complex{T}(0, k/2)
+    αL2 = im*k/2
     αM1 = -invtwopi
     αM2 = Complex{T}(0, one(T)/2)
-    ik = Complex{T}(0, k)
+    ik = im*k
     euler_over_pi = T(Base.MathConstants.eulergamma)/T(pi)
     N = length(pts)
     fill!(F, zero(Complex{T}))
@@ -232,10 +232,10 @@ function _cfie_fredholm_full!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints
             lt = G.logterm[i,j]
             inn_ij = G.inner[i,j]
             inn_ji = G.inner[j,i]
-            h0 = Bessels.hankelh1(0, k*r)
-            h1 = Bessels.hankelh1(1, k*r)
-            j0 = real(h0)
-            j1 = real(h1)
+            h0 = _bim_hankelh1(0, k*r)
+            h1 = _bim_hankelh1(1, k*r)
+            j0 = _bim_besselj(0, k*r, h0)
+            j1 = _bim_besselj(1, k*r, h1)
             l1_ij = αL1*inn_ij*j1*invr
             l2_ij = αL2*inn_ij*h1*invr - l1_ij*lt
             dval_ij = Rmat[i,j]*l1_ij + wj*l2_ij
@@ -258,9 +258,9 @@ end
 # Single Kress-corrected D(k)+ikS(k) kernel entry at full-boundary indices
 # (i,j), used by the symmetry-reduced assembly below (mirrors
 # `_dlp_kernel_entry` in dlp.jl but also carries the S(k) term).
-@inline function _cfie_kernel_entry(pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::T, i::Int, j::Int) where {T<:Real}
+@inline function _cfie_kernel_entry(pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, k::Union{T,Complex{T}}, i::Int, j::Int) where {T<:Real}
     invtwopi = inv(2*T(pi))
-    ik = Complex{T}(0, k)
+    ik = im*k
     if i == j
         si = G.speed[i]
         wi = pts.ws[i]
@@ -277,12 +277,12 @@ end
     inn = G.inner[i,j]
     sj = G.speed[j]
     wj = pts.ws[j]
-    h0 = Bessels.hankelh1(0, k*r)
-    h1 = Bessels.hankelh1(1, k*r)
-    j0 = real(h0)
-    j1 = real(h1)
+    h0 = _bim_hankelh1(0, k*r)
+    h1 = _bim_hankelh1(1, k*r)
+    j0 = _bim_besselj(0, k*r, h0)
+    j1 = _bim_besselj(1, k*r, h1)
     αL1 = -k*invtwopi
-    αL2 = Complex{T}(0, k/2)
+    αL2 = im*k/2
     αM1 = -invtwopi
     αM2 = Complex{T}(0, one(T)/2)
     l1 = αL1*inn*j1*invr
@@ -297,7 +297,7 @@ end
 # Symmetry-reduced Kress-corrected CFIE Fredholm matrix, folding the complete
 # discrete full-boundary kernel over each source symmetry orbit:
 # Fred[a,b] = δ_{ab} - Σ_{j: orbit_of[j]=b} phase[j]*(D+ikS)[fund[a],j].
-function _cfie_fredholm_reduced!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, orbits::SymmetryOrbitMap{T}, k::T; multithreaded::Bool=true) where {T<:Real}
+function _cfie_fredholm_reduced!(F::AbstractMatrix{Complex{T}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, orbits::SymmetryOrbitMap{T}, k::Union{T,Complex{T}}; multithreaded::Bool=true) where {T<:Real}
     m = fundamental_size(orbits)
     N = length(orbits)
     fund = orbits.fundamental_indices
@@ -365,7 +365,7 @@ Assembles the combined-field Fredholm matrix `A(k) = I - (D(k) + i k S(k))`.
 function construct_matrices(solver::CombinedFieldIntegralEquationSolver, pts::BoundaryPoints, k; multithreaded::Bool=true)
     @timeit_debug "construct_matrices" begin
         T = _bim_numeric_type(solver)
-        kT = T(k)
+        kT = _bim_widen_k(T, k)
         N = length(pts)
         @debug "CFIE matrix construction started" N kT symmetry=solver.symmetry
         graded = _is_nontrivial_dlp_grading(pts)
