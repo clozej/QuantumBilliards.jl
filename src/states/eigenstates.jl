@@ -318,3 +318,42 @@ function compute_eigenstate(solver::SweepBIMSolver, billiard::AbsBilliard, k; mu
     ten, vec, u, bnd_norm = solve_state(solver, pts, k, billiard; multithreaded)
     return BIMEigenstate(k, vec, ten, solver, billiard, pts, u, bnd_norm)
 end
+
+"""
+    compute_eigenstate(solver::AcceleratedBIMSolver, billiard::AbsBilliard, k; dk::Real = 0.1, multithreaded::Bool = true) → state::BIMEigenstate
+
+Computes the [`BIMEigenstate`](@ref) of `billiard` closest to wavenumber `k`
+using an accelerated boundary-integral `solver` (e.g. [`BeynSolver`](@ref),
+[`ExpandedBIMSolver`](@ref)).
+
+## Description
+`solve_wavenumber(solver, billiard, k, dk; multithreaded)` locates the
+refined root `k0` nearest `k` using the accelerated root-finding strategy
+(contour integral / local Taylor expansion). The eigenstate itself is then
+obtained by re-solving the wrapped `solver.kernel::SweepBIMSolver` at `k0`
+via [`compute_eigenstate(::SweepBIMSolver, ...)`](@ref), exactly as at a true
+eigenvalue the kernel's own Fredholm nullspace solve recovers the same
+boundary density/normal-derivative `∂ₙψ` regardless of which root-finding
+strategy located `k0`. This mirrors
+[`compute_eigenstate(::AcceleratedBasisSolver, ...)`](@ref): once a
+wavenumber candidate is found, the resulting `BIMEigenstate` is a plain
+[`SweepBIMSolver`](@ref) state, so [`boundary_function`](@ref),
+[`momentum_function`](@ref), [`wavefunction`](@ref) and
+[`husimi_function`](@ref) all work on it unchanged.
+
+## Arguments
+* `solver`: The [`AcceleratedBIMSolver`](@ref) used to locate the wavenumber.
+* `billiard`: The billiard the eigenstate is computed on.
+* `k`: The target wavenumber around which the eigenstate is searched for.
+
+## Keyword arguments
+*  `dk::Real = 0.1` : Half-width of the wavenumber window around `k` within which the root is searched, passed to `solve_wavenumber`.
+*  `multithreaded::Bool = true` : Whether the matrix construction is multithreaded.
+
+## Returns
+*  `state` : The computed [`BIMEigenstate`](@ref) closest to wavenumber `k`.
+"""
+function compute_eigenstate(solver::AcceleratedBIMSolver, billiard::AbsBilliard, k; dk=0.1, multithreaded=true)
+    k0, t0 = solve_wavenumber(solver, billiard, k, dk; multithreaded)
+    return compute_eigenstate(solver.kernel, billiard, k0; multithreaded)
+end
