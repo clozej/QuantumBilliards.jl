@@ -39,8 +39,8 @@ include("solvers/decompositions.jl")
 include("solvers/matrixconstructors.jl")
 export basis_matrix, basis_and_gradient_matrices, dk_matrix
 
-include("solvers/acceleratedmethods/acceleratedmethods.jl")
 include("solvers/sweepmethods/sweepmethods.jl")
+include("solvers/acceleratedmethods/acceleratedmethods.jl")
 export SweepBasisSolver, AcceleratedBasisSolver
 export SweepBIMSolver, AcceleratedBIMSolver
 export VerginiSaracenoSolver, print_benchmark_info
