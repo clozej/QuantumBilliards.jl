@@ -107,37 +107,43 @@ function husimi_function(k,u,s,L; c = 10.0, w = 7.0)
 end
 
 """
-    husimi_function(state::S; b::Real = 5.0, c::Real = 10.0, w::Real = 7.0) where {S<:AbsState} → (H::Matrix, qs::Vector, ps::Vector)
+    husimi_function(state::S; b::Real = 5.0, c::Real = 10.0, w::Real = 7.0, multithreaded::Bool = true, full_p::Bool = false) where {S<:AbsState} → (H::Matrix, qs::Vector, ps::Vector)
 
 Computes the boundary Husimi function of an eigenstate directly from `state`,
-by combining [`boundary_function`](@ref) and
-[`husimi_function(k, u, s, L)`](@ref husimi_function).
+by combining [`_basis_boundary_function_pts`](@ref) and the automatically
+dispatching [`husimi_function(k, u, s, ds, L)`](@ref husimi_function) (uses
+the fast uniform-arc-length stencil when valid, otherwise a general
+quadrature that also works for non-uniformly-spaced boundary grids).
 
 ## Arguments
 * `state`: The eigenstate for which the boundary Husimi function is computed.
 
 ## Keyword arguments
-*  `b::Real = 5.0` : Oversampling factor passed to [`boundary_function`](@ref) controlling the boundary point density.
-*  `c::Real = 10.0` : Number of coherent-state evaluation points per Gaussian width, passed to [`husimi_function(k, u, s, L)`](@ref husimi_function).
-*  `w::Real = 7.0` : Truncation width of the coherent-state Gaussian envelope, passed to [`husimi_function(k, u, s, L)`](@ref husimi_function).
+*  `b::Real = 5.0` : Oversampling factor controlling the boundary point density (see [`boundary_function`](@ref)).
+*  `c::Real = 10.0` : Number of coherent-state evaluation points per Gaussian width, passed to [`husimi_function(k, u, s, ds, L)`](@ref husimi_function).
+*  `w::Real = 7.0` : Truncation width of the coherent-state Gaussian envelope, passed to [`husimi_function(k, u, s, ds, L)`](@ref husimi_function).
+*  `multithreaded::Bool = true` : Whether the underlying gradient matrix construction is multithreaded.
+*  `full_p::Bool = false` : Passed to [`husimi_function(k, u, s, ds, L)`](@ref husimi_function).
 
 ## Returns
 *  `H` : The Husimi density on the grid `(qs, ps)`.
 *  `qs` : Arc-length coordinates at which `H` is sampled.
 *  `ps` : Momenta at which `H` is sampled.
 """
-function husimi_function(state::S;  b = 5.0, c = 10.0, w = 7.0) where {S<:AbsState}
+function husimi_function(state::S; b=5.0, c=10.0, w=7.0, multithreaded=true, full_p=false) where {S<:AbsState}
     L = sum(crv.length for crv in full_boundary(state.billiard))
     k = state.k
-    u, s, norm = boundary_function(state; b=b)
-    return husimi_function(k,u,s,L; c = c, w = w)
+    u, pts, norm = _basis_boundary_function_pts(state; b, multithreaded)
+    return husimi_function(k,u,pts.s,pts.ds,L; c=c, w=w, full_p=full_p)
 end
 
 # Checks (to within `rtol`) whether `s` is uniformly spaced and `ds` is
 # uniform, i.e. whether the fast sliding-window `husimi_function(k,u,s,L)`
 # kernel's assumption of a uniform arc-length grid actually holds. A BIM
 # solver using `GlobalCornerGrading` intentionally clusters nodes near
-# corners, so `s` is not uniformly spaced there.
+# corners, so `s` is not uniformly spaced there. Used by both the generic
+# `AbsState` and `BIMEigenstate` `husimi_function` methods below to pick
+# between the fast uniform stencil and the general non-uniform quadrature.
 @inline function _bim_boundary_uniformly_spaced(s::AbstractVector{T}, ds::AbstractVector{T}; rtol::Real=1e-6) where {T<:Real}
     N = length(s)
     N < 3 && return true
@@ -146,30 +152,189 @@ end
 end
 
 """
-    husimi_function(state::BIMEigenstate{K,T,S,Bi}; b::Real = 5.0, c::Real = 10.0, w::Real = 7.0, multithreaded::Bool = true) where {K,T,S<:SweepBIMSolver,Bi} → (H::Matrix, qs::Vector, ps::Vector)
+    husimi_function(k, u::AbstractVector, s::AbstractVector, ds::AbstractVector, L::Real, qs::AbstractVector, ps::AbstractVector; w::Real = 7.0, full_p::Bool = false) → (H::Matrix, qs::Vector, ps::Vector)
+
+General non-uniform-arclength boundary Husimi quadrature, evaluated directly
+on the prescribed grids `qs`/`ps` from the physical arc-length coordinates
+`s` and quadrature weights `ds` (which need not be uniformly spaced).
+
+## Description
+Unlike [`husimi_function(k, u, s, L)`](@ref husimi_function), which requires
+`s` to be an (approximately) equally spaced grid so that the coherent-state
+window can be sliced by a fixed number of neighbouring samples, this method
+makes no such assumption: for each `q ∈ qs`, the physical samples within the
+Gaussian truncation window `[q - w/√k, q + w/√k]` are located directly with
+`searchsortedfirst`/`searchsortedlast` on the arc-length-periodized boundary
+(`s .- L`, `s`, `s .+ L`, handling the two nearest periodic images the same
+way [`husimi_function(k, u, s, L)`](@ref husimi_function) does), and
+contracted against the true per-sample weight `ds`,
+
+```math
+h(q,p) = \\sum_{j:\\,|s_j-q|<w/\\sqrt{k}} u_j\\, e^{-k(s_j-q)^2/2}\\, \\mathrm{d}s_j\\, e^{i k p (s_j - q)},
+```
+
+with the same normalization `H(q,p) = a\\,|h(q,p)|^2`,
+`a = 1/(2\\pi\\sqrt{\\pi k})`, as [`husimi_function(k, u, s, L)`](@ref husimi_function)
+(not normalized so that `H` integrates to `1`), so results from the two
+methods are directly comparable in scale. If `full_p=false` (default), only
+`ps .>= 0` is evaluated explicitly and the negative-momentum half is
+reconstructed by reflection (`H(q,-p) ≈ H(q,p)`, exact only up to `u`'s
+global complex phase); set `full_p=true` to evaluate the full signed `ps`
+grid explicitly instead (needed when `u` is not real up to a global phase).
+
+## Arguments
+* `k`: The wavenumber of the eigenstate.
+* `u`: The (possibly complex) boundary normal-derivative function values at `s`.
+* `s`: The physical arc-length coordinates of `u`, need not be uniformly spaced.
+* `ds`: The physical quadrature weights corresponding to `u`/`s`.
+* `L`: The total length of the (periodized) boundary.
+* `qs`: The boundary-position coordinates at which to evaluate `H`.
+* `ps`: The momenta to evaluate explicitly (only `ps .>= 0` needed if `full_p=false`).
+
+## Keyword arguments
+*  `w::Real = 7.0` : Truncation width of the coherent-state Gaussian envelope, in units of `1/√k`.
+*  `full_p::Bool = false` : Whether `ps` already spans the full signed momentum interval.
+
+## Returns
+*  `H` : The Husimi density on the grid `(qs, ps)`, of size `(length(qs), length(ps))` (or `(length(qs), 2*count(ps.>=0)-1)` if `full_p=false`).
+*  `qs` : The input boundary-position grid.
+*  `ps` : The full signed momentum grid corresponding to `H`.
+"""
+function husimi_function(k::T, u::AbstractVector{Num}, s::AbstractVector{T}, ds::AbstractVector{T}, L::T, qs::AbstractVector{T}, ps::AbstractVector{T}; w::Real=7.0, full_p::Bool=false) where {T<:Real,Num<:Number}
+    N = length(s)
+    N == length(ds) == length(u) || throw(DimensionMismatch("s, ds and u must have equal length"))
+    s_ext = vcat(s .- L, s, s .+ L)
+    u_ext = vcat(u, u, u)
+    ds_ext = vcat(ds, ds, ds)
+    nx = length(qs)
+    ny = length(ps)
+    Hp = zeros(T, ny, nx)
+    a = one(T)/(2*T(pi)*sqrt(T(pi)*k))
+    width = T(w)/sqrt(k)
+    c_re = Vector{T}(undef, 0)
+    c_im = Vector{T}(undef, 0)
+    si = Vector{T}(undef, 0)
+    @inbounds for iq in 1:nx
+        q = qs[iq]
+        lo = searchsortedfirst(s_ext, q-width)
+        hi = searchsortedlast(s_ext, q+width)
+        W = max(0, hi-lo+1)
+        if length(c_re) < W
+            resize!(c_re, W)
+            resize!(c_im, W)
+            resize!(si, W)
+        end
+        @inbounds for t in 0:W-1
+            j = lo+t
+            sdiff = s_ext[j]-q
+            si[t+1] = sdiff
+            wt = exp(-T(0.5)*k*sdiff*sdiff)*ds_ext[j]
+            uj = u_ext[j]
+            if uj isa Real
+                c_re[t+1] = wt*uj
+                c_im[t+1] = zero(T)
+            else
+                c_re[t+1] = wt*real(uj)
+                c_im[t+1] = wt*imag(uj)
+            end
+        end
+        @inbounds for ip in 1:ny
+            kp = k*ps[ip]
+            sracc = zero(T)
+            siacc = zero(T)
+            @inbounds @simd for t in 1:W
+                θ = kp*si[t]
+                s_,c_ = sincos(θ)
+                re = c_re[t]
+                im_ = c_im[t]
+                # (re+i*im_)*(cos θ + i sin θ), matching husimi_function(k,u,s,L)'s e^{+iθ} convention
+                sracc += re*c_ - im_*s_
+                siacc += re*s_ + im_*c_
+            end
+            Hp[ip,iq] = a*(sracc*sracc+siacc*siacc)
+        end
+    end
+    if full_p
+        H = permutedims(Hp)
+        ps_out = collect(ps)
+    else
+        H = permutedims(vcat(reverse(Hp[2:end,:]; dims=1), Hp))
+        ps_out = vcat(-reverse(ps[2:end]), ps)
+    end
+    return H, collect(qs), ps_out
+end
+
+"""
+    husimi_function(k, u::AbstractVector, s::AbstractVector, ds::AbstractVector, L::Real; c::Real = 10.0, w::Real = 7.0, full_p::Bool = false) → (H::Matrix, qs::Vector, ps::Vector)
+
+Automatically gridded boundary Husimi function, valid whether or not `s` is
+uniformly spaced in arc-length.
+
+## Description
+If `s`/`ds` are (to within tolerance, see [`_bim_boundary_uniformly_spaced`](@ref))
+uniformly spaced and `full_p=false`, delegates to the fast sliding-window
+stencil [`husimi_function(k, u, s, L)`](@ref husimi_function). Otherwise, a
+boundary-position grid `qs` (uniform on `[0,L)`, independent of `s`'s own
+spacing) and momentum grid `ps` are built with the same `c`/`w`-controlled
+sampling density as the fast stencil, and
+[`husimi_function(k, u, s, ds, L, qs, ps)`](@ref husimi_function) is used to
+evaluate `H` by direct physical quadrature.
+
+## Arguments
+* `k`: The wavenumber of the eigenstate.
+* `u`: The (possibly complex) boundary normal-derivative function values at `s`.
+* `s`: The physical arc-length coordinates of `u`.
+* `ds`: The physical quadrature weights corresponding to `u`/`s`.
+* `L`: The total length of the (periodized) boundary.
+
+## Keyword arguments
+*  `c::Real = 10.0` : Phase-space sampling density in units of the coherent-state width `1/√k`.
+*  `w::Real = 7.0` : Truncation width of the coherent-state Gaussian envelope, in units of `1/√k`.
+*  `full_p::Bool = false` : Whether to evaluate both signs of momentum explicitly (forces the general quadrature even on a uniform grid).
+
+## Returns
+*  `H` : The Husimi density on the returned grid `(qs, ps)`.
+*  `qs` : Boundary-position coordinates at which `H` is sampled.
+*  `ps` : Momenta at which `H` is sampled.
+"""
+function husimi_function(k::T, u::AbstractVector{Num}, s::AbstractVector{T}, ds::AbstractVector{T}, L::T; c::Real=10.0, w::Real=7.0, full_p::Bool=false) where {T<:Real,Num<:Number}
+    if !full_p && _bim_boundary_uniformly_spaced(s, ds)
+        return husimi_function(k, u, s, L; c=c, w=w)
+    end
+    sig = one(T)/sqrt(k)
+    nq = max(2, ceil(Int, L*T(c)/sig))
+    np = max(1, ceil(Int, T(c)/sig))
+    qs = collect(range(zero(T), L; length=nq+1))[1:end-1]
+    ps = full_p ? collect(range(-one(T), one(T); length=2np+1)) : collect(range(zero(T), one(T); length=np+1))
+    return husimi_function(k, u, s, ds, L, qs, ps; w=w, full_p=full_p)
+end
+
+"""
+    husimi_function(state::BIMEigenstate{K,T,S,Bi}; b::Real = 5.0, c::Real = 10.0, w::Real = 7.0, multithreaded::Bool = true, full_p::Bool = false) where {K,T,S<:SweepBIMSolver,Bi} → (H::Matrix, qs::Vector, ps::Vector)
 
 Computes the boundary Husimi function of a [`BIMEigenstate`](@ref) computed
 with any [`SweepBIMSolver`](@ref), by combining the precomputed
 `state.u`/`state.pts` (see [`compute_eigenstate`](@ref)/[`solve_state`](@ref))
-with [`husimi_function(k, u, s, L)`](@ref husimi_function).
+with the automatically dispatching
+[`husimi_function(k, u, s, ds, L)`](@ref husimi_function).
 
-!!! warning "Non-uniform boundary sampling"
-    [`husimi_function(k, u, s, L)`](@ref husimi_function) assumes `s` is
-    uniformly spaced in arc-length. A solver using [`GlobalCornerGrading`](@ref)
-    intentionally clusters nodes near corners, so `s` is *not* uniformly
-    spaced there, and a warning is emitted in that case since the resulting
-    Husimi function may be inaccurate.
+## Description
+`state.pts` carries both `s` and `ds` for the complete physical boundary
+(populated by `solve_state`, see [`BIMEigenstate`](@ref)), so a
+[`GlobalCornerGrading`](@ref) solver's corner-clustered, non-uniformly-spaced
+grid is handled correctly via the general quadrature instead of only
+triggering a warning: [`husimi_function(k, u, s, ds, L)`](@ref husimi_function)
+detects the non-uniform case itself and switches kernels automatically.
 
 ## Keyword arguments
 *  `b::Real = 5.0` : Unused, accepted for interface compatibility (see [`boundary_function(state::BIMEigenstate)`](@ref)).
-*  `c::Real = 10.0`, `w::Real = 7.0` : Passed to [`husimi_function(k, u, s, L)`](@ref husimi_function).
+*  `c::Real = 10.0`, `w::Real = 7.0` : Passed to [`husimi_function(k, u, s, ds, L)`](@ref husimi_function).
 *  `multithreaded::Bool = true` : Unused, accepted for interface compatibility; `state.u` is already computed by [`compute_eigenstate`](@ref).
+*  `full_p::Bool = false` : Passed to [`husimi_function(k, u, s, ds, L)`](@ref husimi_function).
 """
-function husimi_function(state::BIMEigenstate{K,T,S,Bi}; b=5.0, c=10.0, w=7.0, multithreaded=true) where {K,T,S<:SweepBIMSolver,Bi}
+function husimi_function(state::BIMEigenstate{K,T,S,Bi}; b=5.0, c=10.0, w=7.0, multithreaded=true, full_p=false) where {K,T,S<:SweepBIMSolver,Bi}
     pts = state.pts
-    comp = state.solver.symmetry === nothing ? get_boundary_curves(state.billiard) : full_boundary(state.billiard)
-    L = sum(crv.length for crv in comp)
-    _bim_boundary_uniformly_spaced(pts.s, pts.ds) || @warn "BIMEigenstate boundary discretization is not uniformly spaced in arclength (e.g. GlobalCornerGrading clusters nodes near corners); husimi_function assumes uniform spacing and may be inaccurate."
-    return husimi_function(real(state.k), state.u, pts.s, L; c=c, w=w)
+    L = sum(pts.ds)
+    return husimi_function(real(state.k), state.u, pts.s, pts.ds, L; c=c, w=w, full_p=full_p)
 end
 
