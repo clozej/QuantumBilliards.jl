@@ -1,15 +1,6 @@
-
-function make_veech_right_triangle_and_basis(n; edge_i=1)
-    if n < 4
-        println("Order must be 4 or above.")
-        print("Setting n to 4.")
-        n = 4
-    end
-    chi = (n-2)/2
-    gamma = pi/2.0
-    return make_triangle_and_basis(gamma, chi; edge_i)
-end
-
+# `make_veech_right_triangle_and_basis`/`make_veech_right_triangle` live in
+# QuantumBilliards.jl/src/utils/billiardutils.jl (not exported, so they're
+# accessed here as `QuantumBilliards.<name>`) — do not redefine them here.
 
 # solver: Vergini-Saraceno
 # basis: corner adapted Fourier-Bessel
@@ -17,7 +8,7 @@ end
 # symmetry: None
 # functions to test: solve_wavenumber, compute_eigenstate, compute_psi
 @testset "Decomposition Method - Veech Triangle - Ground State" begin
-    billiard, basis = make_veech_right_triangle_and_basis(5)
+    billiard, basis = QuantumBilliards.make_veech_right_triangle_and_basis(5)
     dim_scaling_factor = 2.0
     pts_scaling_factor = 5.0
     solver = VerginiSaracenoSolver(dim_scaling_factor, pts_scaling_factor)
@@ -39,7 +30,7 @@ end
 end
 
 @testset "Particular Solutions Method - Veech Triangle - Ground State" begin
-    billiard, basis = make_veech_right_triangle_and_basis(5)
+    billiard, basis = QuantumBilliards.make_veech_right_triangle_and_basis(5)
     dim_scaling_factor = 2.0
     pts_scaling_factor = 5.0
     int_pts_scaling_factor = 2.0
@@ -68,7 +59,7 @@ end
 # symmetry: None
 # functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate, compute_psi
 @testset "Vergini Saraceno - Veech Triangle - Low Spectrum" begin
-    billiard, basis = make_veech_right_triangle_and_basis(5)
+    billiard, basis = QuantumBilliards.make_veech_right_triangle_and_basis(5)
     dim_scaling_factor = 2.0
     pts_scaling_factor = 5.0
     solver = VerginiSaracenoSolver(dim_scaling_factor, pts_scaling_factor)
@@ -100,7 +91,7 @@ end
 # symmetry: None
 # functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate, compute_psi
 @testset "Vergini Saraceno - Veech Triangle - High Spectrum" begin
-    billiard, basis = make_veech_right_triangle_and_basis(5)
+    billiard, basis = QuantumBilliards.make_veech_right_triangle_and_basis(5)
     dim_scaling_factor = 2.0
     pts_scaling_factor = 5.0
     solver = VerginiSaracenoSolver(dim_scaling_factor, pts_scaling_factor)
@@ -198,7 +189,7 @@ end
 # symmetry: None
 # functions to test: solve_wavenumber, compute_eigenstate
 @testset "Double Layer Potential - Full Triangle - Ground State" begin
-    billiard = BilliardGeometry.TriangleBilliard(pi/2, 1.5)
+    billiard = QuantumBilliards.make_veech_right_triangle(5)
     pts_scaling_factor = 5.0
     solver = DoubleLayerPotentialSolver(pts_scaling_factor; grading=GlobalCornerGrading())
     k0 = 6.1
@@ -240,6 +231,65 @@ end
     ks_test = [2.35, 2.36, 2.37, 2.38, 2.39, 2.4, 2.41, 2.42, 2.43, 2.44, 2.45]
     tens_test = [0.11387428129769038, 0.09309964793161138, 0.07232460472834643, 0.05155117343523519, 0.030781376045685045, 0.010017234588134472, 0.010739229084787815, 0.031485993506856644, 0.05222103780861643, 0.07294234192746765, 0.09364788681749107]
     ten_test = 4.0920427729930095e-9
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test argmin(tens) == 6 # k=2.40 is the tension minimum in the swept window
+end
+
+# solver: Combined Field Integral Equation (Kress-corrected boundary integral method)
+# basis: None (boundary-integral density, no basis expansion)
+# billiard: Triangle (full, un-reduced boundary, all edges SpecularReflection)
+# symmetry: None
+# functions to test: solve_wavenumber, compute_eigenstate
+@testset "Combined Field Integral Equation - Full Triangle - Ground State" begin
+    billiard = QuantumBilliards.make_veech_right_triangle(5)
+    pts_scaling_factor = 5.0
+    solver = CombinedFieldIntegralEquationSolver(pts_scaling_factor; grading=GlobalCornerGrading())
+    k0 = 6.1
+    dk = 0.1
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 6.065091021584176
+    t1_test = 4.236448445773685e-8
+    ten_test = 4.236448435637523e-8
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Combined Field Integral Equation (ungraded periodic boundary integral method)
+# basis: None (boundary-integral density, no basis expansion)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, k_sweep, compute_eigenstate
+@testset "Combined Field Integral Equation - Circle - Ground State" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    pts_scaling_factor = 5.0
+    solver = CombinedFieldIntegralEquationSolver(pts_scaling_factor; grading=SmoothPeriodicGrading())
+    k0 = 2.4
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks = collect(range(2.35, 2.45, length=11))
+    tens = k_sweep(solver, billiard, ks)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 2.4048255524123827 # matches the first zero of J0, ≈ 2.404825557695772
+    t1_test = 2.1430713503075886e-8
+    ks_test = [2.35, 2.36, 2.37, 2.38, 2.39, 2.4, 2.41, 2.42, 2.43, 2.44, 2.45]
+    tens_test = [0.2223184861379049, 0.1817923655089925, 0.14125066627230293, 0.10069757153072129, 0.060137263312625436, 0.01957392217808703, 0.020988273175142097, 0.06154514630575029, 0.10209252342310988, 0.14262623378153413, 0.18314211007456732]
+    ten_test = 2.1430713549767833e-8
     dim_test = 200
     atol = 1e-3
     @test isapprox(k, k_test; atol=atol)

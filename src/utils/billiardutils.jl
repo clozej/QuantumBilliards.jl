@@ -51,3 +51,25 @@ function make_triangle_and_basis(gamma,chi; edge_i=1)
     basis=CornerAdaptedFourierBessel(10,angle,cs,symmetry)
     return tr, basis 
 end
+
+function make_veech_right_triangle_and_basis(n; edge_i=1)
+    if n < 4
+        println("Order must be 4 or above.")
+        print("Setting n to 4.")
+        n = 4
+    end
+    chi = (n-2)/2
+    gamma = pi/2.0
+    return make_triangle_and_basis(gamma, chi; edge_i)
+end
+
+function make_veech_right_triangle(n)
+    if n < 4
+        println("Order must be 4 or above.")
+        print("Setting n to 4.")
+        n = 4
+    end
+    chi = (n-2)/2
+    gamma = pi/2.0
+    return TriangleBilliard(gamma, chi)
+end

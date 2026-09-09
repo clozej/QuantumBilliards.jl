@@ -144,7 +144,7 @@ end
 end
 
 @testset "points_in_billiard" begin
-    billiard, _ = make_veech_right_triangle_and_basis(4)
+    billiard, _ = QuantumBilliards.make_veech_right_triangle_and_basis(4)
     interior = QuantumBilliards.random_interior_points(billiard, 5)
     @test all(points_in_billiard(interior, billiard))
     far_pt = SVector(1e3,1e3)
