@@ -353,3 +353,277 @@ end
     @test maximum(abs.(expected .- A_reduced)) < 1e-10
 end
 
+# solver: Beyn (contour-integral accelerated method, use_chebyshev=false)
+# kernel: Double Layer Potential (Kress-corrected, GlobalCornerGrading)
+# billiard: Triangle (full, un-reduced boundary, all edges SpecularReflection)
+# symmetry: None
+# functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate
+@testset "Beyn (DLP kernel) - Full Triangle - Ground State" begin
+    billiard = QuantumBilliards.make_veech_right_triangle(5)
+    kernel = DoubleLayerPotentialSolver(5.0; grading=GlobalCornerGrading())
+    solver = BeynSolver(kernel; use_chebyshev=false)
+    k0 = 6.1
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks, tens = solve_spectrum(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 6.065090994323157
+    t1_test = 6.746015995342919e-16
+    ks_test = [6.065090994323157]
+    tens_test = [7.888184165229023e-16]
+    ten_test = 2.130269457223247e-9
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Beyn (contour-integral accelerated method, use_chebyshev=false)
+# kernel: Combined Field Integral Equation (Kress-corrected, GlobalCornerGrading)
+# billiard: Triangle (full, un-reduced boundary, all edges SpecularReflection)
+# symmetry: None
+# functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate
+@testset "Beyn (CFIE kernel) - Full Triangle - Ground State" begin
+    billiard = QuantumBilliards.make_veech_right_triangle(5)
+    kernel = CombinedFieldIntegralEquationSolver(5.0; grading=GlobalCornerGrading())
+    solver = BeynSolver(kernel; use_chebyshev=false)
+    k0 = 6.1
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks, tens = solve_spectrum(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 6.065090986269762
+    t1_test = 2.804174658955433e-15
+    ks_test = [6.065090986269762]
+    tens_test = [2.804174658955433e-15]
+    ten_test = 5.006968292792506e-10
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Beyn (contour-integral accelerated method, use_chebyshev=false)
+# kernel: Double Layer Potential (ungraded periodic, SmoothPeriodicGrading)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate
+@testset "Beyn (DLP kernel) - Circle - Ground State" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    kernel = DoubleLayerPotentialSolver(5.0; grading=SmoothPeriodicGrading())
+    solver = BeynSolver(kernel; use_chebyshev=false)
+    k0 = 2.4
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks, tens = solve_spectrum(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 2.404825557695771 # matches the first zero of J0, ≈ 2.404825557695772
+    t1_test = 3.457733908813559e-15
+    ks_test = [2.404825557695771]
+    tens_test = [3.457733908813559e-15]
+    ten_test = 3.755968584533671e-15
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Beyn (contour-integral accelerated method, use_chebyshev=false)
+# kernel: Combined Field Integral Equation (ungraded periodic, SmoothPeriodicGrading)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate
+@testset "Beyn (CFIE kernel) - Circle - Ground State" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    kernel = CombinedFieldIntegralEquationSolver(5.0; grading=SmoothPeriodicGrading())
+    solver = BeynSolver(kernel; use_chebyshev=false)
+    k0 = 2.4
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks, tens = solve_spectrum(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 2.40482555769577 # matches the first zero of J0, ≈ 2.404825557695772
+    t1_test = 1.1098489559036599e-14
+    ks_test = [2.40482555769577]
+    tens_test = [1.1098489559036599e-14]
+    ten_test = 5.600483505076261e-15
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Beyn (contour-integral accelerated method, use_chebyshev=false)
+# kernel: Double Layer Potential (ungraded periodic, SmoothPeriodicGrading)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate
+#
+# Non-ground-state regression: contour window centered on the second zero of
+# J0 (≈5.520078110286310, non-degenerate m=0 mode), used as the analytically
+# known reference point for locating this excited state.
+@testset "Beyn (DLP kernel) - Circle - Second J0 State" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    kernel = DoubleLayerPotentialSolver(5.0; grading=SmoothPeriodicGrading())
+    solver = BeynSolver(kernel; use_chebyshev=false)
+    k0 = 5.52
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks, tens = solve_spectrum(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 5.5200781102863115 # matches the second zero of J0, ≈ 5.520078110286310
+    t1_test = 3.521890353927144e-15
+    ks_test = [5.5200781102863115]
+    tens_test = [3.521890353927144e-15]
+    ten_test = 2.151337535301161e-15
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Beyn (contour-integral accelerated method, use_chebyshev=false)
+# kernel: Double Layer Potential (ungraded periodic, SmoothPeriodicGrading)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, solve_spectrum, compute_eigenstate
+#
+# Non-ground-state regression: contour window centered on the first zero of
+# J1 (≈3.831705970207512, doubly degenerate m=1 mode — cos(θ) and sin(θ)
+# angular parts share the same radial zero), used as the analytically known
+# reference point. Beyn's contour integral recovers both nearly-degenerate
+# roots from a single contour solve.
+@testset "Beyn (DLP kernel) - Circle - First J1 State (degenerate)" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    kernel = DoubleLayerPotentialSolver(5.0; grading=SmoothPeriodicGrading())
+    solver = BeynSolver(kernel; use_chebyshev=false)
+    k0 = 3.83
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks, tens = solve_spectrum(solver, billiard, k0, dk)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 3.8317059702075134 # matches the first zero of J1, ≈ 3.831705970207512
+    t1_test = 2.3516241643158014e-15
+    ks_test = [3.8317059702075134, 3.8317059702075147]
+    tens_test = [2.3516241643158014e-15, 4.825248254853555e-15]
+    ten_test = 1.1725778019993552e-15
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(sort(ks), sort(ks_test); atol=atol))
+    @test all(isapprox.(sort(tens), sort(tens_test); atol=atol))
+    @test isapprox(real(state.k), k_test; atol=atol)
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test length(state.vec) == dim_test
+end
+
+# solver: Double Layer Potential (ungraded periodic boundary integral method)
+# basis: None (boundary-integral density, no basis expansion)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, k_sweep, compute_eigenstate
+#
+# Non-ground-state regression for the plain (non-accelerated) sweep solver,
+# using the same analytically known reference point as the Beyn
+# "Circle - Second J0 State" test above (second zero of J0).
+@testset "Double Layer Potential - Circle - Second J0 State" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    pts_scaling_factor = 5.0
+    solver = DoubleLayerPotentialSolver(pts_scaling_factor; grading=SmoothPeriodicGrading())
+    k0 = 5.52
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks = collect(range(5.47, 5.57, length=11))
+    tens = k_sweep(solver, billiard, ks)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 5.520078111330469 # matches the second zero of J0, ≈ 5.520078110286310
+    t1_test = 2.104892455202648e-9
+    ks_test = [5.47, 5.48, 5.49, 5.5, 5.51, 5.52, 5.53, 5.54, 5.55, 5.56, 5.57]
+    tens_test = [0.10091934937089918, 0.08077747347791318, 0.060628321161366794, 0.04047391774126286, 0.020316288918002832, 0.00015746057002412567, 0.02000054144857719, 0.040155691510402, 0.06030596441709468, 0.08044933560162082, 0.10058378133048677]
+    ten_test = 2.1048924685889037e-9
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test argmin(tens) == 6 # k=5.52 is the tension minimum in the swept window
+end
+
+# solver: Combined Field Integral Equation (ungraded periodic boundary integral method)
+# basis: None (boundary-integral density, no basis expansion)
+# billiard: Circle (PolarBilliard, no true corners)
+# symmetry: None
+# functions to test: solve_wavenumber, k_sweep, compute_eigenstate
+#
+# Non-ground-state regression for the plain (non-accelerated) sweep solver,
+# using the same analytically known reference point as the Beyn
+# "Circle - Second J0 State" test above (second zero of J0).
+@testset "Combined Field Integral Equation - Circle - Second J0 State" begin
+    billiard = BilliardGeometry.PolarBilliard([0.0, 0.0])
+    pts_scaling_factor = 5.0
+    solver = CombinedFieldIntegralEquationSolver(pts_scaling_factor; grading=SmoothPeriodicGrading())
+    k0 = 5.52
+    dk = 0.2
+    k, t1 = solve_wavenumber(solver, billiard, k0, dk)
+    ks = collect(range(5.47, 5.57, length=11))
+    tens = k_sweep(solver, billiard, ks)
+    state = compute_eigenstate(solver, billiard, k)
+
+    k_test = 5.520078139956339 # matches the second zero of J0, ≈ 5.520078110286310
+    t1_test = 1.1903233412799057e-7
+    ks_test = [5.47, 5.48, 5.49, 5.5, 5.51, 5.52, 5.53, 5.54, 5.55, 5.56, 5.57]
+    tens_test = [0.20082593439092372, 0.16074716133598993, 0.1206524768724347, 0.08054592190836311, 0.04043153829614857, 0.0003133684271189445, 0.03980454517379068, 0.0799181602533525, 0.12002343523534198, 0.16011632962570507, 0.20019280441760964]
+    ten_test = 1.1903233410979373e-7
+    dim_test = 200
+    atol = 1e-3
+    @test isapprox(k, k_test; atol=atol)
+    @test isapprox(t1, t1_test; atol=atol)
+    @test all(isapprox.(ks, ks_test; atol=atol))
+    @test all(isapprox.(tens, tens_test; atol=atol))
+    @test isapprox(state.ten, ten_test; atol=atol)
+    @test state.dim == dim_test
+    @test argmin(tens) == 6 # k=5.52 is the tension minimum in the swept window
+end
+
