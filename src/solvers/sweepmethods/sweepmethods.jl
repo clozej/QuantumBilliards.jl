@@ -154,3 +154,141 @@ function k_sweep(solver::SweepBIMSolver, billiard::Bi, ks; multithreaded::Bool=t
     end
     return res
 end
+
+"""
+    symmetrize_layer_density(solver::AbsBIMSolver, layer_density::AbstractVector, pts::BoundaryPoints, billiard::AbsBilliard) → full_density::Vector
+
+Expands a symmetry-reduced boundary density onto the complete physical
+boundary using `solver.symmetry`'s [`BilliardGeometry.SymmetryOrbitMap`](@ref).
+Generic across every [`AbsBIMSolver`](@ref) (`DoubleLayerPotentialSolver`,
+`CombinedFieldIntegralEquationSolver`, `CompositeBIMSolver`, ...): the
+folding depends only on `solver.symmetry`, never on the specific Fredholm
+kernel.
+
+## Description
+`pts` must already be the discretization of the *complete* physical boundary
+(`full_boundary(billiard)` when `solver.symmetry !== nothing`, as produced by
+[`evaluate_points`](@ref)). If `layer_density` already has full-boundary
+length, it is returned unchanged; otherwise it is expanded from the
+fundamental-domain length via `orbits.orbit_of`/`orbits.phase`.
+
+## Arguments
+* `solver`: The [`AbsBIMSolver`](@ref) whose `symmetry` (if any) defines the folding.
+* `layer_density`: The boundary density, either already full-length or fundamental-domain length.
+* `pts`: The complete-physical-boundary discretization corresponding to the full-length output.
+* `billiard`: The billiard the boundary belongs to (unused beyond dispatch parity with `-develop`, retained for API stability).
+
+## Returns
+*  `full_density` : `layer_density` expanded (or left unchanged) to the complete physical boundary.
+"""
+function symmetrize_layer_density(solver::AbsBIMSolver, layer_density::AbstractVector{N}, pts::BoundaryPoints{T}, billiard::Bi) where {N<:Number,T<:Real,Bi<:AbsBilliard}
+    Nfull = length(pts)
+    length(layer_density) == Nfull && return layer_density
+    solver.symmetry === nothing && throw(DimensionMismatch("Boundary data has length $(length(layer_density)); expected full length $Nfull because no symmetry is active"))
+    orbits = symmetry_index_orbits(T, pts.xy, solver.symmetry)
+    Nred = fundamental_size(orbits)
+    length(layer_density) == Nred || throw(DimensionMismatch("Boundary data has length $(length(layer_density)); expected reduced $Nred or full $Nfull"))
+    S = promote_type(N, Complex{T})
+    full_data = Vector{S}(undef, Nfull)
+    @inbounds for q in 1:Nfull
+        full_data[q] = orbits.phase[q] * layer_density[orbits.orbit_of[q]]
+    end
+    return full_data
+end
+
+"""
+    _bim_normal_derivative(solver::AbsBIMSolver, pts::BoundaryPoints{T}, lvec::AbstractVector) where {T<:Real} → u_raw::Vector
+
+Recovers the (unnormalized, not-yet-symmetrized) physical boundary normal
+derivative `∂ₙψ` directly from the smallest *left* singular vector `lvec` of
+a `SweepBIMSolver`'s primal Fredholm matrix `A(k)` (see
+[`construct_matrices`](@ref)), without ever assembling a second (adjoint)
+matrix or running a second Krylov solve.
+
+## Description
+Every Nyström-discretized boundary-integral operator in this package is
+built from a diagonal quadrature weight `W = diag(ds)`. The physical
+normal derivative is the (near-)null right singular vector of the
+*weighted-transpose* adjoint operator `A_adj(k) = W⁻¹A(k)ᵀW` (a *bilinear*
+transpose, not a conjugate transpose). Writing the primal SVD as
+`A = UΣV*`, transposing gives `Aᵀ = V̄ΣŪ*`, i.e. `Aᵀ`'s right singular
+vectors are exactly the *conjugates* of `A`'s left singular vectors
+(`Aᵀ ū_j = σ_j v̄_j`, obtained by conjugating the standard relation
+`A*u_j = σ_j v_j`). Consequently `y = W⁻¹ū_L` satisfies `A_adj(k) y =
+W⁻¹Aᵀ(Wy) = W⁻¹Aᵀū_L = 0` exactly whenever `Aᵀū_L = 0` exactly (i.e. at a
+true eigenvalue), and is an equally good approximation away from it as the
+tension `A`'s own smallest singular value provides — the same accuracy
+[`solve_vect`](@ref)'s density already carries. This lets
+[`solve_state`](@ref) recover `u_L` (the primal problem's left singular
+vector) from the *same* `KrylovKit.svdsolve` call already computing the
+tension/density, instead of a separate adjoint-matrix assembly and solve.
+
+Defined generically here (not per concrete solver) because this reciprocity
+is a property of the underlying Helmholtz Nyström discretization shared by
+every `AbsBIMSolver`, not of any one kernel. A future solver whose quadrature
+weighting does not follow the plain `W = diag(ds)` convention should add its
+own `_bim_normal_derivative` method instead of relying on this default.
+
+## Returns
+*  `u_raw` : The raw (fundamental-domain-length if `solver.symmetry !== nothing`) `∂ₙψ`, not yet symmetry-expanded or Rellich-normalized.
+"""
+function _bim_normal_derivative(solver::AbsBIMSolver, pts::BoundaryPoints{T}, lvec::AbstractVector) where {T<:Real}
+    idx = solver.symmetry === nothing ? (1:length(lvec)) : symmetry_index_orbits(T, pts.xy, solver.symmetry).fundamental_indices
+    return conj.(lvec) ./ pts.ds[idx]
+end
+
+"""
+    _bim_grid_scale(solver::AbsBIMSolver) → scale::Real
+
+Default boundary-oversampling scale factor used by `b = :auto` in
+[`wavefunction(state::BIMEigenstate)`](@ref), namely
+`solver.pts_scaling_factor[1]`. [`CompositeBIMSolver`](@ref) has no
+`pts_scaling_factor` field of its own and must add its own method once its
+`construct_matrices` is implemented (see the migration plan, Step 7).
+"""
+_bim_grid_scale(solver::AbsBIMSolver) = solver.pts_scaling_factor[1]
+
+"""
+    solve_state(solver::SweepBIMSolver, pts::BoundaryPoints{T}, k, billiard::Bi; multithreaded::Bool = true) where {T<:Real,Bi<:AbsBilliard} → (ten::Real, vec::Vector, u::Vector, bnd_norm::Real)
+
+Solves the boundary-integral eigenvalue problem at wavenumber `k`, returning
+everything a [`BIMEigenstate`](@ref) needs — the tension, the primal
+boundary density, and the Rellich-normalized physical boundary normal
+derivative `u = ∂ₙψ` on the complete physical boundary — from a *single*
+`construct_matrices`/`KrylovKit.svdsolve` call, generic over every
+[`SweepBIMSolver`](@ref).
+
+## Description
+`A(k)` is assembled once with [`construct_matrices`](@ref); its smallest
+singular triplet is computed with one `KrylovKit.svdsolve(A, 1, :SR)` call,
+giving the tension `ten`, the primal density `vec` (its right singular
+vector, matching [`solve_vect`](@ref)) and, from the *same* solve, the left
+singular vector used by [`_bim_normal_derivative`](@ref) to recover `∂ₙψ`
+without a second matrix assembly or Krylov solve. The raw density is
+expanded onto the complete physical boundary with
+[`symmetrize_layer_density`](@ref) and Rellich-normalized with
+[`_rellich`](@ref).
+
+Used by [`compute_eigenstate(::SweepBIMSolver, ...)`](@ref) to populate
+`BIMEigenstate`'s `vec`/`ten`/`pts`/`u`/`bnd_norm` fields up front, so
+[`boundary_function`](@ref)/[`momentum_function`](@ref)/
+[`husimi_function`](@ref)/[`wavefunction`](@ref) never need to re-solve
+anything for a `BIMEigenstate`.
+
+## Returns
+* `ten`: The tension (smallest singular value of `A(k)`).
+* `vec`: The primal boundary density (fundamental-domain length if `solver.symmetry !== nothing`).
+* `u`: The Rellich-normalized `∂ₙψ` on the complete physical boundary.
+* `bnd_norm`: The Rellich-identity value ([`_rellich`](@ref)) of the raw density *before* rescaling; only meaningful as the `u = u_raw/√bnd_norm` scale factor, since the raw Krylov singular vector's own norm convention carries no physical meaning by itself.
+"""
+function solve_state(solver::SweepBIMSolver, pts::BoundaryPoints{T}, k, billiard::Bi; multithreaded::Bool=true) where {T<:Real,Bi<:AbsBilliard}
+    kT = T(k)
+    A = construct_matrices(solver, pts, kT; multithreaded)
+    @blas_1 vals, lvecs, rvecs, _ = KrylovKit.svdsolve(A, 1, :SR)
+    ten = vals[1]
+    vec = Vector{Complex{T}}(rvecs[1])
+    u = symmetrize_layer_density(solver, _bim_normal_derivative(solver, pts, lvecs[1]), pts, billiard)
+    bnd_norm = _rellich(pts, u, kT)
+    u = u ./ sqrt(bnd_norm)
+    return ten, vec, u, bnd_norm
+end

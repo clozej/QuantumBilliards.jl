@@ -148,31 +148,33 @@ function boundary_function(state::S; b=5.0, multithreaded = true) where {S<:AbsS
 end
 
 """
-    boundary_function(state::BIMEigenstate{K,T,S,Bi}; b::Real = 5.0, multithreaded::Bool = true) where {K,T,S<:DoubleLayerPotentialSolver,Bi} → (u::Vector, s::Vector, norm::Real)
+    boundary_function(state::BIMEigenstate{K,T,S,Bi}; b::Real = 5.0, multithreaded::Bool = true) where {K,T,S<:SweepBIMSolver,Bi} → (u::Vector, s::Vector, norm::Real)
 
-Computes the Rellich-normalized boundary normal derivative \$u(s) = \\partial_n\\psi(s)\$
-of a [`BIMEigenstate`](@ref) computed with a [`DoubleLayerPotentialSolver`](@ref).
+Returns the Rellich-normalized boundary normal derivative \$u(s) = \\partial_n\\psi(s)\$
+of a [`BIMEigenstate`](@ref), computed with any [`SweepBIMSolver`](@ref).
 
 ## Description
 Unlike [`boundary_function(state::S) where {S<:AbsState}`](@ref), `state.vec`
 (the *primal* density from [`solve_vect`](@ref)) is not directly usable as
-`∂ₙψ`: the physical boundary normal derivative is instead the nullspace of
-the *adjoint* (weighted-transpose) Fredholm operator, computed by
-[`_dlp_boundary_function`](@ref).
+`∂ₙψ`. Since [`compute_eigenstate`](@ref) already computes the physical
+boundary normal derivative via [`solve_state`](@ref)/[`_bim_normal_derivative`](@ref)
+(from the *same* Krylov solve as `vec`/`ten`, at no extra cost), this is now a
+plain read of the precomputed `state.u`/`state.pts`/`state.bnd_norm` fields —
+no matrix is assembled and no solve happens here.
 
-The `b` keyword is accepted only for interface compatibility with the generic
-`S<:AbsState` methods ([`momentum_function`](@ref), [`husimi_function`](@ref));
-it is unused because a BIM boundary discretization density is fixed by
-`state.solver` at solve time, not resampled per call.
+The `b`/`multithreaded` keywords are accepted only for interface
+compatibility with the generic `S<:AbsState` methods
+([`momentum_function`](@ref), [`husimi_function`](@ref)); both are unused
+because a BIM boundary discretization/density is fixed by `state.solver` at
+`compute_eigenstate` time, not resampled or re-solved per call.
 
 ## Returns
 *  `u` : The Rellich-normalized physical boundary normal derivative `∂ₙψ`, on the complete physical boundary.
 *  `s` : The arc-length coordinates corresponding to `u`. Not, in general, uniformly spaced (a `GlobalCornerGrading` solver clusters nodes near corners) — see [`husimi_function(state::BIMEigenstate)`](@ref).
-*  `norm` : The Rellich-identity normalization already applied to `u`; kept for interface parity with the basis-solver method.
+*  `norm` : The Rellich-identity value of the raw (pre-rescaling) density used to normalize `u` (`state.bnd_norm`); kept for interface parity with the basis-solver method, not itself expected to be close to `1`.
 """
-function boundary_function(state::BIMEigenstate{K,T,S,Bi}; b=5.0, multithreaded=true) where {K,T,S<:DoubleLayerPotentialSolver,Bi}
-    u, pts, norm = _dlp_boundary_function(state.solver, state.billiard, state.k; multithreaded)
-    return u, pts.s, norm
+function boundary_function(state::BIMEigenstate{K,T,S,Bi}; b=5.0, multithreaded=true) where {K,T,S<:SweepBIMSolver,Bi}
+    return state.u, state.pts.s, state.bnd_norm
 end
 
 """
@@ -307,19 +309,18 @@ function momentum_function(u::AbstractVector{U}, s::AbstractVector{T}, ds::Abstr
 end
 
 """
-    momentum_function(state::BIMEigenstate{K,T,S,Bi}; b::Real = 5.0, multithreaded::Bool = true) where {K,T,S<:DoubleLayerPotentialSolver,Bi} → (power::Vector, ks::Vector)
+    momentum_function(state::BIMEigenstate{K,T,S,Bi}; b::Real = 5.0, multithreaded::Bool = true) where {K,T,S<:SweepBIMSolver,Bi} → (power::Vector, ks::Vector)
 
 Computes the momentum-space representation of a [`BIMEigenstate`](@ref)
-computed with a [`DoubleLayerPotentialSolver`](@ref), via the non-uniform-
-arc-length-aware [`momentum_function(u, s, ds)`](@ref momentum_function),
-since the BIM boundary discretization is not, in general, uniformly spaced
-in arc length.
+computed with any [`SweepBIMSolver`](@ref), via the non-uniform-arc-length-
+aware [`momentum_function(u, s, ds)`](@ref momentum_function) applied
+directly to the precomputed `state.u`/`state.pts`, since the BIM boundary
+discretization is not, in general, uniformly spaced in arc length.
 
 ## Keyword arguments
 *  `b::Real = 5.0` : Unused, accepted for interface compatibility (see [`boundary_function(state::BIMEigenstate)`](@ref)).
-*  `multithreaded::Bool = true` : Whether the adjoint Fredholm matrix assembly is multithreaded.
+*  `multithreaded::Bool = true` : Unused, accepted for interface compatibility; `state.u` is already computed by [`compute_eigenstate`](@ref).
 """
-function momentum_function(state::BIMEigenstate{K,T,S,Bi}; b=5.0, multithreaded=true) where {K,T,S<:DoubleLayerPotentialSolver,Bi}
-    u, pts, norm = _dlp_boundary_function(state.solver, state.billiard, state.k; multithreaded)
-    return momentum_function(u, pts.s, pts.ds)
+function momentum_function(state::BIMEigenstate{K,T,S,Bi}; b=5.0, multithreaded=true) where {K,T,S<:SweepBIMSolver,Bi}
+    return momentum_function(state.u, state.pts.s, state.pts.ds)
 end

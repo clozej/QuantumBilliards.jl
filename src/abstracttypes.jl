@@ -98,7 +98,13 @@ of `A(k)` (see `solve`); scanning this tension over a range of wavenumbers
 locates the billiard's eigenvalues, exactly as [`SweepBasisSolver`](@ref) does
 for basis-expansion solvers. Concrete implementations are
 [`DoubleLayerPotentialSolver`](@ref), [`CombinedFieldIntegralEquationSolver`](@ref)
-and [`CompositeBIMSolver`](@ref).
+and [`CompositeBIMSolver`](@ref). `solve_state` is generic across the whole
+branch: it assembles `A(k)` once and reuses the *same* Krylov singular-value
+solve `solve_vect` performs to also recover the physical boundary normal
+derivative `∂ₙψ`, via `_bim_normal_derivative`'s Helmholtz-kernel-reciprocity
+relation between `A(k)`'s left singular vector and its weighted-transpose
+adjoint's right singular vector — no concrete solver needs to implement this
+itself unless its kernel does not follow that reciprocity convention.
 
 ## API
 The following functions can be evaluated for any `SweepBIMSolver`:
@@ -108,6 +114,7 @@ The following functions can be evaluated for any `SweepBIMSolver`:
 - `solve_vect`
 - [`solve_wavenumber`](@ref)
 - [`k_sweep`](@ref)
+- `solve_state`
 """
 abstract type SweepBIMSolver <: AbsBIMSolver end
 

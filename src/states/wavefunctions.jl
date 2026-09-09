@@ -297,12 +297,14 @@ function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = tr
 end
 
 """
-    wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol} = :auto, inside_only::Bool = true, use_float32_bessel::Bool = true, multithreaded::Bool = true) where {K,T,S<:DoubleLayerPotentialSolver,Bi} → (Psi2d::Matrix, x_grid::Vector, y_grid::Vector)
+    wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol} = :auto, inside_only::Bool = true, use_float32_bessel::Bool = true, multithreaded::Bool = true) where {K,T,S<:SweepBIMSolver,Bi} → (Psi2d::Matrix, x_grid::Vector, y_grid::Vector)
 
-Reconstructs the wavefunction of a [`BIMEigenstate`](@ref) computed with a
-[`DoubleLayerPotentialSolver`](@ref) on a Cartesian grid, via the
-single-layer-potential Green's-function integral [`ϕ_slp`](@ref) applied to
-the boundary normal derivative `u = ∂ₙψ` from [`_dlp_boundary_function`](@ref).
+Reconstructs the wavefunction of a [`BIMEigenstate`](@ref) computed with any
+[`SweepBIMSolver`](@ref) on a Cartesian grid, via the single-layer-potential
+Green's-function integral [`ϕ_slp`](@ref) applied to the precomputed
+boundary normal derivative `u = ∂ₙψ` (`state.u`/`state.pts`, see
+[`compute_eigenstate`](@ref)/[`solve_state`](@ref)) — no boundary re-solve
+happens here.
 
 ## Description
 The Cartesian grid covers the *complete* physical boundary
@@ -315,22 +317,23 @@ points is parallelized (`multithreaded`), with each thread writing to a
 disjoint output index.
 
 ## Keyword arguments
-*  `b::Union{Real,Symbol} = :auto` : Grid sampling density in points per de Broglie wavelength; `:auto` uses `solver.pts_scaling_factor[1]`.
+*  `b::Union{Real,Symbol} = :auto` : Grid sampling density in points per de Broglie wavelength; `:auto` uses [`_bim_grid_scale`](@ref).
 *  `inside_only::Bool = true` : Whether to evaluate only at points inside `state.billiard`.
 *  `use_float32_bessel::Bool = true` : Passed to [`ϕ_slp`](@ref).
-*  `multithreaded::Bool = true` : Whether the boundary-function/grid evaluation is threaded.
+*  `multithreaded::Bool = true` : Whether the grid evaluation loop is threaded.
 
 ## Returns
 *  `Psi2d` : The reconstructed wavefunction values on the grid.
 *  `x_grid`,`y_grid` : The Cartesian grid coordinates.
 """
-function wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol}=:auto, inside_only::Bool=true, use_float32_bessel::Bool=true, multithreaded::Bool=true) where {K,T,S<:DoubleLayerPotentialSolver,Bi}
+function wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol}=:auto, inside_only::Bool=true, use_float32_bessel::Bool=true, multithreaded::Bool=true) where {K,T,S<:SweepBIMSolver,Bi}
     solver = state.solver
     billiard = state.billiard
     kT = real(state.k)
-    u, pts, _ = _dlp_boundary_function(solver, billiard, kT; multithreaded)
+    u = state.u
+    pts = state.pts
     comp = solver.symmetry === nothing ? get_boundary_curves(billiard) : full_boundary(billiard)
-    bval = b === :auto ? solver.pts_scaling_factor[1] : T(b)
+    bval = b === :auto ? _bim_grid_scale(solver) : T(b)
     Ltot = sum(crv.length for crv in comp)
     xlim, ylim = boundary_limits(comp; grd=max(1000, round(Int, kT*Ltot*bval/(2*pi))))
     dx = xlim[2]-xlim[1]

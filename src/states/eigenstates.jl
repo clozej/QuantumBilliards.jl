@@ -210,13 +210,16 @@ fundamental-domain points only, if `solver.symmetry !== nothing`).
 
 !!! note "Primal density vs. `∂ₙψ`"
     `vec` is the *primal* boundary density obtained by [`solve_vect`](@ref)
-    and is **not** the physical boundary normal derivative `∂ₙψ`. For a
-    [`DoubleLayerPotentialSolver`](@ref), [`boundary_function`](@ref) instead
-    recovers `∂ₙψ` from the nullspace of the *adjoint* (weighted-transpose)
-    Fredholm operator; see its docstring for details. [`wavefunction`](@ref)
-    and [`husimi_function`](@ref) support for `BIMEigenstate` is currently
-    only implemented for [`DoubleLayerPotentialSolver`](@ref); other BIM
-    solvers will gain this support as they are implemented.
+    and is **not** the physical boundary normal derivative `∂ₙψ`. Unlike an
+    earlier version of this type, `BIMEigenstate` now also stores the
+    Rellich-normalized `∂ₙψ` directly (`u`, on the complete physical
+    boundary `pts`), computed once by [`solve_state`](@ref) alongside
+    `vec`/`ten` from the *same* Krylov singular-value solve — see
+    [`_bim_normal_derivative`](@ref) for why this is possible without a
+    second matrix assembly or solve. This makes [`boundary_function`](@ref),
+    [`momentum_function`](@ref), [`wavefunction`](@ref) and
+    [`husimi_function`](@ref) simple field reads for *any*
+    [`SweepBIMSolver`](@ref), not just [`DoubleLayerPotentialSolver`](@ref).
 
 ## Attributes
 * `k`: The wavenumber of the eigenstate, as refined by the solver. Stored with the same (generally complex) element type `K` as `vec`, since the boundary density is complex-valued; the imaginary part is always zero.
@@ -227,14 +230,17 @@ fundamental-domain points only, if `solver.symmetry !== nothing`).
 * `eps`: Numerical precision threshold below which coefficients of `vec` are treated as zero.
 * `solver`: The solver (`S<:SweepBIMSolver`) used to compute the eigenstate.
 * `billiard`: The billiard (`Bi<:AbsBilliard`) the eigenstate is defined on.
+* `pts`: The complete physical boundary discretization (same `pts` the solve used) that `u` is sampled at.
+* `u`: The Rellich-normalized physical boundary normal derivative `∂ₙψ` on `pts`, from [`solve_state`](@ref).
+* `bnd_norm`: The Rellich-identity value ([`_rellich`](@ref)) of the *raw* density before rescaling to `u`; only meaningful as the scale factor `u = u_raw/√bnd_norm` applies, since the raw density's own norm convention is an arbitrary artifact of the underlying Krylov singular-vector solve, not a physical quantity.
 
 ## API
 The following functions can be evaluated for this type:
 - [`compute_eigenstate`](@ref)
-- [`boundary_function`](@ref) (`DoubleLayerPotentialSolver` only)
-- [`momentum_function`](@ref) (`DoubleLayerPotentialSolver` only)
-- [`wavefunction`](@ref) (`DoubleLayerPotentialSolver` only)
-- [`husimi_function`](@ref) (`DoubleLayerPotentialSolver` only)
+- [`boundary_function`](@ref)
+- [`momentum_function`](@ref)
+- [`wavefunction`](@ref)
+- [`husimi_function`](@ref)
 """
 struct BIMEigenstate{K,T,S,Bi} <: AbsState
     k::K
@@ -245,10 +251,13 @@ struct BIMEigenstate{K,T,S,Bi} <: AbsState
     eps::T
     solver::S
     billiard::Bi
+    pts::BoundaryPoints{T}
+    u::Vector{K}
+    bnd_norm::T
 end
 
 """
-    BIMEigenstate(k, vec, ten, solver, billiard) → state::BIMEigenstate
+    BIMEigenstate(k, vec, ten, solver, billiard, pts, u, bnd_norm) → state::BIMEigenstate
 
 Construct a [`BIMEigenstate`](@ref) with `k_basis` set equal to `k`, filtering
 out negligible coefficients of `vec` (see [`BasisEigenstate`](@ref)).
@@ -259,11 +268,14 @@ out negligible coefficients of `vec` (see [`BasisEigenstate`](@ref)).
 * `ten`: Tension of the solution.
 * `solver`: The [`SweepBIMSolver`](@ref) used to compute the eigenstate.
 * `billiard`: The billiard the eigenstate is defined on.
+* `pts`: The complete physical boundary discretization `u` is sampled at.
+* `u`: The Rellich-normalized physical boundary normal derivative `∂ₙψ`.
+* `bnd_norm`: The Rellich-identity normalization applied to `u`.
 
 ## Returns
 *  `state` : A new [`BIMEigenstate`](@ref) with `k_basis = k` and filtered coefficients.
 """
-function BIMEigenstate(k, vec, ten, solver, billiard)
+function BIMEigenstate(k, vec, ten, solver, billiard, pts, u, bnd_norm)
     K = eltype(vec)
     kK = K(k)
     eps = set_precision(real(vec[1]))
@@ -272,7 +284,7 @@ function BIMEigenstate(k, vec, ten, solver, billiard)
     else
         filtered_vec = vec
     end
-    return BIMEigenstate(kK, kK, filtered_vec, ten, length(vec), eps, solver, billiard)
+    return BIMEigenstate(kK, kK, filtered_vec, ten, length(vec), eps, solver, billiard, pts, u, bnd_norm)
 end
 
 """
@@ -283,10 +295,12 @@ boundary-integral sweep `solver` (e.g. [`DoubleLayerPotentialSolver`](@ref)).
 
 ## Description
 Boundary points are sampled with `evaluate_points`, and the boundary-integral
-Fredholm problem is solved at `k` with `solve_vect` to obtain the tension
-`ten` and boundary density `vec`, exactly as
-[`compute_eigenstate(::SweepBasisSolver, ...)`](@ref) does for basis-expansion
-solvers, but without a basis to resize.
+Fredholm problem is solved at `k` with [`solve_state`](@ref), which returns
+the tension `ten`, boundary density `vec` *and* the Rellich-normalized
+physical boundary normal derivative `u` — all from a single Krylov solve —
+so the resulting `BIMEigenstate` already carries everything
+[`boundary_function`](@ref)/[`wavefunction`](@ref)/[`husimi_function`](@ref)
+need, without re-solving anything later.
 
 ## Arguments
 * `solver`: The [`SweepBIMSolver`](@ref) used to solve the boundary-integral eigenvalue problem.
@@ -301,6 +315,6 @@ solvers, but without a basis to resize.
 """
 function compute_eigenstate(solver::SweepBIMSolver, billiard::AbsBilliard, k; multithreaded=true)
     pts = evaluate_points(solver, billiard, k)
-    ten, vec = solve_vect(solver, pts, k; multithreaded)
-    return BIMEigenstate(k, vec, ten, solver, billiard)
+    ten, vec, u, bnd_norm = solve_state(solver, pts, k, billiard; multithreaded)
+    return BIMEigenstate(k, vec, ten, solver, billiard, pts, u, bnd_norm)
 end

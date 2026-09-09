@@ -49,7 +49,7 @@ export DoubleLayerPotentialSolver, CombinedFieldIntegralEquationSolver, Composit
 export ExpandedBIMSolver, BeynSolver
 export BoundaryPointsSM, BoundaryPointsDM
 export evaluate_points, construct_matrices, construct_matrices_benchmark
-export solve, solve_vect, solve_vectors
+export solve, solve_vect, solve_vectors, solve_state
 export solve_wavenumber, solve_spectrum
 export k_sweep
 export boundary_matrix_size
