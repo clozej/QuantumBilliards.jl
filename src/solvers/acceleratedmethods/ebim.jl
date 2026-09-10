@@ -24,10 +24,7 @@ refined root per call rather than every root in a window.
 ## Attributes
 * `kernel`: The wrapped [`SweepBIMSolver`](@ref) supplying `A(k)`, `A'(k)`, `A''(k)`.
 * `use_chebyshev`: Whether Chebyshev-accelerated kernel evaluation is used.
-* `n_panels_h`: Hankel-function Chebyshev panel count.
-* `M_h`: Hankel-function Chebyshev polynomial degree.
-* `n_panels_j`: Bessel-J-function Chebyshev panel count.
-* `M_j`: Bessel-J-function Chebyshev polynomial degree.
+* `cheb_config`: [`ChebyshevConfig`](@ref) bundling the Chebyshev panel/degree/auto-tuning parameters.
 
 ## API
 The following functions can be evaluated for this type:
@@ -36,26 +33,26 @@ The following functions can be evaluated for this type:
 - [`solve`](@ref)
 - [`solve_wavenumber`](@ref)
 - [`solve_spectrum`](@ref)
+- [`compute_spectrum`](@ref)
 
-!!! note "Migration status"
-    `use_chebyshev` is not yet wired to an accelerated evaluation path (Step
-    10 of the migration plan); `construct_matrices` always uses direct
-    Bessels.jl/SpecialFunctions.jl evaluation via the wrapped kernel
-    regardless of `solver.use_chebyshev`. Supports
-    [`DoubleLayerPotentialSolver`](@ref), [`CombinedFieldIntegralEquationSolver`](@ref)
-    and [`CompositeBIMSolver`](@ref) kernels.
+!!! note "Chebyshev acceleration"
+    When `use_chebyshev=true`, `construct_matrices`/`solve` tune (or, with
+    `cheb_config.param_strategy===:manual`, directly use) `H₀^(1)`/`H₁^(1)`/`J₀`/`J₁`
+    Chebyshev plans for the requested wavenumber (see `solvers/chebyshev/` in
+    this package). Only [`DoubleLayerPotentialSolver`](@ref)/
+    [`CombinedFieldIntegralEquationSolver`](@ref) kernels with `T===Float64`
+    are currently supported; a [`CompositeBIMSolver`](@ref) kernel or a
+    non-`Float64` numeric type raises an error (construct with
+    `use_chebyshev=false` instead).
 """
 struct ExpandedBIMSolver{T<:Real,K<:SweepBIMSolver} <: AcceleratedBIMSolver
     kernel::K
     use_chebyshev::Bool
-    n_panels_h::Int
-    M_h::Int
-    n_panels_j::Int
-    M_j::Int
+    cheb_config::ChebyshevConfig{T}
 end
 
 """
-    ExpandedBIMSolver(kernel::K; use_chebyshev::Bool = true, n_panels_h::Int = 15000, M_h::Int = 5, n_panels_j::Int = 10000, M_j::Int = 5) where {K<:SweepBIMSolver} → solver::ExpandedBIMSolver
+    ExpandedBIMSolver(kernel::K; use_chebyshev::Bool = true, n_panels_h::Int = 15000, M_h::Int = 5, n_panels_j::Int = 10000, M_j::Int = 5, cheb_config::Union{Nothing,ChebyshevConfig} = nothing) where {K<:SweepBIMSolver} → solver::ExpandedBIMSolver
 
 Constructs an [`ExpandedBIMSolver`](@ref) wrapping the boundary-integral
 `kernel`.
@@ -65,18 +62,21 @@ Constructs an [`ExpandedBIMSolver`](@ref) wrapping the boundary-integral
 
 ## Keyword arguments
 * `use_chebyshev::Bool = true`: Whether to use Chebyshev-accelerated kernel evaluation.
-* `n_panels_h::Int = 15000`: Hankel-function Chebyshev panel count.
-* `M_h::Int = 5`: Hankel-function Chebyshev polynomial degree.
-* `n_panels_j::Int = 10000`: Bessel-J-function Chebyshev panel count.
-* `M_j::Int = 5`: Bessel-J-function Chebyshev polynomial degree.
+* `n_panels_h::Int = 15000`: Hankel-function Chebyshev panel count (ignored if `cheb_config` is given).
+* `M_h::Int = 5`: Hankel-function Chebyshev polynomial degree (ignored if `cheb_config` is given).
+* `n_panels_j::Int = 10000`: Bessel-J-function Chebyshev panel count (ignored if `cheb_config` is given).
+* `M_j::Int = 5`: Bessel-J-function Chebyshev polynomial degree (ignored if `cheb_config` is given).
+* `cheb_config::Union{Nothing,ChebyshevConfig} = nothing`: A pre-built [`ChebyshevConfig`](@ref); when `nothing`, one is constructed from `n_panels_h`/`M_h`/`n_panels_j`/`M_j` with every other `ChebyshevConfig` field left at its default.
 
 ## Returns
 * `solver`: An [`ExpandedBIMSolver`](@ref) instance.
 """
 function ExpandedBIMSolver(kernel::K; use_chebyshev::Bool=true,
-                            n_panels_h::Int=15000, M_h::Int=5, n_panels_j::Int=10000, M_j::Int=5) where {K<:SweepBIMSolver}
+                            n_panels_h::Int=15000, M_h::Int=5, n_panels_j::Int=10000, M_j::Int=5,
+                            cheb_config::Union{Nothing,ChebyshevConfig}=nothing) where {K<:SweepBIMSolver}
     T = _bim_numeric_type(kernel)
-    return ExpandedBIMSolver{T,K}(kernel, use_chebyshev, n_panels_h, M_h, n_panels_j, M_j)
+    cfg = cheb_config===nothing ? ChebyshevConfig(T; n_panels_h, M_h, n_panels_j, M_j) : cheb_config
+    return ExpandedBIMSolver{T,K}(kernel, use_chebyshev, cfg)
 end
 
 _bim_numeric_type(::ExpandedBIMSolver{T}) where {T} = T
@@ -505,49 +505,169 @@ end
 ############################## PUBLIC API ######################################
 ################################################################################
 
-"""
-    construct_matrices(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool = true) → (A::Matrix, dA::Matrix, ddA::Matrix)
+# Builds (A,dA,ddA) at one complex wavenumber `k` using a Chebyshev-accelerated
+# H₀^(1)/H₁^(1)/J₀/J₁ evaluation instead of direct Bessels.jl/SpecialFunctions.jl
+# calls, dispatched by the wrapped kernel type. Both DLP-with-derivatives and
+# CFIE-with-derivatives kernel entries need all four special-function
+# families (see `_dlp_kernel_entry_with_derivatives`/`_cfie_kernel_entry_with_derivatives`
+# above), so both reuse `tune_cfie_cheb_plans` (solvers/chebyshev/optimalpanelization.jl)
+# rather than needing a separate DLP-only tuner. Reuses the *existing*
+# `_ebim_fredholm_full_with_derivatives!`/`_ebim_fredholm_reduced_with_derivatives!`
+# assembly loops via a closure over the tuned plans, instead of duplicating them.
+function _ebim_construct_matrices_cheb(cs::DoubleLayerPotentialSolver, pts::BoundaryPoints{T}, k, cfg::ChebyshevConfig; multithreaded::Bool=true) where {T<:Real}
+    T===Float64 || error("Chebyshev-accelerated EBIM evaluation currently requires a Float64 kernel; received numeric type $T. Construct the ExpandedBIMSolver with use_chebyshev=false.")
+    kc = ComplexF64(_bim_widen_k(T, k))
+    N = length(pts)
+    graded = _is_nontrivial_dlp_grading(pts)
+    G = boundary_geom_cache(pts, graded)
+    Rmat = zeros(T, N, N)
+    kress_R!(Rmat)
+    rmin, rmax = _cheb_geom_rminmax(G, [kc])
+    plans0, plans1, plansj0, plansj1, _ = tune_cfie_cheb_plans(rmin, rmax, [kc], cfg)
+    plan0 = plans0[1]; plan1 = plans1[1]; planj0 = plansj0[1]; planj1 = plansj1[1]
+    entry_fn = (p, R, Gc, kk, i, j) -> _dlp_kernel_entry_with_derivatives_cheb(p, R, Gc, kk, plan0, plan1, planj0, planj1, i, j)
+    if cs.symmetry===nothing
+        A = Matrix{ComplexF64}(undef, N, N)
+        dA = similar(A)
+        ddA = similar(A)
+        _ebim_fredholm_full_with_derivatives!(entry_fn, A, dA, ddA, pts, Rmat, G, kc; multithreaded)
+        return A, dA, ddA
+    end
+    orbits = symmetry_index_orbits(T, pts.xy, cs.symmetry)
+    m = fundamental_size(orbits)
+    A = Matrix{ComplexF64}(undef, m, m)
+    dA = similar(A)
+    ddA = similar(A)
+    _ebim_fredholm_reduced_with_derivatives!(entry_fn, A, dA, ddA, pts, Rmat, G, orbits, kc; multithreaded)
+    return A, dA, ddA
+end
 
-Assembles the Fredholm matrix `A(k)` and its first two `k`-derivatives
-`A'(k)`, `A''(k)` by direct (non-Chebyshev) evaluation of `solver.kernel`'s
-Kress-corrected Fredholm kernel and its Hankel/Bessel-function `k`-derivatives
-(see [`_dlp_kernel_entry_with_derivatives`](@ref),
-[`_cfie_kernel_entry_with_derivatives`](@ref)).
-"""
-function construct_matrices(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool=true)
-    solver.use_chebyshev && error("Chebyshev-accelerated EBIM evaluation not yet implemented, see the QuantumBilliardsTests migration plan step 10. Construct the ExpandedBIMSolver with use_chebyshev=false.")
-    return _ebim_construct_matrices(solver.kernel, pts, k; multithreaded)
+function _ebim_construct_matrices_cheb(cs::CombinedFieldIntegralEquationSolver, pts::BoundaryPoints{T}, k, cfg::ChebyshevConfig; multithreaded::Bool=true) where {T<:Real}
+    T===Float64 || error("Chebyshev-accelerated EBIM evaluation currently requires a Float64 kernel; received numeric type $T. Construct the ExpandedBIMSolver with use_chebyshev=false.")
+    kc = ComplexF64(_bim_widen_k(T, k))
+    N = length(pts)
+    graded = _is_nontrivial_dlp_grading(pts)
+    G = boundary_geom_cache(pts, graded)
+    Rmat = zeros(T, N, N)
+    kress_R!(Rmat)
+    rmin, rmax = _cheb_geom_rminmax(G, [kc])
+    plans0, plans1, plansj0, plansj1, _ = tune_cfie_cheb_plans(rmin, rmax, [kc], cfg)
+    plan0 = plans0[1]; plan1 = plans1[1]; planj0 = plansj0[1]; planj1 = plansj1[1]
+    entry_fn = (p, R, Gc, kk, i, j) -> _cfie_kernel_entry_with_derivatives_cheb(p, R, Gc, kk, plan0, plan1, planj0, planj1, i, j)
+    if cs.symmetry===nothing
+        A = Matrix{ComplexF64}(undef, N, N)
+        dA = similar(A)
+        ddA = similar(A)
+        _ebim_fredholm_full_with_derivatives!(entry_fn, A, dA, ddA, pts, Rmat, G, kc; multithreaded)
+        return A, dA, ddA
+    end
+    orbits = symmetry_index_orbits(T, pts.xy, cs.symmetry)
+    m = fundamental_size(orbits)
+    A = Matrix{ComplexF64}(undef, m, m)
+    dA = similar(A)
+    ddA = similar(A)
+    _ebim_fredholm_reduced_with_derivatives!(entry_fn, A, dA, ddA, pts, Rmat, G, orbits, kc; multithreaded)
+    return A, dA, ddA
+end
+
+_ebim_construct_matrices_cheb(cs::CompositeBIMSolver, pts::BoundaryPoints, k, cfg::ChebyshevConfig; multithreaded::Bool=true) = error("Chebyshev-accelerated EBIM evaluation is not yet implemented for CompositeBIMSolver kernels. Construct the ExpandedBIMSolver with use_chebyshev=false.")
+
+# Tunes a `ChebyshevConfig` for one representative wavenumber `k` (the same
+# 4-plan H₀/H₁/J₀/J₁ tuning `_ebim_construct_matrices_cheb` needs regardless of
+# DLP/CFIE kernel type), returning it with `param_strategy=:manual` so that a
+# caller reusing it as `cheb_override` (see `compute_spectrum(::ExpandedBIMSolver,...)`
+# in spectra/spectralutils.jl) skips re-tuning on every subsequent call.
+function _tune_ebim_cheb_config(solver::ExpandedBIMSolver, pts::BoundaryPoints{T}, k) where {T<:Real}
+    kc = ComplexF64(_bim_widen_k(T, k))
+    graded = _is_nontrivial_dlp_grading(pts)
+    G = boundary_geom_cache(pts, graded)
+    rmin, rmax = _cheb_geom_rminmax(G, [kc])
+    _, _, _, _, cfg_used = tune_cfie_cheb_plans(rmin, rmax, [kc], solver.cheb_config)
+    return ChebyshevConfig(T; n_panels_h=cfg_used.n_panels_h, M_h=cfg_used.M_h, n_panels_j=cfg_used.n_panels_j, M_j=cfg_used.M_j, tol=cfg_used.tol, max_iter=cfg_used.max_iter, sampling_points=cfg_used.sampling_points, grow_panels=cfg_used.grow_panels, grow_M=cfg_used.grow_M, param_strategy=:manual)
 end
 
 """
-    solve(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool = true) → (k_corr::Real, t0::Real)
+    construct_matrices(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool = true, cheb_override::Union{Nothing,ChebyshevConfig} = nothing) → (A::Matrix, dA::Matrix, ddA::Matrix)
+
+Assembles the Fredholm matrix `A(k)` and its first two `k`-derivatives
+`A'(k)`, `A''(k)`.
+
+When `solver.use_chebyshev`, a Chebyshev-accelerated evaluation of
+`solver.kernel`'s Kress-corrected Fredholm kernel and its Hankel/Bessel-function
+`k`-derivatives is used instead of direct evaluation (see
+[`_dlp_kernel_entry_with_derivatives_cheb`](@ref),
+[`_cfie_kernel_entry_with_derivatives_cheb`](@ref) in `solvers/chebyshev/`);
+the Chebyshev panel/degree parameters are taken from `cheb_override` when
+given (a pre-tuned [`ChebyshevConfig`](@ref), used by
+[`compute_spectrum`](@ref) to avoid re-tuning on every call), otherwise from
+`solver.cheb_config` (auto-tuned fresh for this call unless
+`solver.cheb_config.param_strategy===:manual`).
+
+Otherwise (`solver.use_chebyshev=false`), direct (non-Chebyshev) evaluation is
+used (see [`_dlp_kernel_entry_with_derivatives`](@ref),
+[`_cfie_kernel_entry_with_derivatives`](@ref)).
+"""
+function construct_matrices(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool=true, cheb_override::Union{Nothing,ChebyshevConfig}=nothing)
+    solver.use_chebyshev || return _ebim_construct_matrices(solver.kernel, pts, k; multithreaded)
+    cfg = cheb_override===nothing ? solver.cheb_config : cheb_override
+    return _ebim_construct_matrices_cheb(solver.kernel, pts, k, cfg; multithreaded)
+end
+
+# NaN-safe index of the smallest element of a real vector, treating
+# non-finite entries (`NaN`/`±Inf`) as unbounded rather than letting them
+# poison the reduction. Needed because `solve` below selects the
+# smallest-|value| generalized eigenvalue of the pencil `(A,A'(k))`: when
+# `A'(k)` is rank-deficient (as happens for a plain `DoubleLayerPotentialSolver`
+# kernel, whose k-derivative lacks CFIE's extra full-rank `i*S(k)` term — see
+# `bim-solver-notes.md`), `LinearAlgebra.eigen`'s underlying `ggev` genuinely
+# returns some `NaN`/`Inf` eigenvalues (0/0 or finite/0 pencil ratios), and
+# plain `argmin`/`abs` (whose reduction uses `min`, which propagates `NaN`)
+# can lock onto one of these spurious non-finite roots instead of the true
+# locally-dominant finite one.
+@inline function _argmin_finite(x::AbstractVector{T}) where {T<:Real}
+    best = 1
+    bestval = T(Inf)
+    @inbounds for i in eachindex(x)
+        xi = x[i]
+        if isfinite(xi) && xi<bestval
+            bestval = xi
+            best = i
+        end
+    end
+    return best
+end
+
+"""
+    solve(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool = true, cheb_override::Union{Nothing,ChebyshevConfig} = nothing) → (k_corr::Real, t0::Real)
 
 Computes the second-order locally-corrected root `k_corr` near `k` and its
 tension `t0`.
 
 ## Description
-Assembles `(A,dA,ddA)=A(k),A'(k),A''(k)` via [`construct_matrices`](@ref),
-solves the dense generalized eigenproblem `A v = λ A' v` (`LinearAlgebra.eigen`
-on the matrix pencil), and keeps the eigenpair `(λ,v)` of smallest `|λ|` (the
-locally dominant root). The corresponding left eigenvector `u` is obtained
+Assembles `(A,dA,ddA)=A(k),A'(k),A''(k)` via [`construct_matrices`](@ref)
+(`cheb_override` is forwarded unchanged), solves the dense generalized
+eigenproblem `A v = λ A' v` (`LinearAlgebra.eigen` on the matrix pencil), and
+keeps the eigenpair `(λ,v)` of smallest `|λ|` (the locally dominant root),
+skipping any non-finite `λ` produced by a rank-deficient `A'(k)` (see
+[`_argmin_finite`](@ref)). The corresponding left eigenvector `u` is obtained
 from the adjoint pencil `A' u = μ (A')' u` (`eigen(A',dA')`, eigenvalues
-`μ≈conj(λ)`). The correction is `ε₁=-λ`,
-`ε₂=-(1/2)ε₁²[u'A''(k)v]/[u'A'(k)v]`, giving `k_corr=k+Re(ε₁+ε₂)` and
-`t0=|ε₁+ε₂|`.
+`μ≈conj(λ)`, same non-finite-skipping selection). The correction is
+`ε₁=-λ`, `ε₂=-(1/2)ε₁²[u'A''(k)v]/[u'A'(k)v]`, giving `k_corr=k+Re(ε₁+ε₂)`
+and `t0=|ε₁+ε₂|`.
 """
-function solve(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool=true)
+function solve(solver::ExpandedBIMSolver, pts::BoundaryPoints, k; multithreaded::Bool=true, cheb_override::Union{Nothing,ChebyshevConfig}=nothing)
     T = _bim_numeric_type(solver)
-    A, dA, ddA = construct_matrices(solver, pts, k; multithreaded)
+    A, dA, ddA = construct_matrices(solver, pts, k; multithreaded, cheb_override)
     @blas_multi_then_1 MAX_BLAS_THREADS Fr = eigen(A, dA)
     λ = Fr.values
     V = Fr.vectors
-    jr = argmin(abs.(λ))
+    jr = _argmin_finite(abs.(λ))
     λj = λ[jr]
     v = @view V[:,jr]
     @blas_multi_then_1 MAX_BLAS_THREADS Fl = eigen(A', dA')
     μ = Fl.values
     U = Fl.vectors
-    jl = argmin(abs.(μ.-conj(λj)))
+    jl = _argmin_finite(abs.(μ.-conj(λj)))
     u = @view U[:,jl]
     ε1 = -λj
     num = dot(u, ddA*v)

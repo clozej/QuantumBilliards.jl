@@ -132,7 +132,23 @@ or [`CompositeBIMSolver`](@ref)) supplying the Fredholm operator, and adds its
 own root-finding strategy on top of it: [`BeynSolver`](@ref) recovers every
 root within a contour via Beyn's contour-integral method, while
 [`ExpandedBIMSolver`](@ref) recovers a single locally-corrected root via a
-second-order local Taylor expansion of `A(k)`.
+second-order local Taylor expansion of `A(k)`. Every concrete
+`AcceleratedBIMSolver` also stores every one of its own numerical tuning
+parameters (Beyn's `m`/`nq`/`r`/`svd_tol`/`res_tol`, EBIM's Chebyshev
+configuration) as fields, so its widest-scope entry point,
+[`compute_spectrum`](@ref), takes only the wavenumber range `[k1,k2]` (plus a
+small number of merge-strategy keyword arguments) — unlike `-develop`'s
+`solve_spectrum_beyn`/`solve_spectrum_ebim`, which scatter these same knobs
+across dozens of call-site keyword arguments because `-develop`'s
+`BeynSolver`/`EBIMSolver` are mere `Union` traits, not parameter-holding
+structs. `BeynSolver`'s [`compute_spectrum`](@ref) covers `[k1,k2]` with
+consecutive Weyl-balanced contour windows and concatenates each window's
+already-filtered result (no fuzzy overlap merge needed, windows are
+disjoint by construction); `ExpandedBIMSolver`'s corrects a dense adaptive
+grid of trial wavenumbers and merges the densely-overlapping results with
+[`overlap_and_merge_ebim!`](@ref) (a spacing-adaptive clustering merge,
+unlike the window-boundary-based [`overlap_and_merge!`](@ref) used
+elsewhere).
 
 ## API
 The following functions can be evaluated for any `AcceleratedBIMSolver`:
@@ -140,6 +156,8 @@ The following functions can be evaluated for any `AcceleratedBIMSolver`:
 - `construct_matrices`
 - `solve`
 - [`solve_wavenumber`](@ref)
+- `solve_spectrum`
+- [`compute_spectrum`](@ref)
 """
 abstract type AcceleratedBIMSolver <: AbsBIMSolver end
 

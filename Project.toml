@@ -1,6 +1,6 @@
 name = "QuantumBilliards"
 uuid = "7c03dc60-f10f-4d5b-b776-32bcaab55394"
-version = "0.1.0"
+version = "1.0.0-DEV"
 authors = ["Crt Lozej"]
 
 [deps]
@@ -36,7 +36,7 @@ IntervalArithmetic = "0.20"
 KrylovKit = "0.10.4"
 Logging = "1.11.0"
 Optim = "1"
-QuadGK = "2.11.3"
+QuadGK = "2"
 Rotations = "1"
 SpecialFunctions = "2.9.0"
 StaticArrays = "1"

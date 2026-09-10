@@ -107,10 +107,13 @@ where `u = ∂ₙψ` is the boundary normal derivative (e.g. from
 eigenfunction. This is the reconstruction kernel behind
 [`wavefunction(state::BIMEigenstate)`](@ref).
 
-!!! note "Chebyshev acceleration not yet implemented"
+!!! note "Chebyshev acceleration not implemented"
     `use_chebyshev = true` is reserved for a future Chebyshev-interpolated
-    `Y₀` evaluation (see the BIM-solver migration plan's Chebyshev
-    acceleration step); passing it currently raises an error.
+    `Y₀` evaluation (`-develop`'s `SLPWavefunctionChebPlan`/`_eval_y0_slp_cheb`
+    provide this for the reference implementation), but it was explicitly
+    scoped out of the Chebyshev-acceleration migration step (which only
+    covers `BeynSolver`/`ExpandedBIMSolver` matrix assembly, not wavefunction
+    reconstruction); passing it currently raises an error.
 
 ## Arguments
 * `x`,`y`: Evaluation coordinates.

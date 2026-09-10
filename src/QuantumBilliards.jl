@@ -41,6 +41,11 @@ export basis_matrix, basis_and_gradient_matrices, dk_matrix
 
 include("solvers/sweepmethods/sweepmethods.jl")
 include("solvers/acceleratedmethods/acceleratedmethods.jl")
+include("solvers/chebyshev/core.jl")
+include("solvers/chebyshev/bessels.jl")
+include("solvers/chebyshev/optimalpanelization.jl")
+include("solvers/chebyshev/dlp.jl")
+include("solvers/chebyshev/cfie.jl")
 export SweepBasisSolver, AcceleratedBasisSolver
 export SweepBIMSolver, AcceleratedBIMSolver
 export VerginiSaracenoSolver, print_benchmark_info
@@ -49,6 +54,7 @@ export ParticularSolutionsMethod
 export BoundaryGrading, SmoothPeriodicGrading, CornerGrading, GlobalCornerGrading
 export DoubleLayerPotentialSolver, CombinedFieldIntegralEquationSolver, CompositeBIMSolver
 export ExpandedBIMSolver, BeynSolver
+export ChebyshevConfig
 export BoundaryPointsSM, BoundaryPointsDM
 export evaluate_points, construct_matrices, construct_matrices_benchmark
 export solve, solve_vect, solve_vectors, solve_state
@@ -58,7 +64,7 @@ export boundary_matrix_size
 export weyl_window_width, plan_weyl_windows, beyn_disks_from_windows, beyn_buffer_matrices
 
 include("spectra/spectralutils.jl")
-export SpectralData, compute_spectrum, merge_spectra, overlap_and_merge!
+export SpectralData, compute_spectrum, merge_spectra, overlap_and_merge!, overlap_and_merge_ebim!
 include("spectra/unfolding.jl")
 export weyl_law, area, fundamental_area
 

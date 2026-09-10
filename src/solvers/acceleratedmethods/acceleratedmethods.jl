@@ -1,3 +1,4 @@
+include("chebyshevconfig.jl")
 include("verginisaraceno.jl")
 include("ebim.jl")
 include("beyn.jl")

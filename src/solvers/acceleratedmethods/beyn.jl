@@ -34,10 +34,7 @@ problems", Linear Algebra Appl. 436 (2012).
 * `res_tol`: Residual threshold used to reject spurious roots.
 * `auto_discard_spurious`: Whether candidates with residual above `res_tol` are automatically rejected.
 * `use_chebyshev`: Whether Chebyshev-accelerated kernel evaluation is used.
-* `n_panels_h`: Hankel-function Chebyshev panel count.
-* `M_h`: Hankel-function Chebyshev polynomial degree.
-* `n_panels_j`: Bessel-J-function Chebyshev panel count.
-* `M_j`: Bessel-J-function Chebyshev polynomial degree.
+* `cheb_config`: [`ChebyshevConfig`](@ref) bundling the Chebyshev panel/degree/auto-tuning parameters.
 
 ## API
 The following functions can be evaluated for this type:
@@ -47,12 +44,20 @@ The following functions can be evaluated for this type:
 - [`solve_vectors`](@ref)
 - [`solve_wavenumber`](@ref)
 - [`solve_spectrum`](@ref)
+- [`compute_spectrum`](@ref)
 
-!!! note "Migration status"
-    `use_chebyshev` is not yet wired to an accelerated evaluation path (Step
-    10 of the migration plan); `construct_matrices` always uses direct
-    Bessels.jl/SpecialFunctions.jl evaluation via the wrapped kernel
-    regardless of `solver.use_chebyshev`.
+!!! note "Chebyshev acceleration"
+    When `use_chebyshev=true`, `construct_matrices` tunes (or, with
+    `cheb_config.param_strategy===:manual`, directly uses)
+    `H₁^(1)`/`J₁` (or `H₀^(1)`/`H₁^(1)`/`J₀`/`J₁` for a
+    [`CombinedFieldIntegralEquationSolver`](@ref) kernel) Chebyshev plans
+    once across every contour node, then assembles all `nq` node matrices in
+    a single pass reusing those plans (see `solvers/chebyshev/` in this
+    package). Only [`DoubleLayerPotentialSolver`](@ref)/
+    [`CombinedFieldIntegralEquationSolver`](@ref) kernels with `T===Float64`
+    are currently supported; a [`CompositeBIMSolver`](@ref) kernel or a
+    non-`Float64` numeric type raises an error (construct with
+    `use_chebyshev=false` instead).
 """
 struct BeynSolver{T<:Real,K<:SweepBIMSolver} <: AcceleratedBIMSolver
     kernel::K
@@ -63,14 +68,11 @@ struct BeynSolver{T<:Real,K<:SweepBIMSolver} <: AcceleratedBIMSolver
     res_tol::T
     auto_discard_spurious::Bool
     use_chebyshev::Bool
-    n_panels_h::Int
-    M_h::Int
-    n_panels_j::Int
-    M_j::Int
+    cheb_config::ChebyshevConfig{T}
 end
 
 """
-    BeynSolver(kernel::K; m::Int = 10, nq::Int = 48, r::Int = 48, svd_tol::Real = 1e-12, res_tol::Real = 1e-9, auto_discard_spurious::Bool = true, use_chebyshev::Bool = true, n_panels_h::Int = 15000, M_h::Int = 5, n_panels_j::Int = 10000, M_j::Int = 5) where {K<:SweepBIMSolver} → solver::BeynSolver
+    BeynSolver(kernel::K; m::Int = 10, nq::Int = 48, r::Int = 48, svd_tol::Real = 1e-12, res_tol::Real = 1e-9, auto_discard_spurious::Bool = true, use_chebyshev::Bool = true, n_panels_h::Int = 15000, M_h::Int = 5, n_panels_j::Int = 10000, M_j::Int = 5, cheb_config::Union{Nothing,ChebyshevConfig} = nothing) where {K<:SweepBIMSolver} → solver::BeynSolver
 
 Constructs a [`BeynSolver`](@ref) wrapping the boundary-integral `kernel`.
 
@@ -85,10 +87,11 @@ Constructs a [`BeynSolver`](@ref) wrapping the boundary-integral `kernel`.
 * `res_tol::Real = 1e-9`: Residual threshold for spurious-root rejection.
 * `auto_discard_spurious::Bool = true`: Whether to automatically reject high-residual candidates.
 * `use_chebyshev::Bool = true`: Whether to use Chebyshev-accelerated kernel evaluation.
-* `n_panels_h::Int = 15000`: Hankel-function Chebyshev panel count.
-* `M_h::Int = 5`: Hankel-function Chebyshev polynomial degree.
-* `n_panels_j::Int = 10000`: Bessel-J-function Chebyshev panel count.
-* `M_j::Int = 5`: Bessel-J-function Chebyshev polynomial degree.
+* `n_panels_h::Int = 15000`: Hankel-function Chebyshev panel count (ignored if `cheb_config` is given).
+* `M_h::Int = 5`: Hankel-function Chebyshev polynomial degree (ignored if `cheb_config` is given).
+* `n_panels_j::Int = 10000`: Bessel-J-function Chebyshev panel count (ignored if `cheb_config` is given).
+* `M_j::Int = 5`: Bessel-J-function Chebyshev polynomial degree (ignored if `cheb_config` is given).
+* `cheb_config::Union{Nothing,ChebyshevConfig} = nothing`: A pre-built [`ChebyshevConfig`](@ref); when `nothing`, one is constructed from `n_panels_h`/`M_h`/`n_panels_j`/`M_j` with every other `ChebyshevConfig` field left at its default.
 
 ## Returns
 * `solver`: A [`BeynSolver`](@ref) instance.
@@ -96,9 +99,11 @@ Constructs a [`BeynSolver`](@ref) wrapping the boundary-integral `kernel`.
 function BeynSolver(kernel::K; m::Int=10, nq::Int=48, r::Int=48,
                      svd_tol::Real=1e-12, res_tol::Real=1e-9,
                      auto_discard_spurious::Bool=true, use_chebyshev::Bool=true,
-                     n_panels_h::Int=15000, M_h::Int=5, n_panels_j::Int=10000, M_j::Int=5) where {K<:SweepBIMSolver}
+                     n_panels_h::Int=15000, M_h::Int=5, n_panels_j::Int=10000, M_j::Int=5,
+                     cheb_config::Union{Nothing,ChebyshevConfig}=nothing) where {K<:SweepBIMSolver}
     T = _bim_numeric_type(kernel)
-    return BeynSolver{T,K}(kernel, m, nq, r, T(svd_tol), T(res_tol), auto_discard_spurious, use_chebyshev, n_panels_h, M_h, n_panels_j, M_j)
+    cfg = cheb_config===nothing ? ChebyshevConfig(T; n_panels_h, M_h, n_panels_j, M_j) : cheb_config
+    return BeynSolver{T,K}(kernel, m, nq, r, T(svd_tol), T(res_tol), auto_discard_spurious, use_chebyshev, cfg)
 end
 
 _bim_numeric_type(::BeynSolver{T}) where {T} = T
@@ -192,6 +197,69 @@ function beyn_buffer_matrices(::Type{T}, N::Int, r::Int, rng::G) where {T<:Real,
 end
 
 ################################################################################
+###################### CHEBYSHEV-ACCELERATED MULTI-k ASSEMBLY ################
+################################################################################
+
+# Builds Tbufs[m] = A(zj[m]) for every contour node zj at once, reusing one
+# set of Chebyshev Hankel/Bessel-J plans (tuned once across all nq nodes, see
+# `tune_dlp_cheb_plans`/`tune_cfie_cheb_plans` in solvers/chebyshev/optimalpanelization.jl)
+# instead of calling `construct_matrices(solver.kernel,...)` (direct
+# Bessels.jl/SpecialFunctions.jl evaluation) once per node.
+function _construct_matrices_multi_k_cheb(cs::DoubleLayerPotentialSolver, pts::BoundaryPoints{T}, zj::Vector{ComplexF64}, cfg::ChebyshevConfig; multithreaded::Bool=true) where {T<:Real}
+    T===Float64 || error("Chebyshev-accelerated Beyn evaluation currently requires a Float64 kernel; received numeric type $T. Construct the BeynSolver with use_chebyshev=false.")
+    N = length(pts)
+    graded = _is_nontrivial_dlp_grading(pts)
+    G = boundary_geom_cache(pts, graded)
+    Rmat = zeros(T, N, N)
+    kress_R!(Rmat)
+    rmin, rmax = _cheb_geom_rminmax(G, zj)
+    plans1, plansj1, _ = tune_dlp_cheb_plans(rmin, rmax, zj, cfg)
+    if cs.symmetry===nothing
+        Tbufs = [Matrix{ComplexF64}(undef, N, N) for _ in zj]
+        @inbounds for m in eachindex(zj)
+            _dlp_fredholm_full_cheb!(Tbufs[m], pts, Rmat, G, zj[m], plans1[m], plansj1[m]; multithreaded)
+        end
+        return Tbufs
+    else
+        orbits = symmetry_index_orbits(T, pts.xy, cs.symmetry)
+        msize = fundamental_size(orbits)
+        Tbufs = [Matrix{ComplexF64}(undef, msize, msize) for _ in zj]
+        @inbounds for m in eachindex(zj)
+            _dlp_fredholm_reduced_cheb!(Tbufs[m], pts, Rmat, G, orbits, zj[m], plans1[m], plansj1[m]; multithreaded)
+        end
+        return Tbufs
+    end
+end
+
+function _construct_matrices_multi_k_cheb(cs::CombinedFieldIntegralEquationSolver, pts::BoundaryPoints{T}, zj::Vector{ComplexF64}, cfg::ChebyshevConfig; multithreaded::Bool=true) where {T<:Real}
+    T===Float64 || error("Chebyshev-accelerated Beyn evaluation currently requires a Float64 kernel; received numeric type $T. Construct the BeynSolver with use_chebyshev=false.")
+    N = length(pts)
+    graded = _is_nontrivial_dlp_grading(pts)
+    G = boundary_geom_cache(pts, graded)
+    Rmat = zeros(T, N, N)
+    kress_R!(Rmat)
+    rmin, rmax = _cheb_geom_rminmax(G, zj)
+    plans0, plans1, plansj0, plansj1, _ = tune_cfie_cheb_plans(rmin, rmax, zj, cfg)
+    if cs.symmetry===nothing
+        Tbufs = [Matrix{ComplexF64}(undef, N, N) for _ in zj]
+        @inbounds for m in eachindex(zj)
+            _cfie_fredholm_full_cheb!(Tbufs[m], pts, Rmat, G, zj[m], plans0[m], plans1[m], plansj0[m], plansj1[m]; multithreaded)
+        end
+        return Tbufs
+    else
+        orbits = symmetry_index_orbits(T, pts.xy, cs.symmetry)
+        msize = fundamental_size(orbits)
+        Tbufs = [Matrix{ComplexF64}(undef, msize, msize) for _ in zj]
+        @inbounds for m in eachindex(zj)
+            _cfie_fredholm_reduced_cheb!(Tbufs[m], pts, Rmat, G, orbits, zj[m], plans0[m], plans1[m], plansj0[m], plansj1[m]; multithreaded)
+        end
+        return Tbufs
+    end
+end
+
+_construct_matrices_multi_k_cheb(cs::CompositeBIMSolver, pts::BoundaryPoints, zj::Vector{ComplexF64}, cfg::ChebyshevConfig; multithreaded::Bool=true) = error("Chebyshev-accelerated Beyn evaluation is not yet implemented for CompositeBIMSolver kernels. Construct the BeynSolver with use_chebyshev=false.")
+
+################################################################################
 ############################## CONTOUR ASSEMBLY ###############################
 ################################################################################
 
@@ -234,7 +302,6 @@ A tuple `(A0,A1)` of the two contour moments. `A0`/`A1` may have more than
 `solver.r` columns if the probing rank had to be increased.
 """
 function construct_matrices(solver::BeynSolver, pts::BoundaryPoints, k0, R; multithreaded::Bool=true, rng=MersenneTwister(0))
-    solver.use_chebyshev && error("Chebyshev-accelerated Beyn evaluation not yet implemented, see the QuantumBilliardsTests migration plan step 10. Construct the BeynSolver with use_chebyshev=false.")
     T = _bim_numeric_type(solver)
     N = boundary_matrix_size(solver.kernel, pts)
     k0c = Complex{T}(k0)
@@ -246,9 +313,13 @@ function construct_matrices(solver::BeynSolver, pts::BoundaryPoints, k0, R; mult
     wj = (Rc/nq).*ej
     r = solver.r
     @debug "Beyn contour assembly started" N k0=k0c R=Rc nq r
-    Tbufs = Vector{Matrix{Complex{T}}}(undef, nq)
-    @inbounds for j in 1:nq
-        Tbufs[j] = construct_matrices(solver.kernel, pts, zj[j]; multithreaded)
+    if solver.use_chebyshev
+        Tbufs = _construct_matrices_multi_k_cheb(solver.kernel, pts, ComplexF64.(zj), solver.cheb_config; multithreaded)
+    else
+        Tbufs = Vector{Matrix{Complex{T}}}(undef, nq)
+        @inbounds for j in 1:nq
+            Tbufs[j] = construct_matrices(solver.kernel, pts, zj[j]; multithreaded)
+        end
     end
     F1 = lu!(Tbufs[1]; check=false)
     Fs = Vector{typeof(F1)}(undef, nq)
