@@ -93,7 +93,7 @@ end
 
 
 """
-    ϕ_slp(x::T, y::T, k::T, pts::BoundaryPoints{T}, u::AbstractVector; float32_bessel::Bool = true, use_chebyshev::Bool = false) where {T<:Real} → ψ::Number
+    ϕ_slp(x::T, y::T, k::T, pts::BoundaryPoints{T}, u::AbstractVector; float32_bessel::Bool = true, use_chebyshev::Bool = false, cheb::Union{SLPWavefunctionChebPlan,Nothing} = nothing) where {T<:Real} → ψ::Number
 
 Evaluates the single-layer-potential (SLP) Green's-function reconstruction of
 a Dirichlet eigenfunction at `(x,y)`,
@@ -107,13 +107,12 @@ where `u = ∂ₙψ` is the boundary normal derivative (e.g. from
 eigenfunction. This is the reconstruction kernel behind
 [`wavefunction(state::BIMEigenstate)`](@ref).
 
-!!! note "Chebyshev acceleration not implemented"
-    `use_chebyshev = true` is reserved for a future Chebyshev-interpolated
-    `Y₀` evaluation (`-develop`'s `SLPWavefunctionChebPlan`/`_eval_y0_slp_cheb`
-    provide this for the reference implementation), but it was explicitly
-    scoped out of the Chebyshev-acceleration migration step (which only
-    covers `BeynSolver`/`ExpandedBIMSolver` matrix assembly, not wavefunction
-    reconstruction); passing it currently raises an error.
+When `use_chebyshev = true`, `Y₀(kr) = Im(H₀^{(1)}(kr))` is evaluated through
+a precomputed `cheb::SLPWavefunctionChebPlan` (see
+[`plan_slp_wavefunction`](@ref)) instead of `Bessels.bessely0` — build one
+plan per grid evaluation (covering the full range of source-to-evaluation-
+point distances), not once per point; passing `use_chebyshev = true` without
+a `cheb` plan raises an error.
 
 ## Arguments
 * `x`,`y`: Evaluation coordinates.
@@ -122,14 +121,15 @@ eigenfunction. This is the reconstruction kernel behind
 * `u`: Boundary normal derivative values at `pts`.
 
 ## Keyword arguments
-*  `float32_bessel::Bool = true` : Evaluate `Y₀` in `Float32` arithmetic for speed, converting back to `T`.
-*  `use_chebyshev::Bool = false` : Reserved for future Chebyshev-interpolated `Y₀` evaluation; must currently be `false`.
+*  `float32_bessel::Bool = true` : Evaluate `Y₀` in `Float32` arithmetic for speed, converting back to `T` (ignored when `use_chebyshev = true`).
+*  `use_chebyshev::Bool = false` : Evaluate `Y₀` through a precomputed Chebyshev plan instead of `Bessels.bessely0`.
+*  `cheb::Union{SLPWavefunctionChebPlan,Nothing} = nothing` : The precomputed plan to use when `use_chebyshev = true`.
 
 ## Returns
 *  `ψ` : The reconstructed wavefunction value at `(x,y)`.
 """
-@inline function ϕ_slp(x::T, y::T, k::T, pts::BoundaryPoints{T}, u::AbstractVector; float32_bessel::Bool=true, use_chebyshev::Bool=false) where {T<:Real}
-    use_chebyshev && error("Chebyshev SLP wavefunction reconstruction not yet implemented; see migration plan step 10")
+@inline function ϕ_slp(x::T, y::T, k::T, pts::BoundaryPoints{T}, u::AbstractVector; float32_bessel::Bool=true, use_chebyshev::Bool=false, cheb::Union{SLPWavefunctionChebPlan,Nothing}=nothing) where {T<:Real}
+    use_chebyshev && cheb === nothing && throw(ArgumentError("ϕ_slp(...; use_chebyshev=true) requires a precomputed `cheb::SLPWavefunctionChebPlan` (see `plan_slp_wavefunction`)"))
     xy = pts.xy
     ds = pts.ds
     S = eltype(u)
@@ -141,7 +141,11 @@ eigenfunction. This is the reconstruction kernel behind
         r2 = muladd(dx, dx, dy*dy)
         r2 == zero(T) && continue # only guard exact coincidence with a source node
         r = sqrt(r2)
-        y0 = float32_bessel ? T(Bessels.bessely0(Float32(k*r))) : Bessels.bessely0(k*r)
+        y0 = if use_chebyshev
+            _eval_y0_slp_cheb(cheb, k, r)
+        else
+            float32_bessel ? T(Bessels.bessely0(Float32(k*r))) : Bessels.bessely0(k*r)
+        end
         acc += (y0*ds[j])*u[j]
     end
     return acc*T(0.25)
@@ -300,7 +304,7 @@ function wavefunction(state::S; b=5.0, inside_only=true, fundamental_domain = tr
 end
 
 """
-    wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol} = :auto, inside_only::Bool = true, use_float32_bessel::Bool = true, multithreaded::Bool = true) where {K,T,S<:SweepBIMSolver,Bi} → (Psi2d::Matrix, x_grid::Vector, y_grid::Vector)
+    wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol} = :auto, inside_only::Bool = true, use_float32_bessel::Bool = true, use_chebyshev::Bool = false, cheb_npanels::Int = 4000, cheb_M::Int = 6, multithreaded::Bool = true) where {K,T,S<:SweepBIMSolver,Bi} → (Psi2d::Matrix, x_grid::Vector, y_grid::Vector)
 
 Reconstructs the wavefunction of a [`BIMEigenstate`](@ref) computed with any
 [`SweepBIMSolver`](@ref) on a Cartesian grid, via the single-layer-potential
@@ -319,17 +323,24 @@ true`) are evaluated with [`ϕ_slp`](@ref); the outer loop over masked grid
 points is parallelized (`multithreaded`), with each thread writing to a
 disjoint output index.
 
+When `use_chebyshev = true`, one [`SLPWavefunctionChebPlan`](@ref) is built
+once (before the grid loop, not per point) over the radial interval
+spanning the padded grid bounding box, and reused by every [`ϕ_slp`](@ref)
+call in the loop.
+
 ## Keyword arguments
 *  `b::Union{Real,Symbol} = :auto` : Grid sampling density in points per de Broglie wavelength; `:auto` uses [`_bim_grid_scale`](@ref).
 *  `inside_only::Bool = true` : Whether to evaluate only at points inside `state.billiard`.
-*  `use_float32_bessel::Bool = true` : Passed to [`ϕ_slp`](@ref).
+*  `use_float32_bessel::Bool = true` : Passed to [`ϕ_slp`](@ref) (ignored when `use_chebyshev = true`).
+*  `use_chebyshev::Bool = false` : Evaluate `Y₀` through a precomputed Chebyshev plan instead of `Bessels.bessely0`.
+*  `cheb_npanels::Int = 4000`, `cheb_M::Int = 6` : Radial panel count / Chebyshev degree used to build the `SLPWavefunctionChebPlan` when `use_chebyshev = true`.
 *  `multithreaded::Bool = true` : Whether the grid evaluation loop is threaded.
 
 ## Returns
 *  `Psi2d` : The reconstructed wavefunction values on the grid.
 *  `x_grid`,`y_grid` : The Cartesian grid coordinates.
 """
-function wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol}=:auto, inside_only::Bool=true, use_float32_bessel::Bool=true, multithreaded::Bool=true) where {K,T,S<:SweepBIMSolver,Bi}
+function wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol}=:auto, inside_only::Bool=true, use_float32_bessel::Bool=true, use_chebyshev::Bool=false, cheb_npanels::Int=4000, cheb_M::Int=6, multithreaded::Bool=true) where {K,T,S<:SweepBIMSolver,Bi}
     solver = state.solver
     billiard = state.billiard
     kT = real(state.k)
@@ -350,10 +361,17 @@ function wavefunction(state::BIMEigenstate{K,T,S,Bi}; b::Union{Real,Symbol}=:aut
     Stype = eltype(u) <: Real ? T : Complex{T}
     Psi = zeros(Stype, nx*ny)
     idxs = findall(pts_mask)
+    cheb = if use_chebyshev
+        rmax = 1.05*sqrt(dx^2+dy^2)
+        rmin = hankel_z_chebyshev_cutoff/kT
+        plan_slp_wavefunction(kT, rmin, rmax; npanels=cheb_npanels, M=cheb_M)
+    else
+        nothing
+    end
     @use_threads multithreading=multithreaded for jj in eachindex(idxs)
         idx = idxs[jj]
         p = pts_grid[idx]
-        Psi[idx] = ϕ_slp(p[1], p[2], kT, pts, u; float32_bessel=use_float32_bessel)
+        Psi[idx] = ϕ_slp(p[1], p[2], kT, pts, u; float32_bessel=use_float32_bessel, use_chebyshev, cheb)
     end
     inside_only && (Psi[.!pts_mask] .= convert(Stype, NaN))
     Psi2d::Matrix{Stype} = reshape(Psi, (nx, ny))

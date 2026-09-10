@@ -8,10 +8,12 @@
 # QuantumBilliards-develop/src/chebyshev/chebyshev_bessels.jl, restricted to
 # the complex-k route (every wavenumber this migration's BeynSolver/
 # ExpandedBIMSolver present to construct_matrices is Complex{Float64}, see
-# `_bim_widen_k`), and dropping the SLP/CFIE wavefunction-reconstruction
-# plans (`SLPWavefunctionChebPlan`/`CFIEWavefunctionChebPlan`), which are out
-# of scope for this step (wavefunction reconstruction already has its own
-# non-Chebyshev Green's-function path, see states/wavefunctions.jl).
+# `_bim_widen_k`). The SLP wavefunction-reconstruction plan
+# (`SLPWavefunctionChebPlan`, see the bottom of this file) is real-k only and
+# used solely by `ϕ_slp` (states/wavefunctions.jl); main's unified
+# Green's-function reconstruction covers both DLP and CFIE eigenstates with
+# this single plan, so `-develop`'s separate `CFIEWavefunctionChebPlan` has
+# no counterpart here (see the note above `SLPWavefunctionChebPlan`).
 #
 # See core.jl (`_chebfit!`, `_cheb_clenshaw`, `_breaks_uniform`) for the
 # generic Chebyshev machinery this file builds on.
@@ -263,14 +265,19 @@ function eval_h_multi_ks!(out::AbstractVector{ComplexF64}, plans::AbstractVector
 end
 
 """
-    eval_j_multi_ks!(out, plans, pidx, t)
+    eval_j_multi_ks!(out, plans, pidx, t, r)
 
 Evaluate `J_ν(k_m r)` for the same radius (already mapped to `(pidx,t)`)
-across every plan `plans[m]`, writing into `out` in place.
+across every plan `plans[m]`, writing into `out` in place. Below the plan's
+`rmin` (`pidx==0`, see `panel_t`), falls back to direct `SpecialFunctions`
+evaluation using the physical distance `r`, matching the scalar `eval_j`'s
+own near-zero fallback (`J` is regular at `r=0`, so no small-argument series
+is needed).
 """
-@inline function eval_j_multi_ks!(out::AbstractVector{ComplexF64}, plans::AbstractVector{ChebJPlan}, pidx::Int32, t::Float64)
+@inline function eval_j_multi_ks!(out::AbstractVector{ComplexF64}, plans::AbstractVector{ChebJPlan}, pidx::Int32, t::Float64, r::Float64)
     @inbounds for m in eachindex(plans)
-        out[m] = _cheb_clenshaw(plans[m].panels[pidx].c, t)
+        pl = plans[m]
+        out[m] = pidx==0 ? SpecialFunctions.besselj(pl.ν, pl.k*r) : _cheb_clenshaw(pl.panels[pidx].c, t)
     end
     return nothing
 end
@@ -308,7 +315,7 @@ assembly.
 """
 @inline function h1_j1_multi_ks_at_r!(h1vals::AbstractVector{ComplexF64}, j1vals::AbstractVector{ComplexF64}, plans1::AbstractVector{ChebHankelPlanH}, plansj1::AbstractVector{ChebJPlan}, pidx_h::Int32, t_h::Float64, pidx_j::Int32, t_j::Float64, r::Float64)
     eval_h_multi_ks!(h1vals, plans1, r, pidx_h, t_h)
-    eval_j_multi_ks!(j1vals, plansj1, pidx_j, t_j)
+    eval_j_multi_ks!(j1vals, plansj1, pidx_j, t_j, r)
     return nothing
 end
 
@@ -321,7 +328,52 @@ Chebyshev assembly.
 """
 @inline function h0_h1_j0_j1_multi_ks_at_r!(h0vals::AbstractVector{ComplexF64}, h1vals::AbstractVector{ComplexF64}, j0vals::AbstractVector{ComplexF64}, j1vals::AbstractVector{ComplexF64}, plans0::AbstractVector{ChebHankelPlanH}, plans1::AbstractVector{ChebHankelPlanH}, plansj0::AbstractVector{ChebJPlan}, plansj1::AbstractVector{ChebJPlan}, pidx_h::Int32, t_h::Float64, pidx_j::Int32, t_j::Float64, r::Float64)
     h0_h1_multi_ks_at_r!(h0vals, h1vals, plans0, plans1, pidx_h, t_h, r)
-    eval_j_multi_ks!(j0vals, plansj0, pidx_j, t_j)
-    eval_j_multi_ks!(j1vals, plansj1, pidx_j, t_j)
+    eval_j_multi_ks!(j0vals, plansj0, pidx_j, t_j, r)
+    eval_j_multi_ks!(j1vals, plansj1, pidx_j, t_j, r)
     return nothing
+end
+
+##################################################################
+############### SLP WAVEFUNCTION-RECONSTRUCTION KERNEL ###########
+##################################################################
+
+# Adapted from QuantumBilliards-develop/src/chebyshev/chebyshev_bessels.jl's
+# `SLPWavefunctionChebPlan`/`_eval_y0_slp_cheb`. Main's `ϕ_slp` Green's-function
+# wavefunction/boundary-function/Husimi reconstruction (states/wavefunctions.jl)
+# is already unified across every `SweepBIMSolver` (it only ever needs
+# `Y₀(kr) = Im(H₀^(1)(kr))` applied to the stored boundary normal derivative
+# `state.u`, regardless of whether the eigenstate came from a DLP or CFIE
+# solve), so — unlike `-develop`, which had a separate `CFIEWavefunctionChebPlan`
+# for its CFIE-specific reconstruction kernel `ϕ_cfie` — a single thin wrapper
+# around the existing `ChebHankelPlanH(ν=0,κ=1)` machinery covers every case.
+struct SLPWavefunctionChebPlan
+    plan::ChebHankelPlanH
+end
+
+"""
+    plan_slp_wavefunction(k, rmin, rmax; npanels = 64, M = 16) → SLPWavefunctionChebPlan
+
+Build a piecewise-Chebyshev plan for the single-layer-potential Green's-
+function kernel `Y₀(k r)` at real wavenumber `k` over `r ∈ [rmin,rmax]`, for
+use by [`ϕ_slp`](@ref)`(...; use_chebyshev=true)`.
+"""
+function plan_slp_wavefunction(k::Real, rmin::Float64, rmax::Float64; npanels::Int=64, M::Int=16)
+    return SLPWavefunctionChebPlan(plan_h(0, 1, ComplexF64(k), rmin, rmax; npanels, M))
+end
+
+"""
+    _eval_y0_slp_cheb(pl, k, r) → Y₀(k r)
+
+Evaluate `Y₀(k r) = Im(H₀^(1)(k r))` through an [`SLPWavefunctionChebPlan`](@ref).
+Falls back to direct `Bessels.bessely0` evaluation below the plan's `rmin`
+(near-zero region), matching `eval_h`'s own near-singular fallback.
+"""
+@inline function _eval_y0_slp_cheb(pl::SLPWavefunctionChebPlan, k::T, r::T) where {T<:Real}
+    z = Float64(k*r)
+    if z<hankel_z_chebyshev_cutoff
+        return T(Bessels.bessely0(z))
+    end
+    pidx, t = panel_t(pl.plan, Float64(r))
+    pidx==0 && return T(Bessels.bessely0(z))
+    return T(imag(_cheb_clenshaw(pl.plan.panels[pidx].c, t)))
 end

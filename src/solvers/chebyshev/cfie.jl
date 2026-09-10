@@ -188,3 +188,180 @@ end
     ddval = ddDval+2*im*dSval+ik*ddSval
     return val, dval, ddval
 end
+
+################################################################################
+# Single-pass, all-wavenumbers-at-once CFIE Fredholm assembly (Beyn's contour
+# nodes) — see dlp.jl's analogous section header for the design rationale.
+################################################################################
+
+# Full (unfolded) Chebyshev-accelerated CFIE Fredholm matrices `Fs[m] = A(zj[m])`
+# for every contour node at once (mirrors `_cfie_fredholm_full_cheb!`).
+function _cfie_fredholm_full_multi_k_cheb!(Fs::Vector{<:AbstractMatrix{ComplexF64}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, zj::Vector{ComplexF64}, plans0::Vector{ChebHankelPlanH}, plans1::Vector{ChebHankelPlanH}, plansj0::Vector{ChebJPlan}, plansj1::Vector{ChebJPlan}; multithreaded::Bool=true) where {T<:Real}
+    Mk = length(zj)
+    @assert length(Fs)==Mk && length(plans0)==Mk && length(plans1)==Mk && length(plansj0)==Mk && length(plansj1)==Mk
+    invtwopi = inv(2*pi)
+    N = length(pts)
+    euler_over_pi = Float64(Base.MathConstants.eulergamma)/pi
+    αM1 = -invtwopi
+    αM2 = Complex{Float64}(0, 0.5)
+    αL1 = Vector{ComplexF64}(undef, Mk)
+    αL2 = Vector{ComplexF64}(undef, Mk)
+    ik = Vector{ComplexF64}(undef, Mk)
+    @inbounds for mm in 1:Mk
+        k = zj[mm]
+        αL1[mm] = -k*invtwopi
+        αL2[mm] = im*k/2
+        ik[mm] = im*k
+        fill!(Fs[mm], zero(ComplexF64))
+        for i in 1:N
+            si = Float64(G.speed[i])
+            wi = pts.ws[i]
+            dval = Complex{Float64}(wi*G.kappa[i], 0.0)
+            m1 = αM1*si
+            m2 = ((αM2-euler_over_pi)-invtwopi*log((k^2/4)*si^2))*si
+            sval = Complex{Float64}(Rmat[i,i]*m1, 0.0)+wi*m2
+            Fs[mm][i,i] = one(ComplexF64)-(dval+ik[mm]*sval)
+        end
+    end
+    h0_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    h1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    j0_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    j1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    @use_threads multithreading=(multithreaded && N>=32) for j in 2:N
+        sj = Float64(G.speed[j])
+        wj = pts.ws[j]
+        tid = Threads.threadid()
+        h0vals = h0_tls[tid]
+        h1vals = h1_tls[tid]
+        j0vals = j0_tls[tid]
+        j1vals = j1_tls[tid]
+        @inbounds for i in 1:j-1
+            si = Float64(G.speed[i])
+            wi = pts.ws[i]
+            r = Float64(G.R[i,j])
+            invr = Float64(G.invR[i,j])
+            lt = Float64(G.logterm[i,j])
+            inn_ij = Float64(G.inner[i,j])
+            inn_ji = Float64(G.inner[j,i])
+            pidx_h, t_h = panel_t(plans1[1], r)
+            pidx_j, t_j = panel_t(plansj1[1], r)
+            h0_h1_j0_j1_multi_ks_at_r!(h0vals, h1vals, j0vals, j1vals, plans0, plans1, plansj0, plansj1, pidx_h, t_h, pidx_j, t_j, r)
+            Rij = Rmat[i,j]
+            Rji = Rmat[j,i]
+            for mm in 1:Mk
+                h1 = h1vals[mm]
+                h0 = h0vals[mm]
+                j1 = j1vals[mm]
+                j0 = j0vals[mm]
+                l1_ij = αL1[mm]*inn_ij*j1*invr
+                l2_ij = αL2[mm]*inn_ij*h1*invr-l1_ij*lt
+                dval_ij = Rij*l1_ij+wj*l2_ij
+                m1_ij = αM1*j0*sj
+                m2_ij = αM2*h0*sj-m1_ij*lt
+                sval_ij = Rij*m1_ij+wj*m2_ij
+                Fs[mm][i,j] = -(dval_ij+ik[mm]*sval_ij)
+                l1_ji = αL1[mm]*inn_ji*j1*invr
+                l2_ji = αL2[mm]*inn_ji*h1*invr-l1_ji*lt
+                dval_ji = Rji*l1_ji+wi*l2_ji
+                m1_ji = αM1*j0*si
+                m2_ji = αM2*h0*si-m1_ji*lt
+                sval_ji = Rji*m1_ji+wi*m2_ji
+                Fs[mm][j,i] = -(dval_ji+ik[mm]*sval_ji)
+            end
+        end
+    end
+    return Fs
+end
+
+# Symmetry-reduced Chebyshev-accelerated CFIE Fredholm matrices, all contour
+# nodes at once (mirrors `_cfie_fredholm_reduced_cheb!`/`_cfie_kernel_entry_cheb`).
+function _cfie_fredholm_reduced_multi_k_cheb!(Fs::Vector{<:AbstractMatrix{ComplexF64}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, orbits::SymmetryOrbitMap{T}, zj::Vector{ComplexF64}, plans0::Vector{ChebHankelPlanH}, plans1::Vector{ChebHankelPlanH}, plansj0::Vector{ChebJPlan}, plansj1::Vector{ChebJPlan}; multithreaded::Bool=true) where {T<:Real}
+    Mk = length(zj)
+    @assert length(Fs)==Mk && length(plans0)==Mk && length(plans1)==Mk && length(plansj0)==Mk && length(plansj1)==Mk
+    m = fundamental_size(orbits)
+    N = length(orbits)
+    fund = orbits.fundamental_indices
+    orbit_of = orbits.orbit_of
+    phase = orbits.phase
+    images = [Int[] for _ in 1:m]
+    @inbounds for j in 1:N
+        push!(images[orbit_of[j]], j)
+    end
+    invtwopi = inv(2*pi)
+    euler_over_pi = Float64(Base.MathConstants.eulergamma)/pi
+    αM1 = -invtwopi
+    αM2 = Complex{Float64}(0, 0.5)
+    αL1 = Vector{ComplexF64}(undef, Mk)
+    αL2 = Vector{ComplexF64}(undef, Mk)
+    ik = Vector{ComplexF64}(undef, Mk)
+    @inbounds for mm in 1:Mk
+        k = zj[mm]
+        αL1[mm] = -k*invtwopi
+        αL2[mm] = im*k/2
+        ik[mm] = im*k
+        fill!(Fs[mm], zero(ComplexF64))
+    end
+    h0_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    h1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    j0_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    j1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    acc_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    @use_threads multithreading=(multithreaded && m>=32) for b in 1:m
+        tid = Threads.threadid()
+        h0vals = h0_tls[tid]
+        h1vals = h1_tls[tid]
+        j0vals = j0_tls[tid]
+        j1vals = j1_tls[tid]
+        acc = acc_tls[tid]
+        @inbounds for a in 1:m
+            i = fund[a]
+            fill!(acc, zero(ComplexF64))
+            for j in images[b]
+                ph = phase[j]
+                if i==j
+                    si = Float64(G.speed[i])
+                    wi = pts.ws[i]
+                    dval = Complex{Float64}(wi*G.kappa[i], 0.0)
+                    for mm in 1:Mk
+                        k = zj[mm]
+                        m1 = αM1*si
+                        m2 = ((αM2-euler_over_pi)-invtwopi*log((k^2/4)*si^2))*si
+                        sval = Complex{Float64}(Rmat[i,i]*m1, 0.0)+wi*m2
+                        acc[mm] += ph*(dval+ik[mm]*sval)
+                    end
+                else
+                    r = Float64(G.R[i,j])
+                    invr = Float64(G.invR[i,j])
+                    lt = Float64(G.logterm[i,j])
+                    inn = Float64(G.inner[i,j])
+                    Rij = Rmat[i,j]
+                    wj = pts.ws[j]
+                    sj = Float64(G.speed[j])
+                    pidx_h, t_h = panel_t(plans1[1], r)
+                    pidx_j, t_j = panel_t(plansj1[1], r)
+                    h0_h1_j0_j1_multi_ks_at_r!(h0vals, h1vals, j0vals, j1vals, plans0, plans1, plansj0, plansj1, pidx_h, t_h, pidx_j, t_j, r)
+                    for mm in 1:Mk
+                        h1 = h1vals[mm]
+                        h0 = h0vals[mm]
+                        j1 = j1vals[mm]
+                        j0 = j0vals[mm]
+                        l1 = αL1[mm]*inn*j1*invr
+                        l2 = αL2[mm]*inn*h1*invr-l1*lt
+                        dval = Rij*l1+wj*l2
+                        m1 = αM1*j0*sj
+                        m2 = αM2*h0*sj-m1*lt
+                        sval = Rij*m1+wj*m2
+                        acc[mm] += ph*(dval+ik[mm]*sval)
+                    end
+                end
+            end
+            for mm in 1:Mk
+                Fs[mm][a,b] = -acc[mm]
+            end
+        end
+        for mm in 1:Mk
+            Fs[mm][b,b] += one(ComplexF64)
+        end
+    end
+    return Fs
+end

@@ -46,6 +46,19 @@ end
 end
 
 # =============================================================================
+# Upper bound on `Threads.threadid()` for sizing thread-local scratch buffers
+# indexed by `Threads.threadid()` inside a `Threads.@threads`/`@use_threads`
+# loop. `Threads.nthreads()` alone is NOT sufficient: since Julia 1.9 the
+# master thread defaults to the `:interactive` pool (not `:default`), so
+# `Threads.threadid()` can return values up to
+# `Threads.nthreads(:default)+Threads.nthreads(:interactive)`, exceeding
+# `Threads.nthreads()==Threads.nthreads(:default)` whenever `:interactive`
+# threads exist (the common case with `julia -t N` and no explicit pool
+# split).
+# =============================================================================
+@inline _cheb_nthreads_buf()::Int = Threads.nthreads(:default)+Threads.nthreads(:interactive)
+
+# =============================================================================
 # UNROLLED CLENSHAW
 # Unrolled versions of the Clenshaw recurrence for small fixed M (4 to 10) to
 # avoid loop overhead, used in the innermost loops of Hankel/Bessel evaluations

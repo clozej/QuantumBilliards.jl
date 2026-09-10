@@ -31,7 +31,15 @@
 # impractically large panel count to converge (radii below the floor are
 # already handled correctly by `eval_h`/`eval_j`'s `pidx==0` direct/small-z
 # series fallback, so nothing is lost by excluding them from the plan).
-function _cheb_geom_rminmax(G::BoundaryGeomCache{T}, ks::Vector{ComplexF64}) where {T<:Real}
+#
+# `pad` widens the raw observed extrema by ±5% (mirroring `-develop`'s
+# `build_dlp_kress_block_cache`/`build_cfie_kress_block_caches` default
+# `pad=(0.95,1.05)`) before the near-zero floor is applied: `panel_t`/
+# `_find_panel_uniform` silently clamp any out-of-range `r` to the first/last
+# panel with no error, so a radius slightly outside the exact sample used to
+# build the plan (e.g. a later reused plan, or a different window of the same
+# sweep) would otherwise be extrapolated with unbounded interpolation error.
+function _cheb_geom_rminmax(G::BoundaryGeomCache{T}, ks::Vector{ComplexF64}; pad::Tuple{Float64,Float64}=(0.95,1.05)) where {T<:Real}
     Rm = G.R
     n = size(Rm, 1)
     rmin = Inf
@@ -43,6 +51,8 @@ function _cheb_geom_rminmax(G::BoundaryGeomCache{T}, ks::Vector{ComplexF64}) whe
         r>rmax && (rmax = r)
     end
     isfinite(rmin) && rmax>0.0 || throw(ArgumentError("Unable to determine a nonzero Chebyshev radial interpolation interval from the boundary geometry cache"))
+    rmin *= pad[1]
+    rmax *= pad[2]
     rmin_cheb = hankel_z_chebyshev_cutoff/maximum(abs, ks)
     rmin = max(rmin, rmin_cheb)
     rmin<rmax || throw(ArgumentError("Empty Chebyshev radial interpolation interval after flooring rmin at the near-zero cutoff: rmin=$rmin, rmax=$rmax"))

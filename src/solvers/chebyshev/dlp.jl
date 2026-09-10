@@ -126,3 +126,134 @@ end
     ddval = Rmat[i,j]*ddl1+pts.ws[j]*ddl2
     return val, dval, ddval
 end
+
+################################################################################
+# Single-pass, all-wavenumbers-at-once Fredholm assembly (Beyn's contour
+# nodes). Mirrors `-develop`'s `_all_k_nosymm_DLP_chebyshev!` pattern: every
+# boundary pair `(i,j)` is visited exactly once, the pairwise geometry
+# (`r`/`invr`/`lt`/`inner`) is read once, and `H₁^(1)`/`J₁` are evaluated for
+# every contour node's wavenumber in that single visit via
+# `h1_j1_multi_ks_at_r!` (bessels.jl), instead of the value-only single-`k`
+# functions above being called once per contour node (which would re-stream
+# the full O(N²) geometry cache `nq` times). Thread-local `h1vals`/`j1vals`
+# buffers (one per thread, see `_cheb_nthreads_buf` in core.jl) avoid reallocating per pair.
+################################################################################
+
+# Full (unfolded) Chebyshev-accelerated Fredholm matrices `Fs[m] = A(zj[m])`
+# for every contour node at once (mirrors `_dlp_fredholm_full_cheb!`).
+function _dlp_fredholm_full_multi_k_cheb!(Fs::Vector{<:AbstractMatrix{ComplexF64}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, zj::Vector{ComplexF64}, plans1::Vector{ChebHankelPlanH}, plansj1::Vector{ChebJPlan}; multithreaded::Bool=true) where {T<:Real}
+    Mk = length(zj)
+    @assert length(Fs)==Mk && length(plans1)==Mk && length(plansj1)==Mk
+    invtwopi = inv(2*pi)
+    N = length(pts)
+    αL1 = Vector{ComplexF64}(undef, Mk)
+    αL2 = Vector{ComplexF64}(undef, Mk)
+    @inbounds for mm in 1:Mk
+        αL1[mm] = -zj[mm]*invtwopi
+        αL2[mm] = im*zj[mm]/2
+        fill!(Fs[mm], zero(ComplexF64))
+        for i in 1:N
+            Fs[mm][i,i] = one(ComplexF64)-Complex{Float64}(pts.ws[i]*G.kappa[i], 0.0)
+        end
+    end
+    h1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    j1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    @use_threads multithreading=(multithreaded && N>=32) for j in 2:N
+        tid = Threads.threadid()
+        h1vals = h1_tls[tid]
+        j1vals = j1_tls[tid]
+        @inbounds for i in 1:j-1
+            r = Float64(G.R[i,j])
+            invr = Float64(G.invR[i,j])
+            lt = Float64(G.logterm[i,j])
+            inn_ij = Float64(G.inner[i,j])
+            inn_ji = Float64(G.inner[j,i])
+            pidx_h, t_h = panel_t(plans1[1], r)
+            pidx_j, t_j = panel_t(plansj1[1], r)
+            h1_j1_multi_ks_at_r!(h1vals, j1vals, plans1, plansj1, pidx_h, t_h, pidx_j, t_j, r)
+            Rij = Rmat[i,j]
+            Rji = Rmat[j,i]
+            wj = pts.ws[j]
+            wi = pts.ws[i]
+            for mm in 1:Mk
+                h1 = h1vals[mm]
+                j1 = j1vals[mm]
+                l1_ij = αL1[mm]*inn_ij*j1*invr
+                l2_ij = αL2[mm]*inn_ij*h1*invr-l1_ij*lt
+                Fs[mm][i,j] = -(Rij*l1_ij+wj*l2_ij)
+                l1_ji = αL1[mm]*inn_ji*j1*invr
+                l2_ji = αL2[mm]*inn_ji*h1*invr-l1_ji*lt
+                Fs[mm][j,i] = -(Rji*l1_ji+wi*l2_ji)
+            end
+        end
+    end
+    return Fs
+end
+
+# Symmetry-reduced Chebyshev-accelerated Fredholm matrices, all contour nodes
+# at once (mirrors `_dlp_fredholm_reduced_cheb!`/`_dlp_kernel_entry_cheb`).
+function _dlp_fredholm_reduced_multi_k_cheb!(Fs::Vector{<:AbstractMatrix{ComplexF64}}, pts::BoundaryPoints{T}, Rmat::AbstractMatrix{T}, G::BoundaryGeomCache{T}, orbits::SymmetryOrbitMap{T}, zj::Vector{ComplexF64}, plans1::Vector{ChebHankelPlanH}, plansj1::Vector{ChebJPlan}; multithreaded::Bool=true) where {T<:Real}
+    Mk = length(zj)
+    @assert length(Fs)==Mk && length(plans1)==Mk && length(plansj1)==Mk
+    m = fundamental_size(orbits)
+    N = length(orbits)
+    fund = orbits.fundamental_indices
+    orbit_of = orbits.orbit_of
+    phase = orbits.phase
+    images = [Int[] for _ in 1:m]
+    @inbounds for j in 1:N
+        push!(images[orbit_of[j]], j)
+    end
+    invtwopi = inv(2*pi)
+    αL1 = Vector{ComplexF64}(undef, Mk)
+    αL2 = Vector{ComplexF64}(undef, Mk)
+    @inbounds for mm in 1:Mk
+        αL1[mm] = -zj[mm]*invtwopi
+        αL2[mm] = im*zj[mm]/2
+        fill!(Fs[mm], zero(ComplexF64))
+    end
+    h1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    j1_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    acc_tls = [Vector{ComplexF64}(undef, Mk) for _ in 1:_cheb_nthreads_buf()]
+    @use_threads multithreading=(multithreaded && m>=32) for b in 1:m
+        tid = Threads.threadid()
+        h1vals = h1_tls[tid]
+        j1vals = j1_tls[tid]
+        acc = acc_tls[tid]
+        @inbounds for a in 1:m
+            i = fund[a]
+            fill!(acc, zero(ComplexF64))
+            for j in images[b]
+                ph = phase[j]
+                if i==j
+                    val = Complex{Float64}(pts.ws[i]*G.kappa[i], 0.0)
+                    for mm in 1:Mk
+                        acc[mm] += ph*val
+                    end
+                else
+                    r = Float64(G.R[i,j])
+                    invr = Float64(G.invR[i,j])
+                    lt = Float64(G.logterm[i,j])
+                    inn = Float64(G.inner[i,j])
+                    Rij = Rmat[i,j]
+                    wj = pts.ws[j]
+                    pidx_h, t_h = panel_t(plans1[1], r)
+                    pidx_j, t_j = panel_t(plansj1[1], r)
+                    h1_j1_multi_ks_at_r!(h1vals, j1vals, plans1, plansj1, pidx_h, t_h, pidx_j, t_j, r)
+                    for mm in 1:Mk
+                        l1 = αL1[mm]*inn*j1vals[mm]*invr
+                        l2 = αL2[mm]*inn*h1vals[mm]*invr-l1*lt
+                        acc[mm] += ph*(Rij*l1+wj*l2)
+                    end
+                end
+            end
+            for mm in 1:Mk
+                Fs[mm][a,b] = -acc[mm]
+            end
+        end
+        for mm in 1:Mk
+            Fs[mm][b,b] += one(ComplexF64)
+        end
+    end
+    return Fs
+end

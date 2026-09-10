@@ -203,8 +203,10 @@ end
 # Builds Tbufs[m] = A(zj[m]) for every contour node zj at once, reusing one
 # set of Chebyshev Hankel/Bessel-J plans (tuned once across all nq nodes, see
 # `tune_dlp_cheb_plans`/`tune_cfie_cheb_plans` in solvers/chebyshev/optimalpanelization.jl)
-# instead of calling `construct_matrices(solver.kernel,...)` (direct
-# Bessels.jl/SpecialFunctions.jl evaluation) once per node.
+# and a single O(N²) pairwise-geometry pass (`_dlp_fredholm_full_multi_k_cheb!`/
+# `_dlp_fredholm_reduced_multi_k_cheb!` in solvers/chebyshev/dlp.jl, and the
+# CFIE analogues in cfie.jl) instead of calling the per-node value-only
+# assembly `nq` times.
 function _construct_matrices_multi_k_cheb(cs::DoubleLayerPotentialSolver, pts::BoundaryPoints{T}, zj::Vector{ComplexF64}, cfg::ChebyshevConfig; multithreaded::Bool=true) where {T<:Real}
     T===Float64 || error("Chebyshev-accelerated Beyn evaluation currently requires a Float64 kernel; received numeric type $T. Construct the BeynSolver with use_chebyshev=false.")
     N = length(pts)
@@ -216,17 +218,13 @@ function _construct_matrices_multi_k_cheb(cs::DoubleLayerPotentialSolver, pts::B
     plans1, plansj1, _ = tune_dlp_cheb_plans(rmin, rmax, zj, cfg)
     if cs.symmetry===nothing
         Tbufs = [Matrix{ComplexF64}(undef, N, N) for _ in zj]
-        @inbounds for m in eachindex(zj)
-            _dlp_fredholm_full_cheb!(Tbufs[m], pts, Rmat, G, zj[m], plans1[m], plansj1[m]; multithreaded)
-        end
+        _dlp_fredholm_full_multi_k_cheb!(Tbufs, pts, Rmat, G, zj, plans1, plansj1; multithreaded)
         return Tbufs
     else
         orbits = symmetry_index_orbits(T, pts.xy, cs.symmetry)
         msize = fundamental_size(orbits)
         Tbufs = [Matrix{ComplexF64}(undef, msize, msize) for _ in zj]
-        @inbounds for m in eachindex(zj)
-            _dlp_fredholm_reduced_cheb!(Tbufs[m], pts, Rmat, G, orbits, zj[m], plans1[m], plansj1[m]; multithreaded)
-        end
+        _dlp_fredholm_reduced_multi_k_cheb!(Tbufs, pts, Rmat, G, orbits, zj, plans1, plansj1; multithreaded)
         return Tbufs
     end
 end
@@ -242,17 +240,13 @@ function _construct_matrices_multi_k_cheb(cs::CombinedFieldIntegralEquationSolve
     plans0, plans1, plansj0, plansj1, _ = tune_cfie_cheb_plans(rmin, rmax, zj, cfg)
     if cs.symmetry===nothing
         Tbufs = [Matrix{ComplexF64}(undef, N, N) for _ in zj]
-        @inbounds for m in eachindex(zj)
-            _cfie_fredholm_full_cheb!(Tbufs[m], pts, Rmat, G, zj[m], plans0[m], plans1[m], plansj0[m], plansj1[m]; multithreaded)
-        end
+        _cfie_fredholm_full_multi_k_cheb!(Tbufs, pts, Rmat, G, zj, plans0, plans1, plansj0, plansj1; multithreaded)
         return Tbufs
     else
         orbits = symmetry_index_orbits(T, pts.xy, cs.symmetry)
         msize = fundamental_size(orbits)
         Tbufs = [Matrix{ComplexF64}(undef, msize, msize) for _ in zj]
-        @inbounds for m in eachindex(zj)
-            _cfie_fredholm_reduced_cheb!(Tbufs[m], pts, Rmat, G, orbits, zj[m], plans0[m], plans1[m], plansj0[m], plansj1[m]; multithreaded)
-        end
+        _cfie_fredholm_reduced_multi_k_cheb!(Tbufs, pts, Rmat, G, orbits, zj, plans0, plans1, plansj0, plansj1; multithreaded)
         return Tbufs
     end
 end
