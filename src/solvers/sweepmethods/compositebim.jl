@@ -85,21 +85,13 @@ _bim_grid_scale(solver::CompositeBIMSolver) = solver.component_solvers[1].pts_sc
 # first-seen domain_id order and within-group curve order. For every billiard
 # currently in the package (all simply connected, uniform default
 # `domain_id=1`), this returns a single group containing every curve,
-# matching `length(component_solvers)==1`.
-function _group_boundary_by_domain_id(comp::Vector)
-    ids = Int[]
-    groups = Vector{Vector{eltype(comp)}}()
-    @inbounds for c in comp
-        idx = findfirst(==(c.domain_id), ids)
-        if idx === nothing
-            push!(ids, c.domain_id)
-            push!(groups, [c])
-        else
-            push!(groups[idx], c)
-        end
-    end
-    return groups
-end
+# matching `length(component_solvers)==1`. Delegates to
+# `BilliardGeometry`'s own domain_id grouping algorithm (used internally by
+# `boundary_components`) rather than duplicating it; this fallback remains
+# necessary (instead of always calling `boundary_components(billiard)`)
+# because `comp` here may be `full_boundary(billiard)` (symmetry images
+# included), which `boundary_components` does not account for.
+_group_boundary_by_domain_id(comp::Vector) = BilliardGeometry._group_curves_by_domain_id(comp)
 
 # Dispatches boundary sampling of one connected component's curve group to the
 # assigned component solver's own private per-component evaluate-points
@@ -368,8 +360,12 @@ function evaluate_points(solver::CompositeBIMSolver, billiard::Bi, k) where {Bi<
     kT = T(k)
     comp = solver.symmetry === nothing ? get_boundary_curves(billiard) : full_boundary(billiard)
     isempty(comp) && error("Boundary cannot be empty.")
-    groups = _group_boundary_by_domain_id(comp)
     nc = length(solver.component_solvers)
+    domain = billiard.fundamental_domain
+    if domain isa AbsMultiplyConnectedDomain
+        nc == 1 + genus(domain) || throw(ArgumentError("Billiard's fundamental domain has genus $(genus(domain)) (requires $(1+genus(domain)) component solver(s)) but CompositeBIMSolver has $nc component solver(s)"))
+    end
+    groups = solver.symmetry === nothing && domain isa AbsMultiplyConnectedDomain ? boundary_components(billiard) : _group_boundary_by_domain_id(comp)
     length(groups) == nc || throw(ArgumentError("Billiard boundary has $(length(groups)) connected component(s) (grouped by curve domain_id) but CompositeBIMSolver has $nc component solver(s)"))
     comp_pts = Vector{BoundaryPoints{T}}(undef, nc)
     @inbounds for a in 1:nc
@@ -378,6 +374,7 @@ function evaluate_points(solver::CompositeBIMSolver, billiard::Bi, k) where {Bi<
     end
     return _merge_composite_points(comp_pts)
 end
+
 
 """
     boundary_matrix_size(solver::CompositeBIMSolver, pts::BoundaryPoints) → N::Int

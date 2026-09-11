@@ -410,10 +410,33 @@ physical boundary of the domain.
 ## Returns
 * `boundary`: The connected vector of boundary curves.
 """
-function get_boundary_curves_with_ignored(domain::D) where D<:AbsSimpleDomain
+function _connected_physical_or_ignored_curves(boundary::Vector{AbsCurve})
     is_outer(crv) = (typeof(crv.bc) <: SpecularReflection || typeof(crv.bc) <: QuantumSolverIgnore)
-    boundary = filter(is_outer, domain.boundary)
-    return connect_curves(boundary)
+    physical = filter(is_outer, boundary)
+    return connect_curves(physical)
+end
+
+function get_boundary_curves_with_ignored(domain::D) where D<:AbsSimpleDomain
+    return _connected_physical_or_ignored_curves(domain.boundary)
+end
+
+
+"""
+    get_boundary_curves_with_ignored(domain::D) where D<:AbsMultiplyConnectedDomain → boundary::Vector{AbsCurve}
+
+Returns the connected boundary curves of a multiply connected domain (e.g.
+[`AnnularBilliard`](@ref)'s fundamental domain), including both
+`SpecularReflection` and `QuantumSolverIgnore` curves. See
+[`get_boundary_curves_with_ignored`](@ref) for details.
+
+## Arguments
+* `domain`: A multiply connected domain whose boundary curves are collected.
+
+## Returns
+* `boundary`: The connected vector of boundary curves.
+"""
+function get_boundary_curves_with_ignored(domain::D) where D<:AbsMultiplyConnectedDomain
+    return _connected_physical_or_ignored_curves(domain.boundary)
 end
 
 
